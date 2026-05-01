@@ -26,29 +26,4 @@ function getInitialTheme(): Theme {
   // 2. Fall back to OS preference
   if (window.matchMedia('(prefers-color-scheme: light)').matches) return 'light'
   // 3. Default: dark (homelab default)
-  return 'dark'
-}
-
-export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>('dark')
-
-  // Apply stored/OS preference on mount (no flash)
-  useEffect(() => {
-    const initial = getInitialTheme()
-    setTheme(initial)
-    applyTheme(initial)
-  }, [])
-
-  const toggle = () => {
-    const next: Theme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(next)
-    localStorage.setItem('rackpad-theme', next)
-    smoothToggle(next)
-  }
-
-  return (
-    <Button variant="ghost" size="icon" onClick={toggle} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>
-      {theme === 'dark' ? <Sun /> : <Moon />}
-    </Button>
-  )
-}
+  return 

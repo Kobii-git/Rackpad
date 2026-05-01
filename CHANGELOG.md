@@ -4,6 +4,17 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.4.1] - 2026-05-01
+
+### Fixed
+
+- Dockerfile runtime stage now copies `package.json` so the admin backup export correctly reports the app version instead of `0.0.0`.
+- `PATCH /api/users/:id` no longer accepts `null` for `username` or `displayName`, returning HTTP 400 instead of a NOT NULL constraint 500.
+- `PATCH /api/subnets/:id` now rejects a null or empty `cidr` with HTTP 400 instead of a NOT NULL constraint 500.
+- `PATCH /api/dhcp-scopes/:id` now rejects null `startIp` or `endIp` with HTTP 400 instead of a NOT NULL constraint 500.
+- Error handler now catches `FOREIGN KEY constraint failed` (returns HTTP 422) and `NOT NULL constraint failed` (returns HTTP 400) rather than falling through to a generic 500.
+- `GET /api/dhcp-scopes` now returns results in a consistent `ORDER BY subnetId, name` order.
+
 ## [0.4.0] - 2026-05-01
 
 ### Added

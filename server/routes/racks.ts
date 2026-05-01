@@ -46,20 +46,4 @@ export const racksRoutes: FastifyPluginAsync = async (app) => {
     if (name !== undefined) { updates.push('name = ?'); values.push(name) }
     if (totalU !== undefined) { updates.push('totalU = ?'); values.push(totalU) }
     if (description !== undefined) { updates.push('description = ?'); values.push(description) }
-    if (location !== undefined) { updates.push('location = ?'); values.push(location) }
-    if (notes !== undefined) { updates.push('notes = ?'); values.push(notes) }
-
-    if (updates.length === 0) return reply.status(400).send({ error: 'No valid fields to update' })
-
-    values.push(req.params.id)
-    db.prepare(`UPDATE racks SET ${updates.join(', ')} WHERE id = ?`).run(...values)
-    return db.prepare('SELECT * FROM racks WHERE id = ?').get(req.params.id)
-  })
-
-  app.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    const row = db.prepare('SELECT id FROM racks WHERE id = ?').get(req.params.id)
-    if (!row) return reply.status(404).send({ error: 'Rack not found' })
-    db.prepare('DELETE FROM racks WHERE id = ?').run(req.params.id)
-    return reply.status(204).send()
-  })
-}
+    if (location !== undefined) { upd

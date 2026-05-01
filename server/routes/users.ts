@@ -71,12 +71,14 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
     const username = optionalString(body, 'username', { maxLength: 40 })
     if (username !== undefined) {
-      const normalized = username?.toLowerCase()
-      if (normalized) {
-        const conflict = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(normalized, req.params.id)
-        if (conflict) {
-          return reply.status(409).send({ error: 'Username already exists.' })
-        }
+      // username is NOT NULL — reject explicit null/empty before the DB sees it
+      if (!username) {
+        return reply.status(400).send({ error: 'Username cannot be empty.' })
+      }
+      const normalized = username.toLowerCase()
+      const conflict = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(normalized, req.params.id)
+      if (conflict) {
+        return reply.status(409).send({ error: 'Username already exists.' })
       }
       updates.push('username = ?')
       values.push(normalized)
@@ -84,6 +86,10 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
     const displayName = optionalString(body, 'displayName', { maxLength: 80 })
     if (displayName !== undefined) {
+      // displayName is NOT NULL — same guard
+      if (!displayName) {
+        return reply.status(400).send({ error: 'Display name cannot be empty.' })
+      }
       updates.push('displayName = ?')
       values.push(displayName)
     }

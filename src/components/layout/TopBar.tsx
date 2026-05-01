@@ -53,40 +53,4 @@ export function TopBar({ title, subtitle, meta, actions }: TopBarProps) {
               <Shield className="size-3" />
               {currentUser.role}
             </Badge>
-            <div className="hidden text-right md:block">
-              <div className="text-xs font-medium text-[var(--color-fg)]">{currentUser.displayName}</div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-faint)]">
-                @{currentUser.username}
-              </div>
-            </div>
-          </>
-        )}
-        <ThemeToggle />
-        {currentUser && (
-          <>
-            <div
-              className="grid size-8 place-items-center rounded-full border border-[var(--color-line-strong)] bg-[var(--color-surface-2)] font-mono text-[11px] text-[var(--color-fg)]"
-              aria-label="Account"
-              title={currentUser.displayName}
-            >
-              {initials(currentUser.displayName || currentUser.username)}
-            </div>
-            <Button variant="ghost" size="sm" onClick={() => void logout()}>
-              <LogOut className="size-3.5" />
-              Sign out
-            </Button>
-          </>
-        )}
-      </div>
-    </header>
-  )
-}
-
-function initials(value: string) {
-  const parts = value.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return 'RP'
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
-}
+     

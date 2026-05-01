@@ -56,6 +56,18 @@ export async function createApp() {
       return
     }
 
+    // A referenced FK record (labId, subnetId, etc.) does not exist.
+    if (error instanceof Error && /FOREIGN KEY constraint failed/i.test(error.message)) {
+      reply.status(422).send({ error: 'A referenced record does not exist.' })
+      return
+    }
+
+    // Catches any NOT NULL violation that slips past route-level guards.
+    if (error instanceof Error && /NOT NULL constraint failed/i.test(error.message)) {
+      reply.status(400).send({ error: 'A required field is missing.' })
+      return
+    }
+
     reply.status(500).send({ error: 'Internal server error.' })
   })
 

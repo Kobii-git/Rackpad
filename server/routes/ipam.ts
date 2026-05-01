@@ -57,7 +57,12 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
     const description = optionalString(body, 'description', { maxLength: 500 })
     const vlanId = optionalString(body, 'vlanId', { maxLength: 80 })
 
-    if (cidr !== undefined) { updates.push('cidr = ?'); values.push(cidr ? ensureCidr(cidr) : null) }
+    if (cidr !== undefined) {
+      // cidr is a NOT NULL column — reject explicit null/empty rather than letting the DB fail
+      if (!cidr) return reply.status(400).send({ error: 'cidr cannot be empty.' })
+      updates.push('cidr = ?')
+      values.push(ensureCidr(cidr))
+    }
     if (name !== undefined) { updates.push('name = ?'); values.push(name) }
     if (description !== undefined) { updates.push('description = ?'); values.push(description) }
     if (vlanId !== undefined) { updates.push('vlanId = ?'); values.push(vlanId) }
@@ -76,10 +81,11 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
     return reply.status(204).send()
   })
 
+  // ORDER BY added for consistency with all other list endpoints
   app.get<{ Querystring: { subnetId?: string } }>('/dhcp-scopes', async (req) => {
     const rows = req.query.subnetId
-      ? db.prepare('SELECT * FROM dhcpScopes WHERE subnetId = ?').all(req.query.subnetId)
-      : db.prepare('SELECT * FROM dhcpScopes').all()
+      ? db.prepare('SELECT * FROM dhcpScopes WHERE subnetId = ? ORDER BY name').all(req.query.subnetId)
+      : db.prepare('SELECT * FROM dhcpScopes ORDER BY subnetId, name').all()
     return (rows as Record<string, unknown>[]).map(parseScope)
   })
 
@@ -118,8 +124,18 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
     const description = optionalString(body, 'description', { maxLength: 500 })
 
     if (name !== undefined) { updates.push('name = ?'); values.push(name) }
-    if (startIp !== undefined) { updates.push('startIp = ?'); values.push(startIp ? ensureIpv4(startIp, 'startIp') : null) }
-    if (endIp !== undefined) { updates.push('endIp = ?'); values.push(endIp ? ensureIpv4(endIp, 'endIp') : null) }
+    if (startIp !== undefined) {
+      // startIp is NOT NULL — reject explicit null/empty before the DB sees it
+      if (!startIp) return reply.status(400).send({ error: 'startIp cannot be empty.' })
+      updates.push('startIp = ?')
+      values.push(ensureIpv4(startIp, 'startIp'))
+    }
+    if (endIp !== undefined) {
+      // endIp is NOT NULL — same guard
+      if (!endIp) return reply.status(400).send({ error: 'endIp cannot be empty.' })
+      updates.push('endIp = ?')
+      values.push(ensureIpv4(endIp, 'endIp'))
+    }
     if (gateway !== undefined) { updates.push('gateway = ?'); values.push(gateway ? ensureIpv4(gateway, 'gateway') : null) }
     if (dnsServers !== undefined) { updates.push('dnsServers = ?'); values.push(dnsServers ? JSON.stringify(dnsServers.map((entry) => ensureIpv4(entry, 'dnsServers'))) : null) }
     if (description !== undefined) { updates.push('description = ?'); values.push(description) }

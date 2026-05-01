@@ -1,6 +1,6 @@
 {
   "name": "rackpad",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -48,13 +48,4 @@
     "@tailwindcss/vite": "^4.0.0",
     "@types/better-sqlite3": "^7.6.12",
     "@types/node": "^22.10.5",
-    "@types/react": "^19.0.2",
-    "@types/react-dom": "^19.0.2",
-    "@vitejs/plugin-react": "^4.3.4",
-    "eslint": "^9.17.0",
-    "prettier": "^3.4.2",
-    "tailwindcss": "^4.0.0",
-    "typescript": "~5.7.2",
-    "vite": "^6.0.7"
-  }
-}
+    "@types/react":

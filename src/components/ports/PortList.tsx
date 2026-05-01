@@ -101,17 +101,4 @@ export function PortList({ ports, links, portsById, devicesById, onSelectPort, s
 
 function Th({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <th
-      className={cn(
-        'text-left px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)] font-normal',
-        className,
-      )}
-    >
-      {children}
-    </th>
-  )
-}
-
-function Td({ className, children }: { className?: string; children: ReactNode }) {
-  return <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
-}
+  
