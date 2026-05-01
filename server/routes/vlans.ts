@@ -79,4 +79,43 @@ export const vlansRoutes: FastifyPluginAsync = async (app) => {
     const endVlan = requiredInteger(body, 'endVlan', { min: startVlan, max: 4094 })
     const purpose = optionalString(body, 'purpose', { maxLength: 500 })
     const color = optionalString(body, 'color', { maxLength: 30 })
-    d
+    db.prepare(
+      'INSERT INTO vlanRanges (id, labId, name, startVlan, endVlan, purpose, color) VALUES (?,?,?,?,?,?,?)'
+    ).run(id, labId, name, startVlan, endVlan, purpose ?? null, color ?? null)
+    return reply.status(201).send(db.prepare('SELECT * FROM vlanRanges WHERE id = ?').get(id))
+  })
+
+  app.patch<{ Params: { id: string } }>('/ranges/:id', async (req, reply) => {
+    const existing = db.prepare('SELECT * FROM vlanRanges WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
+    if (!existing) return reply.status(404).send({ error: 'VLAN range not found' })
+
+    const body = asObject(req.body)
+    const updates: string[] = []
+    const values: unknown[] = []
+
+    const name = optionalString(body, 'name', { maxLength: 120 })
+    const startVlan = optionalInteger(body, 'startVlan', { min: 1, max: 4094 })
+    const endVlan = optionalInteger(body, 'endVlan', { min: startVlan ?? Number(existing.startVlan), max: 4094 })
+    const purpose = optionalString(body, 'purpose', { maxLength: 500 })
+    const color = optionalString(body, 'color', { maxLength: 30 })
+
+    if (name !== undefined) { updates.push('name = ?'); values.push(name) }
+    if (startVlan !== undefined) { updates.push('startVlan = ?'); values.push(startVlan) }
+    if (endVlan !== undefined) { updates.push('endVlan = ?'); values.push(endVlan) }
+    if (purpose !== undefined) { updates.push('purpose = ?'); values.push(purpose) }
+    if (color !== undefined) { updates.push('color = ?'); values.push(color) }
+
+    if (updates.length === 0) return reply.status(400).send({ error: 'No valid fields to update' })
+
+    values.push(req.params.id)
+    db.prepare(`UPDATE vlanRanges SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+    return db.prepare('SELECT * FROM vlanRanges WHERE id = ?').get(req.params.id)
+  })
+
+  app.delete<{ Params: { id: string } }>('/ranges/:id', async (req, reply) => {
+    const row = db.prepare('SELECT id FROM vlanRanges WHERE id = ?').get(req.params.id)
+    if (!row) return reply.status(404).send({ error: 'VLAN range not found' })
+    db.prepare('DELETE FROM vlanRanges WHERE id = ?').run(req.params.id)
+    return reply.status(204).send()
+  })
+}

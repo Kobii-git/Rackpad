@@ -195,4 +195,14 @@ export function parseRow<T extends Record<string, unknown>>(
   row: T,
   jsonColumns: (keyof T)[],
 ): T {
-  for (const col 
+  for (const col of jsonColumns) {
+    if (typeof row[col] === 'string') {
+      try {
+        ;(row as Record<string, unknown>)[String(col)] = JSON.parse(String(row[col]))
+      } catch {
+        // Leave the raw value as-is if JSON parsing fails.
+      }
+    }
+  }
+  return row
+}

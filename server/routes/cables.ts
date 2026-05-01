@@ -67,4 +67,32 @@ export const cablesRoutes: FastifyPluginAsync = async (app) => {
 
     if (cableType !== undefined) { updates.push('cableType = ?'); values.push(cableType) }
     if (cableLength !== undefined) { updates.push('cableLength = ?'); values.push(cableLength) }
-    
+    if (color !== undefined) { updates.push('color = ?'); values.push(color) }
+    if (notes !== undefined) { updates.push('notes = ?'); values.push(notes) }
+
+    if (updates.length === 0) return reply.status(400).send({ error: 'No valid fields to update' })
+
+    values.push(req.params.id)
+    db.prepare(`UPDATE portLinks SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+    return db.prepare('SELECT * FROM portLinks WHERE id = ?').get(req.params.id)
+  })
+
+  app.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
+    const link = db.prepare('SELECT * FROM portLinks WHERE id = ?').get(req.params.id) as
+      { fromPortId: string; toPortId: string } | undefined
+    if (!link) return reply.status(404).send({ error: 'Port link not found' })
+
+    db.prepare('DELETE FROM portLinks WHERE id = ?').run(req.params.id)
+
+    for (const portId of [link.fromPortId, link.toPortId]) {
+      const stillLinked = db.prepare(
+        'SELECT id FROM portLinks WHERE fromPortId = ? OR toPortId = ?'
+      ).get(portId, portId)
+      if (!stillLinked) {
+        db.prepare("UPDATE ports SET linkState = 'down' WHERE id = ?").run(portId)
+      }
+    }
+
+    return reply.status(204).send()
+  })
+}
