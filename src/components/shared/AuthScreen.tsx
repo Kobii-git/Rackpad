@@ -11,7 +11,12 @@ export function AuthScreen() {
   const authLoading = useStore((s) => s.authLoading)
   const authError = useStore((s) => s.authError)
   const [loginForm, setLoginForm] = useState({ username: '', password: '' })
-  const [bootstrapForm, setBootstrapForm] = useState({ username: '', displayName: '', password: '' })
+  const [bootstrapForm, setBootstrapForm] = useState({
+    username: '',
+    displayName: '',
+    password: '',
+    loadDemoData: false,
+  })
   const mode: Mode = needsBootstrap ? 'bootstrap' : 'login'
 
   async function handleSubmit(event: FormEvent) {
@@ -22,6 +27,7 @@ export function AuthScreen() {
         username: bootstrapForm.username.trim(),
         displayName: bootstrapForm.displayName.trim() || undefined,
         password: bootstrapForm.password,
+        loadDemoData: bootstrapForm.loadDemoData,
       })
       return
     }
@@ -77,6 +83,42 @@ export function AuthScreen() {
                     }
                     placeholder="At least 10 characters"
                   />
+                </Field>
+                <Field label="Initial data">
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBootstrapForm((prev) => ({ ...prev, loadDemoData: false }))
+                      }
+                      className={`rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors ${
+                        !bootstrapForm.loadDemoData
+                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-fg)]'
+                          : 'border-[var(--color-line)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)] hover:border-[var(--color-line-strong)]'
+                      }`}
+                    >
+                      <div className="font-medium">Start empty</div>
+                      <div className="mt-1 text-xs">
+                        Create a clean lab with no sample racks, devices, VLANs, or IPAM data.
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setBootstrapForm((prev) => ({ ...prev, loadDemoData: true }))
+                      }
+                      className={`rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors ${
+                        bootstrapForm.loadDemoData
+                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-fg)]'
+                          : 'border-[var(--color-line)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)] hover:border-[var(--color-line-strong)]'
+                      }`}
+                    >
+                      <div className="font-medium">Load demo data</div>
+                      <div className="mt-1 text-xs">
+                        Preload a sample homelab so you can click around before entering your own inventory.
+                      </div>
+                    </button>
+                  </div>
                 </Field>
               </>
             ) : (

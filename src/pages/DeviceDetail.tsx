@@ -98,8 +98,15 @@ export default function DeviceDetail() {
   }, [devices])
 
   useEffect(() => {
+    if (!device) return
+
     if (!monitor) {
-      setMonitorForm(EMPTY_MONITOR_FORM)
+      setMonitorForm({
+        ...EMPTY_MONITOR_FORM,
+        type: device.managementIp ? 'tcp' : 'none',
+        target: device.managementIp ?? '',
+        port: device.managementIp ? '22' : '',
+      })
       setMonitorError('')
       return
     }
@@ -107,13 +114,13 @@ export default function DeviceDetail() {
     setMonitorForm({
       enabled: monitor.enabled,
       type: monitor.type,
-      target: monitor.target ?? '',
+      target: monitor.target ?? device.managementIp ?? '',
       port: monitor.port != null ? String(monitor.port) : '',
       path: monitor.path ?? '',
       intervalMinutes: monitor.intervalMs != null ? String(Math.max(1, Math.round(monitor.intervalMs / 60000))) : '5',
     })
     setMonitorError('')
-  }, [monitor])
+  }, [device, monitor])
 
   if (!device) {
     return (
@@ -192,6 +199,9 @@ export default function DeviceDetail() {
         path: monitorForm.path.trim() || null,
         intervalMs: Math.max(1, Number.parseInt(monitorForm.intervalMinutes, 10) || 5) * 60 * 1000,
       })
+      if (monitorForm.enabled && monitorForm.type !== 'none') {
+        await runDeviceMonitorCheck(device.id)
+      }
     } catch (err) {
       setMonitorError(err instanceof Error ? err.message : 'Failed to save monitor.')
     } finally {
@@ -465,6 +475,12 @@ export default function DeviceDetail() {
                   />
                   Enable health checks for this device
                 </label>
+
+                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg-subtle)]">
+                  Rackpad runs these checks from the server or Docker container itself. A device stays
+                  <span className="mx-1 font-mono text-[var(--color-fg)]">unknown</span>
+                  until a monitor is enabled and at least one check has run.
+                </div>
 
                 <div className="grid gap-4 md:grid-cols-4">
                   <Field label="Type">

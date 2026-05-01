@@ -165,7 +165,7 @@ export const api = {
     return request<AuthStatus>('/auth/status')
   },
 
-  bootstrap(body: { username: string; displayName?: string; password: string }) {
+  bootstrap(body: { username: string; displayName?: string; password: string; loadDemoData?: boolean }) {
     return request<AuthSession>('/auth/bootstrap', {
       method: 'POST',
       body: JSON.stringify(body),

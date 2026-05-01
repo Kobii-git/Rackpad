@@ -11,6 +11,7 @@ import { IpZoneBar } from '@/components/vlan/IpZoneBar'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
 import {
   canEditInventory,
+  createSubnetRecord,
   createVlanRangeRecord,
   deleteVlan,
   deleteVlanRangeRecord,
@@ -27,12 +28,24 @@ type RangeForm = {
   color: string
 }
 
+type SubnetForm = {
+  cidr: string
+  name: string
+  description: string
+}
+
 const EMPTY_RANGE_FORM: RangeForm = {
   name: '',
   startVlan: '',
   endVlan: '',
   purpose: '',
   color: '',
+}
+
+const EMPTY_SUBNET_FORM: SubnetForm = {
+  cidr: '',
+  name: '',
+  description: '',
 }
 
 export default function VlansView() {
@@ -52,6 +65,10 @@ export default function VlansView() {
   const [rangeSaving, setRangeSaving] = useState(false)
   const [rangeDeleting, setRangeDeleting] = useState(false)
   const [rangeError, setRangeError] = useState('')
+  const [subnetDraftVlanId, setSubnetDraftVlanId] = useState<string | null>(null)
+  const [subnetForm, setSubnetForm] = useState<SubnetForm>(EMPTY_SUBNET_FORM)
+  const [subnetSaving, setSubnetSaving] = useState(false)
+  const [subnetError, setSubnetError] = useState('')
 
   useEffect(() => {
     if (!ranges.length) return
@@ -154,10 +171,30 @@ export default function VlansView() {
     }
   }
 
+  async function handleCreateSubnet(vlanId: string) {
+    setSubnetSaving(true)
+    setSubnetError('')
+    try {
+      await createSubnetRecord({
+        labId: 'lab_home',
+        cidr: subnetForm.cidr.trim(),
+        name: subnetForm.name.trim(),
+        description: subnetForm.description.trim() || undefined,
+        vlanId,
+      })
+      setSubnetDraftVlanId(null)
+      setSubnetForm(EMPTY_SUBNET_FORM)
+    } catch (err) {
+      setSubnetError(err instanceof Error ? err.message : 'Failed to create linked IP range.')
+    } finally {
+      setSubnetSaving(false)
+    }
+  }
+
   return (
     <>
       <TopBar
-        subtitle="Layer 2 segmentation"
+        subtitle="Layer 2 segmentation and VLAN ID ranges"
         title="VLANs"
         meta={
           <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
@@ -176,7 +213,7 @@ export default function VlansView() {
                 }}
               >
                 <Plus className="size-3.5" />
-                Add range
+                Add VLAN range
               </Button>
               <AllocatePanel defaultTab="vlan" defaultRangeId={selectedRangeId} />
             </>
@@ -188,8 +225,8 @@ export default function VlansView() {
         <Card>
           <CardHeader>
             <CardTitle>
-              <CardLabel>Range allocation</CardLabel>
-              <CardHeading>VLAN ID space | 1-4094</CardHeading>
+              <CardLabel>VLAN ID ranges</CardLabel>
+              <CardHeading>Reserved VLAN ID space | 1-4094</CardHeading>
             </CardTitle>
             <Mono className="text-[11px] text-[var(--color-fg-subtle)]">
               {totalUsed} / {totalReserved} used in reserved ranges
@@ -211,7 +248,7 @@ export default function VlansView() {
         <Card>
           <CardHeader>
             <CardTitle>
-              <CardLabel>Documented ranges</CardLabel>
+              <CardLabel>Documented VLAN ID ranges</CardLabel>
               <CardHeading>{ranges.length} ranges</CardHeading>
             </CardTitle>
           </CardHeader>
@@ -276,7 +313,7 @@ export default function VlansView() {
             <CardHeader>
               <CardTitle>
                 <CardLabel>{creatingRange ? 'New range' : 'Range editor'}</CardLabel>
-                <CardHeading>{creatingRange ? 'Create VLAN range' : selectedRange ? `Edit ${selectedRange.name}` : 'Select a range'}</CardHeading>
+                <CardHeading>{creatingRange ? 'Create VLAN ID range' : selectedRange ? `Edit ${selectedRange.name}` : 'Select a range'}</CardHeading>
               </CardTitle>
             </CardHeader>
             <CardBody className="space-y-4">
@@ -392,10 +429,10 @@ export default function VlansView() {
               {filteredVlans
                 .sort((a, b) => a.vlanId - b.vlanId)
                 .map((vlan) => {
-                  const subnet = subnets.find((entry) => entry.vlanId === vlan.id)
-                  const subnetZones = subnet ? zones.filter((zone) => zone.subnetId === subnet.id) : []
-                  const subnetScopes = subnet ? scopes.filter((scope) => scope.subnetId === subnet.id) : []
-                  const ipCount = subnet ? ipAssignments.filter((assignment) => assignment.subnetId === subnet.id).length : 0
+                  const linkedSubnets = subnets
+                    .filter((entry) => entry.vlanId === vlan.id)
+                    .sort((a, b) => a.cidr.localeCompare(b.cidr, undefined, { numeric: true }))
+                  const isAddingSubnet = subnetDraftVlanId === vlan.id
                   return (
                     <div key={vlan.id} className="px-4 py-4">
                       <div className="mb-3 flex items-start gap-4">
@@ -419,25 +456,36 @@ export default function VlansView() {
                           {vlan.description && (
                             <div className="mt-0.5 text-[11px] text-[var(--color-fg-subtle)]">{vlan.description}</div>
                           )}
-                          {subnet && (
-                            <div className="mt-1.5 flex items-center gap-3">
-                              <Mono className="text-[11px] text-[var(--color-fg-muted)]">{subnet.cidr}</Mono>
+                          {linkedSubnets.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap items-center gap-3">
+                              <Mono className="text-[11px] text-[var(--color-fg-muted)]">
+                                {linkedSubnets.map((subnet) => subnet.cidr).join(', ')}
+                              </Mono>
                               <span className="text-[10px] text-[var(--color-fg-faint)]">|</span>
                               <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                                {ipCount} addresses assigned
+                                {linkedSubnets.length} linked IP range{linkedSubnets.length === 1 ? '' : 's'}
                               </span>
                             </div>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {subnet && (
-                            <Link
-                              to="/ipam"
-                              className="inline-flex items-center gap-1 text-[11px] text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setSubnetDraftVlanId((current) => (current === vlan.id ? null : vlan.id))
+                                setSubnetForm({
+                                  cidr: '',
+                                  name: linkedSubnets.length === 0 ? `${vlan.name} subnet` : '',
+                                  description: '',
+                                })
+                                setSubnetError('')
+                              }}
                             >
-                              IPAM
-                              <ChevronRight className="size-3" />
-                            </Link>
+                              <Plus className="size-3.5" />
+                              Add IP range
+                            </Button>
                           )}
                           {canEdit && (
                             <Button
@@ -452,11 +500,112 @@ export default function VlansView() {
                           )}
                         </div>
                       </div>
-                      {subnet && (subnetZones.length > 0 || subnetScopes.length > 0) && (
-                        <div className="pl-16">
-                          <IpZoneBar subnet={subnet} zones={subnetZones} scopes={subnetScopes} />
+                      <div className="space-y-3 pl-16">
+                        <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-3">
+                          <div className="mb-2 flex items-center justify-between gap-3">
+                            <div>
+                              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                                Linked IP ranges
+                              </div>
+                              <div className="text-xs text-[var(--color-fg-subtle)]">
+                                {linkedSubnets.length > 0
+                                  ? `${linkedSubnets.length} subnet${linkedSubnets.length === 1 ? '' : 's'} linked to VLAN ${vlan.vlanId}`
+                                  : `No subnet linked to VLAN ${vlan.vlanId} yet.`}
+                              </div>
+                            </div>
+                            {linkedSubnets.length > 0 && (
+                              <Link
+                                to="/ipam"
+                                className="inline-flex items-center gap-1 text-[11px] text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
+                              >
+                                Open IPAM
+                                <ChevronRight className="size-3" />
+                              </Link>
+                            )}
+                          </div>
+
+                          {linkedSubnets.length > 0 ? (
+                            <div className="space-y-3">
+                              {linkedSubnets.map((subnet) => {
+                                const subnetZones = zones.filter((zone) => zone.subnetId === subnet.id)
+                                const subnetScopes = scopes.filter((scope) => scope.subnetId === subnet.id)
+                                const ipCount = ipAssignments.filter((assignment) => assignment.subnetId === subnet.id).length
+                                return (
+                                  <div key={subnet.id} className="rounded-[var(--radius-xs)] border border-[var(--color-line)] bg-[var(--color-surface)]/50 p-3">
+                                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                                      <Mono className="text-[11px] text-[var(--color-fg)]">{subnet.cidr}</Mono>
+                                      <Badge tone="neutral">{subnet.name}</Badge>
+                                      <span className="text-[11px] text-[var(--color-fg-subtle)]">
+                                        {ipCount} assigned
+                                      </span>
+                                      {subnet.description && (
+                                        <span className="text-[11px] text-[var(--color-fg-subtle)]">
+                                          | {subnet.description}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {(subnetZones.length > 0 || subnetScopes.length > 0) && (
+                                      <IpZoneBar subnet={subnet} zones={subnetZones} scopes={subnetScopes} />
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : null}
+
+                          {isAddingSubnet && canEdit && (
+                            <div className="mt-3 space-y-4 rounded-[var(--radius-xs)] border border-[var(--color-line)] bg-[var(--color-surface)]/60 p-4">
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <Field label="CIDR">
+                                  <Input
+                                    value={subnetForm.cidr}
+                                    onChange={(event) => setSubnetForm((prev) => ({ ...prev, cidr: event.target.value }))}
+                                    placeholder="10.0.10.0/24"
+                                  />
+                                </Field>
+                                <Field label="Name">
+                                  <Input
+                                    value={subnetForm.name}
+                                    onChange={(event) => setSubnetForm((prev) => ({ ...prev, name: event.target.value }))}
+                                    placeholder="Servers management"
+                                  />
+                                </Field>
+                              </div>
+                              <Field label="Description">
+                                <Input
+                                  value={subnetForm.description}
+                                  onChange={(event) => setSubnetForm((prev) => ({ ...prev, description: event.target.value }))}
+                                  placeholder="Primary subnet for this VLAN"
+                                />
+                              </Field>
+
+                              {subnetError && (
+                                <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                                  {subnetError}
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSubnetDraftVlanId(null)
+                                    setSubnetForm(EMPTY_SUBNET_FORM)
+                                    setSubnetError('')
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button size="sm" onClick={() => void handleCreateSubnet(vlan.id)} disabled={subnetSaving}>
+                                  <Save className="size-3.5" />
+                                  {subnetSaving ? 'Creating...' : 'Create linked range'}
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   )
                 })}

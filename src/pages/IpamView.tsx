@@ -487,7 +487,7 @@ export default function IpamView() {
   return (
     <>
       <TopBar
-        subtitle="Address management"
+        subtitle="Address management and VLAN-linked IP ranges"
         title="IPAM"
         meta={
           <>
@@ -790,7 +790,7 @@ function SubnetEditor({
           </Field>
         </div>
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="VLAN">
+          <Field label="Linked VLAN">
             <Select
               value={form.vlanId}
               onChange={(value) => onChange((prev) => ({ ...prev, vlanId: value }))}

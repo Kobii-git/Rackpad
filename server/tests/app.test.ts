@@ -66,6 +66,60 @@ test('bootstrap creates the first admin account and session', async () => {
   assert.equal(me.user.username, 'admin')
 })
 
+test('bootstrap can start with an empty lab or load demo data on demand', async () => {
+  const emptyBootstrapRes = await app.inject({
+    method: 'POST',
+    url: '/api/auth/bootstrap',
+    payload: {
+      username: 'admin',
+      displayName: 'Rack Admin',
+      password: 'super-secret-1',
+      loadDemoData: false,
+    },
+  })
+
+  assert.equal(emptyBootstrapRes.statusCode, 201)
+
+  const emptyState = {
+    labs: db.prepare('SELECT COUNT(*) AS count FROM labs').get() as { count: number },
+    racks: db.prepare('SELECT COUNT(*) AS count FROM racks').get() as { count: number },
+    devices: db.prepare('SELECT COUNT(*) AS count FROM devices').get() as { count: number },
+    vlanRanges: db.prepare('SELECT COUNT(*) AS count FROM vlanRanges').get() as { count: number },
+  }
+
+  assert.equal(emptyState.labs.count, 1)
+  assert.equal(emptyState.racks.count, 0)
+  assert.equal(emptyState.devices.count, 0)
+  assert.equal(emptyState.vlanRanges.count, 0)
+
+  resetDatabase()
+
+  const demoBootstrapRes = await app.inject({
+    method: 'POST',
+    url: '/api/auth/bootstrap',
+    payload: {
+      username: 'admin',
+      displayName: 'Rack Admin',
+      password: 'super-secret-1',
+      loadDemoData: true,
+    },
+  })
+
+  assert.equal(demoBootstrapRes.statusCode, 201)
+
+  const demoState = {
+    labs: db.prepare('SELECT COUNT(*) AS count FROM labs').get() as { count: number },
+    racks: db.prepare('SELECT COUNT(*) AS count FROM racks').get() as { count: number },
+    devices: db.prepare('SELECT COUNT(*) AS count FROM devices').get() as { count: number },
+    vlanRanges: db.prepare('SELECT COUNT(*) AS count FROM vlanRanges').get() as { count: number },
+  }
+
+  assert.equal(demoState.labs.count, 1)
+  assert.ok(demoState.racks.count > 0)
+  assert.ok(demoState.devices.count > 0)
+  assert.ok(demoState.vlanRanges.count > 0)
+})
+
 test('viewer accounts are read-only', async () => {
   const adminToken = await bootstrapAdmin()
 

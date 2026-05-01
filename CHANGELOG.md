@@ -4,6 +4,28 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.5.0] - 2026-05-01
+
+### Added
+
+- First-run bootstrap choice to start with demo data or a clean empty lab.
+
+### Changed
+
+- VLAN UI now speaks more explicitly in terms of VLAN ID ranges.
+- VLAN cards now show all linked IP ranges and can create a linked subnet directly from the VLAN page.
+- IPAM UI now labels the subnet-to-VLAN relationship more clearly as a linked VLAN.
+- Device monitoring now explains that checks run from the Rackpad server or container, not the browser.
+- New monitor setups now prefill from a device management IP when one exists.
+- Saving an enabled monitor now runs an immediate check so device status does not stay `unknown` until the next interval.
+- Compose and example environment defaults now use the lowercase `kobii-git` image owner to avoid Docker reference-format errors.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- `npm run test:server` still needs Linux/Node 22 or Docker to load the `better-sqlite3` native binding.
+
 ## [0.4.2] - 2026-05-01
 
 ### Fixed

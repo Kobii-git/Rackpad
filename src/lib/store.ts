@@ -507,6 +507,7 @@ export async function bootstrapAdmin(input: {
   username: string
   displayName?: string
   password: string
+  loadDemoData?: boolean
 }): Promise<void> {
   setState((prev) => ({
     ...prev,

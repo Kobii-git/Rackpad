@@ -245,3 +245,14 @@ export function seedIfEmpty() {
   seed()
   console.log('[rackpad] Seed complete.')
 }
+
+export function ensureDefaultLab() {
+  const { count } = db.prepare('SELECT COUNT(*) as count FROM labs').get() as { count: number }
+  if (count > 0) return
+
+  db.prepare('INSERT INTO labs VALUES (@id, @name, @description, @location)').run({
+    ...lab,
+    description: 'Primary homelab workspace.',
+    location: null,
+  })
+}

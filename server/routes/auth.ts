@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
+import { ensureDefaultLab, seedIfEmpty } from '../seed.js'
 import {
   createSession,
   getAuthToken,
@@ -11,7 +12,7 @@ import {
   verifyPassword,
 } from '../lib/auth.js'
 import { createId } from '../lib/ids.js'
-import { asObject, optionalString, requiredString, ValidationError } from '../lib/validation.js'
+import { asObject, optionalBoolean, optionalString, requiredString, ValidationError } from '../lib/validation.js'
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.get('/status', async () => {
@@ -29,6 +30,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const username = requiredString(body, 'username', { maxLength: 40 }).toLowerCase()
     const displayName = optionalString(body, 'displayName', { maxLength: 80 }) ?? username
     const password = requiredString(body, 'password', { maxLength: 200 })
+    const loadDemoData = optionalBoolean(body, 'loadDemoData') ?? false
 
     if (password.length < 10) {
       throw new ValidationError('Password must be at least 10 characters long.')
@@ -40,6 +42,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       INSERT INTO users (id, username, displayName, passwordHash, role, disabled, createdAt, lastLoginAt)
       VALUES (?, ?, ?, ?, 'admin', 0, ?, ?)
     `).run(userId, username, displayName, hashPassword(password), createdAt, createdAt)
+
+    if (loadDemoData) {
+      seedIfEmpty()
+    } else {
+      ensureDefaultLab()
+    }
 
     const session = createSession(userId)
     const user = getPublicUserById(userId)

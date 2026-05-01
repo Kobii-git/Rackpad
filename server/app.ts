@@ -4,7 +4,6 @@ import staticPlugin from '@fastify/static'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import { seedIfEmpty } from './seed.js'
 import { authRoutes } from './routes/auth.js'
 import { usersRoutes } from './routes/users.js'
 import { racksRoutes } from './routes/racks.js'
@@ -23,8 +22,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '../dist')
 
 export async function createApp() {
-  seedIfEmpty()
-
   const app = Fastify({
     logger: process.env.NODE_ENV === 'production'
       ? true
