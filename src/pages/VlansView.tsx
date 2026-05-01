@@ -1,35 +1,37 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
+import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Mono } from '@/components/shared/Mono'
 import { Badge } from '@/components/ui/Badge'
 import { VlanRangeBar } from '@/components/vlan/VlanRangeBar'
 import { IpZoneBar } from '@/components/vlan/IpZoneBar'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
-import { deleteVlan, useStore } from '@/lib/store'
+import { canEditInventory, deleteVlan, useStore } from '@/lib/store'
 import { ChevronRight, Hash, Trash2 } from 'lucide-react'
 
 export default function VlansView() {
+  const currentUser = useStore((s) => s.currentUser)
   const ranges = useStore((s) => s.vlanRanges)
   const vlans = useStore((s) => s.vlans)
   const subnets = useStore((s) => s.subnets)
   const zones = useStore((s) => s.ipZones)
   const scopes = useStore((s) => s.scopes)
   const ipAssignments = useStore((s) => s.ipAssignments)
+  const canEdit = canEditInventory(currentUser)
 
   const [selectedRangeId, setSelectedRangeId] = useState<string | undefined>()
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const totalUsed = vlans.length
-  const totalReserved = ranges.reduce((s, r) => s + (r.endVlan - r.startVlan + 1), 0)
+  const totalReserved = ranges.reduce((sum, range) => sum + (range.endVlan - range.startVlan + 1), 0)
 
   const filteredVlans = useMemo(() => {
     if (!selectedRangeId) return vlans
-    const r = ranges.find((rg) => rg.id === selectedRangeId)
-    if (!r) return vlans
-    return vlans.filter((v) => v.vlanId >= r.startVlan && v.vlanId <= r.endVlan)
+    const range = ranges.find((entry) => entry.id === selectedRangeId)
+    if (!range) return vlans
+    return vlans.filter((vlan) => vlan.vlanId >= range.startVlan && vlan.vlanId <= range.endVlan)
   }, [vlans, ranges, selectedRangeId])
 
   async function handleDeleteVlan(id: string, name: string, vlanId: number) {
@@ -52,23 +54,20 @@ export default function VlansView() {
         title="VLANs"
         meta={
           <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
-            {vlans.length} VLANs · {ranges.length} ranges · {totalReserved} IDs reserved
+            {vlans.length} VLANs | {ranges.length} ranges | {totalReserved} IDs reserved
           </span>
         }
-        actions={
-          <AllocatePanel defaultTab="vlan" defaultRangeId={selectedRangeId} />
-        }
+        actions={canEdit ? <AllocatePanel defaultTab="vlan" defaultRangeId={selectedRangeId} /> : undefined}
       />
 
-      <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
-        {/* Range allocation map (Flavor A) */}
+      <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
         <Card>
           <CardHeader>
             <CardTitle>
               <CardLabel>Range allocation</CardLabel>
-              <CardHeading>VLAN ID space · 1–4094</CardHeading>
+              <CardHeading>VLAN ID space | 1-4094</CardHeading>
             </CardTitle>
-            <Mono className="text-[var(--color-fg-subtle)] text-[11px]">
+            <Mono className="text-[11px] text-[var(--color-fg-subtle)]">
               {totalUsed} / {totalReserved} used in reserved ranges
             </Mono>
           </CardHeader>
@@ -77,14 +76,11 @@ export default function VlansView() {
               ranges={ranges}
               vlans={vlans}
               selectedRangeId={selectedRangeId}
-              onSelectRange={(id) =>
-                setSelectedRangeId(id === selectedRangeId ? undefined : id)
-              }
+              onSelectRange={(id) => setSelectedRangeId(id === selectedRangeId ? undefined : id)}
             />
           </CardBody>
         </Card>
 
-        {/* Range table */}
         <Card>
           <CardHeader>
             <CardTitle>
@@ -104,31 +100,28 @@ export default function VlansView() {
                 </tr>
               </thead>
               <tbody>
-                {ranges.map((r) => {
-                  const used = vlans.filter((v) => v.vlanId >= r.startVlan && v.vlanId <= r.endVlan).length
-                  const total = r.endVlan - r.startVlan + 1
+                {ranges.map((range) => {
+                  const used = vlans.filter((vlan) => vlan.vlanId >= range.startVlan && vlan.vlanId <= range.endVlan).length
+                  const total = range.endVlan - range.startVlan + 1
                   const free = total - used
-                  const isActive = r.id === selectedRangeId
+                  const isActive = range.id === selectedRangeId
                   return (
                     <tr
-                      key={r.id}
-                      onClick={() => setSelectedRangeId(isActive ? undefined : r.id)}
-                      className={`border-b border-[var(--color-line)] last:border-b-0 cursor-pointer transition-colors ${
+                      key={range.id}
+                      onClick={() => setSelectedRangeId(isActive ? undefined : range.id)}
+                      className={`cursor-pointer border-b border-[var(--color-line)] transition-colors last:border-b-0 ${
                         isActive ? 'bg-[var(--color-surface)]' : 'hover:bg-[var(--color-surface)]/40'
                       }`}
                     >
                       <Td>
                         <div className="flex items-center gap-2">
-                          <span
-                            className="size-2 rounded-[1px]"
-                            style={{ backgroundColor: r.color }}
-                          />
-                          <span className="font-medium text-[var(--color-fg)]">{r.name}</span>
+                          <span className="size-2 rounded-[1px]" style={{ backgroundColor: range.color }} />
+                          <span className="font-medium text-[var(--color-fg)]">{range.name}</span>
                         </div>
                       </Td>
                       <Td>
                         <Mono className="text-[var(--color-fg-muted)]">
-                          {r.startVlan}–{r.endVlan}
+                          {range.startVlan}-{range.endVlan}
                         </Mono>
                       </Td>
                       <Td>
@@ -138,9 +131,7 @@ export default function VlansView() {
                         <Mono className="text-[var(--color-fg-subtle)]">{free}</Mono>
                       </Td>
                       <Td>
-                        <span className="text-[11px] text-[var(--color-fg-subtle)]">
-                          {r.purpose ?? '—'}
-                        </span>
+                        <span className="text-[11px] text-[var(--color-fg-subtle)]">{range.purpose ?? '-'}</span>
                       </Td>
                     </tr>
                   )
@@ -150,13 +141,12 @@ export default function VlansView() {
           </CardBody>
         </Card>
 
-        {/* VLAN detail list (Flavor B — per-VLAN with subnet zones) */}
         <Card>
           <CardHeader>
             <CardTitle>
               <CardLabel>
                 {selectedRangeId
-                  ? `Filtered by ${ranges.find((r) => r.id === selectedRangeId)?.name}`
+                  ? `Filtered by ${ranges.find((range) => range.id === selectedRangeId)?.name}`
                   : 'All VLANs'}
               </CardLabel>
               <CardHeading>{filteredVlans.length} configured</CardHeading>
@@ -175,50 +165,37 @@ export default function VlansView() {
               {filteredVlans
                 .sort((a, b) => a.vlanId - b.vlanId)
                 .map((vlan) => {
-                  const subnet = subnets.find((s) => s.vlanId === vlan.id)
-                  const subnetZones = subnet ? zones.filter((z) => z.subnetId === subnet.id) : []
-                  const subnetScopes = subnet ? scopes.filter((sc) => sc.subnetId === subnet.id) : []
-                  const ipCount = subnet
-                    ? ipAssignments.filter((a) => a.subnetId === subnet.id).length
-                    : 0
+                  const subnet = subnets.find((entry) => entry.vlanId === vlan.id)
+                  const subnetZones = subnet ? zones.filter((zone) => zone.subnetId === subnet.id) : []
+                  const subnetScopes = subnet ? scopes.filter((scope) => scope.subnetId === subnet.id) : []
+                  const ipCount = subnet ? ipAssignments.filter((assignment) => assignment.subnetId === subnet.id).length : 0
                   return (
                     <div key={vlan.id} className="px-4 py-4">
-                      <div className="flex items-start gap-4 mb-3">
+                      <div className="mb-3 flex items-start gap-4">
                         <div
-                          className="grid place-items-center size-12 shrink-0 rounded-[var(--radius-sm)] border"
+                          className="grid size-12 shrink-0 place-items-center rounded-[var(--radius-sm)] border"
                           style={{
                             backgroundColor: `${vlan.color}15`,
                             borderColor: `${vlan.color}40`,
                           }}
                         >
-                          <Mono
-                            className="text-sm font-semibold"
-                            style={{ color: vlan.color }}
-                          >
+                          <Mono className="text-sm font-semibold" style={{ color: vlan.color }}>
                             {vlan.vlanId}
                           </Mono>
                         </div>
-                        <div className="flex-1 min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-semibold text-[var(--color-fg)]">
-                              {vlan.name}
-                            </h3>
+                            <h3 className="text-sm font-semibold text-[var(--color-fg)]">{vlan.name}</h3>
                             <Hash className="size-3 text-[var(--color-fg-faint)]" />
-                            <Mono className="text-[10px] text-[var(--color-fg-subtle)]">
-                              VLAN {vlan.vlanId}
-                            </Mono>
+                            <Mono className="text-[10px] text-[var(--color-fg-subtle)]">VLAN {vlan.vlanId}</Mono>
                           </div>
                           {vlan.description && (
-                            <div className="text-[11px] text-[var(--color-fg-subtle)] mt-0.5">
-                              {vlan.description}
-                            </div>
+                            <div className="mt-0.5 text-[11px] text-[var(--color-fg-subtle)]">{vlan.description}</div>
                           )}
                           {subnet && (
-                            <div className="flex items-center gap-3 mt-1.5">
-                              <Mono className="text-[11px] text-[var(--color-fg-muted)]">
-                                {subnet.cidr}
-                              </Mono>
-                              <span className="text-[10px] text-[var(--color-fg-faint)]">·</span>
+                            <div className="mt-1.5 flex items-center gap-3">
+                              <Mono className="text-[11px] text-[var(--color-fg-muted)]">{subnet.cidr}</Mono>
+                              <span className="text-[10px] text-[var(--color-fg-faint)]">|</span>
                               <span className="text-[11px] text-[var(--color-fg-subtle)]">
                                 {ipCount} addresses assigned
                               </span>
@@ -235,15 +212,17 @@ export default function VlansView() {
                               <ChevronRight className="size-3" />
                             </Link>
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={deletingId === vlan.id}
-                            onClick={() => void handleDeleteVlan(vlan.id, vlan.name, vlan.vlanId)}
-                          >
-                            <Trash2 className="size-3.5" />
-                            {deletingId === vlan.id ? 'Deleting...' : 'Delete'}
-                          </Button>
+                          {canEdit && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={deletingId === vlan.id}
+                              onClick={() => void handleDeleteVlan(vlan.id, vlan.name, vlan.vlanId)}
+                            >
+                              <Trash2 className="size-3.5" />
+                              {deletingId === vlan.id ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {subnet && (subnetZones.length > 0 || subnetScopes.length > 0) && (
@@ -269,7 +248,7 @@ export default function VlansView() {
 
 function Th({ children }: { children: ReactNode }) {
   return (
-    <th className="text-left px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)] font-normal">
+    <th className="px-3 py-1.5 text-left font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
       {children}
     </th>
   )

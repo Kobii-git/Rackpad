@@ -1,53 +1,61 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
+import { asObject, optionalInteger, optionalString, requiredString } from '../lib/validation.js'
 
 export const racksRoutes: FastifyPluginAsync = async (app) => {
-  // GET /api/racks
   app.get('/', async () => {
     return db.prepare('SELECT * FROM racks ORDER BY name').all()
   })
 
-  // GET /api/racks/:id
   app.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
     const row = db.prepare('SELECT * FROM racks WHERE id = ?').get(req.params.id)
     if (!row) return reply.status(404).send({ error: 'Rack not found' })
     return row
   })
 
-  // POST /api/racks
-  app.post<{ Body: Record<string, unknown> }>('/', async (req, reply) => {
-    const { id, labId, name, totalU, description, location, notes } = req.body as {
-      id?: string; labId: string; name: string; totalU?: number
-      description?: string; location?: string; notes?: string
-    }
-    const rackId = id ?? `rack_${Date.now()}`
+  app.post('/', async (req, reply) => {
+    const body = asObject(req.body)
+    const rackId = optionalString(body, 'id', { maxLength: 80 }) ?? `rack_${Date.now()}`
+    const labId = requiredString(body, 'labId', { maxLength: 80 })
+    const name = requiredString(body, 'name', { maxLength: 120 })
+    const totalU = optionalInteger(body, 'totalU', { min: 1, max: 100 }) ?? 42
+    const description = optionalString(body, 'description', { maxLength: 500 })
+    const location = optionalString(body, 'location', { maxLength: 200 })
+    const notes = optionalString(body, 'notes', { maxLength: 2000 })
+
     db.prepare(
       'INSERT INTO racks (id, labId, name, totalU, description, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?)'
-    ).run(rackId, labId, name, totalU ?? 42, description ?? null, location ?? null, notes ?? null)
+    ).run(rackId, labId, name, totalU, description ?? null, location ?? null, notes ?? null)
     return reply.status(201).send(db.prepare('SELECT * FROM racks WHERE id = ?').get(rackId))
   })
 
-  // PATCH /api/racks/:id
-  app.patch<{ Params: { id: string }; Body: Record<string, unknown> }>('/:id', async (req, reply) => {
+  app.patch<{ Params: { id: string } }>('/:id', async (req, reply) => {
     const existing = db.prepare('SELECT * FROM racks WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
     if (!existing) return reply.status(404).send({ error: 'Rack not found' })
 
-    const allowed = ['name', 'totalU', 'description', 'location', 'notes'] as const
+    const body = asObject(req.body)
     const updates: string[] = []
     const values: unknown[] = []
-    for (const key of allowed) {
-      if (key in req.body) {
-        updates.push(`${key} = ?`)
-        values.push((req.body as Record<string, unknown>)[key])
-      }
-    }
+
+    const name = optionalString(body, 'name', { maxLength: 120 })
+    const totalU = optionalInteger(body, 'totalU', { min: 1, max: 100 })
+    const description = optionalString(body, 'description', { maxLength: 500 })
+    const location = optionalString(body, 'location', { maxLength: 200 })
+    const notes = optionalString(body, 'notes', { maxLength: 2000 })
+
+    if (name !== undefined) { updates.push('name = ?'); values.push(name) }
+    if (totalU !== undefined) { updates.push('totalU = ?'); values.push(totalU) }
+    if (description !== undefined) { updates.push('description = ?'); values.push(description) }
+    if (location !== undefined) { updates.push('location = ?'); values.push(location) }
+    if (notes !== undefined) { updates.push('notes = ?'); values.push(notes) }
+
     if (updates.length === 0) return reply.status(400).send({ error: 'No valid fields to update' })
+
     values.push(req.params.id)
     db.prepare(`UPDATE racks SET ${updates.join(', ')} WHERE id = ?`).run(...values)
     return db.prepare('SELECT * FROM racks WHERE id = ?').get(req.params.id)
   })
 
-  // DELETE /api/racks/:id
   app.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
     const row = db.prepare('SELECT id FROM racks WHERE id = ?').get(req.params.id)
     if (!row) return reply.status(404).send({ error: 'Rack not found' })

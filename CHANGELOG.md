@@ -4,6 +4,34 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.3.0] - 2026-05-01
+
+### Added
+
+- Authentication bootstrap, login, logout, and persisted API sessions.
+- User accounts with `admin`, `editor`, and `viewer` roles.
+- Read-only backend enforcement for viewer accounts.
+- Port-template support when creating new devices.
+- Manual port creation and deletion from the ports screen.
+- Rack CRUD in the frontend.
+- IPAM CRUD in the frontend for subnets, DHCP scopes, and IP zones.
+- Per-device health-check configuration for `tcp`, `http`, and `https` checks.
+- Backend tests covering bootstrap/auth, viewer write blocking, device templates, rack overlap validation, and monitoring validation.
+
+### Changed
+
+- Device detail now includes monitoring controls and live monitor runs.
+- The app shell now boots through auth before loading inventory data.
+- Docker and container health checks now use `/api/health` instead of a protected API route.
+- Install and README docs now describe the real first-run bootstrap flow.
+- Release version is now `0.3.0`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- `npm run test:server` is wired in, but it still cannot run on this Windows Node 24 machine until `better-sqlite3` can load successfully.
+
 ## [0.2.0] - 2026-05-01
 
 ### Added
@@ -22,4 +50,4 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 ### Notes
 
-- This is the first versioned GitHub-ready release for Docker and Linux testing.
+- This was the first versioned GitHub-ready release for Docker and Linux testing.

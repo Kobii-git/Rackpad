@@ -2,16 +2,22 @@ import { useEffect, useMemo, useState } from 'react'
 import { TopBar } from '@/components/layout/TopBar'
 import { PortGrid } from '@/components/ports/PortGrid'
 import { PortList } from '@/components/ports/PortList'
-import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
+import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Mono } from '@/components/shared/Mono'
 import { StatusDot } from '@/components/shared/StatusDot'
 import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
-import { updatePort, useStore } from '@/lib/store'
+import {
+  canEditInventory,
+  createPortRecord,
+  deletePortRecord,
+  updatePort,
+  useStore,
+} from '@/lib/store'
 import type { Device, Port, PortLink } from '@/lib/types'
-import { ArrowRight, Save } from 'lucide-react'
+import { ArrowRight, Plus, Save, Trash2 } from 'lucide-react'
 
 const PORT_BEARING: Device['deviceType'][] = [
   'switch',
@@ -23,9 +29,11 @@ const PORT_BEARING: Device['deviceType'][] = [
 ]
 
 const LINK_STATES: Port['linkState'][] = ['up', 'down', 'disabled', 'unknown']
+const PORT_KINDS: Port['kind'][] = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb']
 
 interface PortFormState {
   name: string
+  kind: Port['kind']
   speed: string
   linkState: Port['linkState']
   vlanId: string
@@ -36,6 +44,7 @@ interface PortFormState {
 function portToForm(port: Port): PortFormState {
   return {
     name: port.name,
+    kind: port.kind,
     speed: port.speed ?? '',
     linkState: port.linkState,
     vlanId: port.vlanId ?? '',
@@ -44,16 +53,30 @@ function portToForm(port: Port): PortFormState {
   }
 }
 
+const EMPTY_PORT_FORM: PortFormState = {
+  name: '',
+  kind: 'rj45',
+  speed: '',
+  linkState: 'down',
+  vlanId: '',
+  description: '',
+  face: 'front',
+}
+
 export default function PortView() {
+  const currentUser = useStore((s) => s.currentUser)
   const devices = useStore((s) => s.devices)
   const ports = useStore((s) => s.ports)
   const portLinks = useStore((s) => s.portLinks)
   const vlans = useStore((s) => s.vlans)
+  const canEdit = canEditInventory(currentUser)
   const portBearingDevices = devices.filter((device) => PORT_BEARING.includes(device.deviceType))
   const [selectedDeviceId, setSelectedDeviceId] = useState('')
   const [selectedPortId, setSelectedPortId] = useState<string | undefined>()
   const [form, setForm] = useState<PortFormState | null>(null)
   const [saving, setSaving] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -106,7 +129,7 @@ export default function PortView() {
     }
   }, [devicePorts, selectedPortId])
 
-  const selectedPort = selectedPortId ? portById[selectedPortId] : undefined
+  const selectedPort = !creating && selectedPortId ? portById[selectedPortId] : undefined
   const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
   const peerPortId = selectedPort && selectedLink
     ? (selectedLink.fromPortId === selectedPort.id ? selectedLink.toPortId : selectedLink.fromPortId)
@@ -115,9 +138,14 @@ export default function PortView() {
   const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined
 
   useEffect(() => {
+    if (creating) {
+      setForm(EMPTY_PORT_FORM)
+      setError('')
+      return
+    }
     setForm(selectedPort ? portToForm(selectedPort) : null)
     setError('')
-  }, [selectedPort])
+  }, [creating, selectedPort])
 
   const isVisualGrid =
     device &&
@@ -127,23 +155,56 @@ export default function PortView() {
   const totalCableCount = portLinks.length
 
   async function handleSave() {
-    if (!selectedPort || !form) return
+    if (!device || !form) return
 
     setSaving(true)
     setError('')
     try {
-      await updatePort(selectedPort.id, {
-        name: form.name.trim(),
-        speed: form.speed.trim() || undefined,
-        linkState: form.linkState,
-        vlanId: form.vlanId || undefined,
-        description: form.description.trim() || undefined,
-        face: form.face,
-      })
+      if (creating) {
+        const created = await createPortRecord({
+          deviceId: device.id,
+          name: form.name.trim(),
+          kind: form.kind,
+          speed: form.speed.trim() || undefined,
+          linkState: form.linkState,
+          vlanId: form.vlanId || undefined,
+          description: form.description.trim() || undefined,
+          face: form.face,
+          position: (devicePorts.at(-1)?.position ?? 0) + 1,
+        })
+        setCreating(false)
+        setSelectedPortId(created.id)
+      } else if (selectedPort) {
+        await updatePort(selectedPort.id, {
+          name: form.name.trim(),
+          kind: form.kind,
+          speed: form.speed.trim() || undefined,
+          linkState: form.linkState,
+          vlanId: form.vlanId || undefined,
+          description: form.description.trim() || undefined,
+          face: form.face,
+        })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update port.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!selectedPort) return
+    if (!window.confirm(`Delete port ${selectedPort.name}?`)) return
+
+    setDeleting(true)
+    setError('')
+    try {
+      await deletePortRecord(selectedPort.id)
+      setSelectedPortId(undefined)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete port.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -159,6 +220,21 @@ export default function PortView() {
               linked / {devicePorts.length} total | {totalCableCount} cables
             </span>
           </>
+        }
+        actions={
+          canEdit ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCreating(true)
+                setSelectedPortId(undefined)
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add port
+            </Button>
+          ) : undefined
         }
       />
 
@@ -180,6 +256,7 @@ export default function PortView() {
                   onClick={() => {
                     setSelectedDeviceId(entry.id)
                     setSelectedPortId(undefined)
+                    setCreating(false)
                   }}
                   className={`flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left transition-colors ${
                     isActive
@@ -263,29 +340,45 @@ export default function PortView() {
                   <CardHeader>
                     <CardTitle>
                       <CardLabel>Inspector</CardLabel>
-                      <CardHeading>{selectedPort ? selectedPort.name : 'Select a port'}</CardHeading>
+                      <CardHeading>
+                        {creating ? 'New port' : selectedPort ? selectedPort.name : 'Select a port'}
+                      </CardHeading>
                     </CardTitle>
-                    {selectedPort && <Badge tone="cyan">{selectedPort.kind}</Badge>}
+                    {(selectedPort || creating) && <Badge tone="cyan">{form?.kind ?? 'port'}</Badge>}
                   </CardHeader>
                   <CardBody>
-                    {!selectedPort || !form ? (
+                    {!form ? (
                       <div className="text-xs text-[var(--color-fg-subtle)]">
                         Select a port to edit its details.
                       </div>
                     ) : (
                       <div className="space-y-4">
-                        <Field label="Port name">
-                          <Input
-                            value={form.name}
-                            onChange={(e) => setForm((prev) => (prev ? { ...prev, name: e.target.value } : prev))}
-                          />
-                        </Field>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Port name">
+                            <Input
+                              value={form.name}
+                              onChange={(event) => setForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))}
+                            />
+                          </Field>
+                          <Field label="Kind">
+                            <Select
+                              value={form.kind}
+                              onChange={(value) => setForm((prev) => (prev ? { ...prev, kind: value as Port['kind'] } : prev))}
+                            >
+                              {PORT_KINDS.map((kind) => (
+                                <option key={kind} value={kind}>
+                                  {kind}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
 
                         <div className="grid grid-cols-2 gap-3">
                           <Field label="Speed">
                             <Input
                               value={form.speed}
-                              onChange={(e) => setForm((prev) => (prev ? { ...prev, speed: e.target.value } : prev))}
+                              onChange={(event) => setForm((prev) => (prev ? { ...prev, speed: event.target.value } : prev))}
                               placeholder="e.g. 10G"
                             />
                           </Field>
@@ -331,7 +424,7 @@ export default function PortView() {
                         <Field label="Description">
                           <textarea
                             value={form.description}
-                            onChange={(e) => setForm((prev) => (prev ? { ...prev, description: e.target.value } : prev))}
+                            onChange={(event) => setForm((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
                             rows={3}
                             className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:border-[var(--color-accent-soft)] focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
                           />
@@ -354,17 +447,32 @@ export default function PortView() {
                               </div>
                             </div>
                           ) : (
-                            <div className="text-xs text-[var(--color-fg-subtle)]">No linked cable.</div>
+                            <div className="text-xs text-[var(--color-fg-subtle)]">
+                              {creating ? 'Save the port first before cabling it.' : 'No linked cable.'}
+                            </div>
                           )}
                         </div>
 
                         {error && <div className="text-xs text-[var(--color-err)]">{error}</div>}
 
-                        <div className="flex justify-end">
-                          <Button variant="default" size="sm" disabled={saving} onClick={() => void handleSave()}>
-                            <Save className="size-3.5" />
-                            {saving ? 'Saving...' : 'Save port'}
-                          </Button>
+                        <div className="flex items-center justify-between gap-3">
+                          {!creating && canEdit && selectedPort && (
+                            <Button variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={deleting}>
+                              <Trash2 className="size-3.5" />
+                              {deleting ? 'Deleting...' : 'Delete port'}
+                            </Button>
+                          )}
+                          <div className="ml-auto flex items-center gap-2">
+                            {creating && (
+                              <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>
+                                Cancel
+                              </Button>
+                            )}
+                            <Button variant="default" size="sm" disabled={saving || !canEdit} onClick={() => void handleSave()}>
+                              <Save className="size-3.5" />
+                              {saving ? 'Saving...' : creating ? 'Create port' : 'Save port'}
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -402,7 +510,7 @@ function Select({
   return (
     <select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(event) => onChange(event.target.value)}
       className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:border-[var(--color-accent-soft)] focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
     >
       {children}

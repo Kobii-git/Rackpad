@@ -1,6 +1,6 @@
 {
   "name": "rackpad",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -15,6 +15,7 @@
     "build:server": "tsc --project tsconfig.server.json",
     "build": "npm run build:client && npm run build:server",
     "start": "node dist-server/index.js",
+    "test:server": "node --import tsx --test server/tests/**/*.test.ts",
     "lint": "eslint .",
     "preview": "vite preview",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\""

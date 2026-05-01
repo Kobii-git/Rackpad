@@ -1,6 +1,6 @@
 services:
   rackpad:
-    image: ghcr.io/${GITHUB_REPO_OWNER:-Kobii-git}/rackpad:${RACKPAD_TAG:-v0.2.0}
+    image: ghcr.io/${GITHUB_REPO_OWNER:-Kobii-git}/rackpad:${RACKPAD_TAG:-v0.3.0}
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,6 +11,7 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       DATABASE_PATH: /data/rackpad.db
+      MONITOR_INTERVAL_MS: ${MONITOR_INTERVAL_MS:-300000}
     ports:
       - "${RACKPAD_PORT:-3000}:3000"
     volumes:
@@ -21,7 +22,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "fetch('http://127.0.0.1:3000/api/racks').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
+          "fetch('http://127.0.0.1:3000/api/health').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"
         ]
       interval: 30s
       timeout: 5s

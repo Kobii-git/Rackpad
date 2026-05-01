@@ -5,7 +5,7 @@ import { Mono } from '@/components/shared/Mono'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { createCable, deleteCable, updateCable, useStore } from '@/lib/store'
+import { canEditInventory, createCable, deleteCable, updateCable, useStore } from '@/lib/store'
 import type { Device, Port, PortLink } from '@/lib/types'
 import { ArrowRight, Cable as CableIcon, Filter, Plus, Save, Trash2 } from 'lucide-react'
 
@@ -28,9 +28,11 @@ const EMPTY_FORM: CableFormState = {
 }
 
 export default function CableView() {
+  const currentUser = useStore((s) => s.currentUser)
   const portLinks = useStore((s) => s.portLinks)
   const ports = useStore((s) => s.ports)
   const devices = useStore((s) => s.devices)
+  const canEdit = canEditInventory(currentUser)
   const [query, setQuery] = useState('')
   const [cableType, setCableType] = useState<string | null>(null)
   const [createForm, setCreateForm] = useState<CableFormState>(EMPTY_FORM)
@@ -284,7 +286,7 @@ export default function CableView() {
               <div className="flex justify-end">
                 <Button
                   size="sm"
-                  disabled={creating || !createForm.fromPortId || !createForm.toPortId}
+                  disabled={creating || !createForm.fromPortId || !createForm.toPortId || !canEdit}
                   onClick={() => void handleCreateCable()}
                 >
                   <Plus className="size-3.5" />
@@ -352,16 +354,18 @@ export default function CableView() {
                   {editError && <div className="text-xs text-[var(--color-err)]">{editError}</div>}
 
                   <div className="flex items-center justify-between gap-3">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={deletingId === selectedLink.id}
-                      onClick={() => void handleDeleteCable(selectedLink.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                      {deletingId === selectedLink.id ? 'Removing...' : 'Delete cable'}
-                    </Button>
-                    <Button size="sm" disabled={saving} onClick={() => void handleSaveCable()}>
+                    {canEdit && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deletingId === selectedLink.id}
+                        onClick={() => void handleDeleteCable(selectedLink.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        {deletingId === selectedLink.id ? 'Removing...' : 'Delete cable'}
+                      </Button>
+                    )}
+                    <Button size="sm" disabled={saving || !canEdit} onClick={() => void handleSaveCable()}>
                       <Save className="size-3.5" />
                       {saving ? 'Saving...' : 'Save changes'}
                     </Button>

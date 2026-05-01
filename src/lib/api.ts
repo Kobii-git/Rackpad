@@ -1,29 +1,85 @@
 import type {
+  AppUser,
   AuditEntry,
+  AuthSession,
   Device,
+  DeviceMonitor,
   DhcpScope,
   IpAssignment,
   IpZone,
   Port,
   PortLink,
+  PortTemplate,
   Rack,
   Subnet,
+  UserRole,
   Vlan,
   VlanRange,
 } from './types'
 
 const API_BASE = '/api'
+const TOKEN_STORAGE_KEY = 'rackpad.auth.token'
 
 type QueryValue = string | number | boolean | undefined | null
 type Nullable<T> = {
   [K in keyof T]?: T[K] | null
 }
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 export type DevicePatch = Nullable<Omit<Device, 'id' | 'labId'>>
+export type RackPatch = Nullable<Omit<Rack, 'id' | 'labId'>>
+export type SubnetPatch = Nullable<Omit<Subnet, 'id' | 'labId'>>
+export type DhcpScopePatch = Nullable<Omit<DhcpScope, 'id' | 'subnetId'>>
+export type IpZonePatch = Nullable<Omit<IpZone, 'id' | 'subnetId'>>
 export type IpAssignmentPatch = Nullable<Omit<IpAssignment, 'id'>>
 export type VlanPatch = Nullable<Omit<Vlan, 'id' | 'labId'>>
+export type VlanRangePatch = Nullable<Omit<VlanRange, 'id' | 'labId'>>
 export type PortPatch = Nullable<Omit<Port, 'id' | 'deviceId' | 'position'>>
 export type PortLinkPatch = Nullable<Omit<PortLink, 'id' | 'fromPortId' | 'toPortId'>>
+export type UserPatch = Nullable<Pick<AppUser, 'username' | 'displayName' | 'role' | 'disabled'>> & {
+  password?: string | null
+}
+export type MonitorPatch = Nullable<Pick<DeviceMonitor, 'type' | 'target' | 'port' | 'path' | 'intervalMs' | 'enabled'>>
+
+export interface AuthStatus {
+  needsBootstrap: boolean
+}
+
+let authToken = readStoredToken()
+
+function readStoredToken() {
+  try {
+    return window.localStorage.getItem(TOKEN_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+export function getAuthToken() {
+  return authToken
+}
+
+export function setAuthToken(token: string | null) {
+  authToken = token
+  try {
+    if (token) {
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, token)
+    } else {
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY)
+    }
+  } catch {
+    // Ignore storage failures and keep the in-memory token.
+  }
+}
 
 function buildUrl(path: string, query?: Record<string, QueryValue>) {
   const url = new URL(`${API_BASE}${path}`, window.location.origin)
@@ -38,12 +94,17 @@ function buildUrl(path: string, query?: Record<string, QueryValue>) {
 }
 
 async function request<T>(path: string, init?: RequestInit, query?: Record<string, QueryValue>): Promise<T> {
+  const headers = new Headers(init?.headers)
+  if (!headers.has('Content-Type') && init?.body != null) {
+    headers.set('Content-Type', 'application/json')
+  }
+  if (authToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${authToken}`)
+  }
+
   const res = await fetch(buildUrl(path, query), {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
     ...init,
+    headers,
   })
 
   if (!res.ok) {
@@ -52,9 +113,9 @@ async function request<T>(path: string, init?: RequestInit, query?: Record<strin
       const body = await res.json() as { error?: string }
       if (body.error) message = body.error
     } catch {
-      // Keep the generic message if the response isn't JSON.
+      // Keep the fallback message.
     }
-    throw new Error(message)
+    throw new ApiError(message, res.status)
   }
 
   if (res.status === 204) {
@@ -65,48 +126,123 @@ async function request<T>(path: string, init?: RequestInit, query?: Record<strin
 }
 
 export const api = {
+  getAuthStatus() {
+    return request<AuthStatus>('/auth/status')
+  },
+
+  bootstrap(body: { username: string; displayName?: string; password: string }) {
+    return request<AuthSession>('/auth/bootstrap', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  login(body: { username: string; password: string }) {
+    return request<AuthSession>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  getCurrentSession() {
+    return request<{ user: AppUser; expiresAt: string }>('/auth/me')
+  },
+
+  logout() {
+    return request<void>('/auth/logout', {
+      method: 'POST',
+    })
+  },
+
+  getUsers() {
+    return request<AppUser[]>('/users')
+  },
+
+  createUser(body: { username: string; displayName?: string; password: string; role: UserRole; disabled?: boolean }) {
+    return request<AppUser>('/users', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateUser(id: string, body: UserPatch) {
+    return request<AppUser>(`/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteUser(id: string) {
+    return request<void>(`/users/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
   getRacks(params?: { labId?: string }) {
     return request<Rack[]>('/racks', undefined, params)
+  },
+
+  createRack(body: Omit<Rack, 'id'> & { id?: string }) {
+    return request<Rack>('/racks', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateRack(id: string, body: RackPatch) {
+    return request<Rack>(`/racks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteRack(id: string) {
+    return request<void>(`/racks/${id}`, {
+      method: 'DELETE',
+    })
   },
 
   getDevices(params?: { rackId?: string; labId?: string }) {
     return request<Device[]>('/devices', undefined, params)
   },
 
+  getDevice(id: string) {
+    return request<Device>(`/devices/${id}`)
+  },
+
+  createDevice(body: Omit<Device, 'id'> & { id?: string; portTemplateId?: string }) {
+    return request<Device>('/devices', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateDevice(id: string, body: DevicePatch & { portTemplateId?: string | null }) {
+    return request<Device>(`/devices/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteDevice(id: string) {
+    return request<void>(`/devices/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getPortTemplates() {
+    return request<PortTemplate[]>('/ports/templates')
+  },
+
   getPorts(params?: { deviceId?: string }) {
     return request<Port[]>('/ports', undefined, params)
   },
 
-  getPortLinks() {
-    return request<PortLink[]>('/port-links')
-  },
-
-  getVlans(params?: { labId?: string }) {
-    return request<Vlan[]>('/vlans', undefined, params)
-  },
-
-  getVlanRanges(params?: { labId?: string }) {
-    return request<VlanRange[]>('/vlans/ranges', undefined, params)
-  },
-
-  getSubnets(params?: { labId?: string }) {
-    return request<Subnet[]>('/subnets', undefined, params)
-  },
-
-  getDhcpScopes(params?: { subnetId?: string }) {
-    return request<DhcpScope[]>('/dhcp-scopes', undefined, params)
-  },
-
-  getIpZones(params?: { subnetId?: string }) {
-    return request<IpZone[]>('/ip-zones', undefined, params)
-  },
-
-  getIpAssignments(params?: { subnetId?: string; deviceId?: string }) {
-    return request<IpAssignment[]>('/ip-assignments', undefined, params)
-  },
-
-  getAuditLog(params?: { entityId?: string; entityType?: string; limit?: number }) {
-    return request<AuditEntry[]>('/audit-log', undefined, params)
+  createPort(body: Omit<Port, 'id'> & { id?: string }) {
+    return request<Port>('/ports', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
   },
 
   updatePort(id: string, body: PortPatch) {
@@ -114,6 +250,16 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify(body),
     })
+  },
+
+  deletePort(id: string) {
+    return request<void>(`/ports/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getPortLinks() {
+    return request<PortLink[]>('/port-links')
   },
 
   createPortLink(body: Omit<PortLink, 'id'> & { id?: string }) {
@@ -136,24 +282,8 @@ export const api = {
     })
   },
 
-  createDevice(body: Omit<Device, 'id'> & { id?: string }) {
-    return request<Device>('/devices', {
-      method: 'POST',
-      body: JSON.stringify(body),
-    })
-  },
-
-  updateDevice(id: string, body: DevicePatch) {
-    return request<Device>(`/devices/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(body),
-    })
-  },
-
-  deleteDevice(id: string) {
-    return request<void>(`/devices/${id}`, {
-      method: 'DELETE',
-    })
+  getVlans(params?: { labId?: string }) {
+    return request<Vlan[]>('/vlans', undefined, params)
   },
 
   createVlan(body: Omit<Vlan, 'id'> & { id?: string }) {
@@ -176,6 +306,106 @@ export const api = {
     })
   },
 
+  getVlanRanges(params?: { labId?: string }) {
+    return request<VlanRange[]>('/vlans/ranges', undefined, params)
+  },
+
+  createVlanRange(body: Omit<VlanRange, 'id'> & { id?: string }) {
+    return request<VlanRange>('/vlans/ranges', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateVlanRange(id: string, body: VlanRangePatch) {
+    return request<VlanRange>(`/vlans/ranges/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteVlanRange(id: string) {
+    return request<void>(`/vlans/ranges/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getSubnets(params?: { labId?: string }) {
+    return request<Subnet[]>('/subnets', undefined, params)
+  },
+
+  createSubnet(body: Omit<Subnet, 'id'> & { id?: string }) {
+    return request<Subnet>('/subnets', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateSubnet(id: string, body: SubnetPatch) {
+    return request<Subnet>(`/subnets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteSubnet(id: string) {
+    return request<void>(`/subnets/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getDhcpScopes(params?: { subnetId?: string }) {
+    return request<DhcpScope[]>('/dhcp-scopes', undefined, params)
+  },
+
+  createDhcpScope(body: Omit<DhcpScope, 'id'> & { id?: string }) {
+    return request<DhcpScope>('/dhcp-scopes', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateDhcpScope(id: string, body: DhcpScopePatch) {
+    return request<DhcpScope>(`/dhcp-scopes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteDhcpScope(id: string) {
+    return request<void>(`/dhcp-scopes/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getIpZones(params?: { subnetId?: string }) {
+    return request<IpZone[]>('/ip-zones', undefined, params)
+  },
+
+  createIpZone(body: Omit<IpZone, 'id'> & { id?: string }) {
+    return request<IpZone>('/ip-zones', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateIpZone(id: string, body: IpZonePatch) {
+    return request<IpZone>(`/ip-zones/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteIpZone(id: string) {
+    return request<void>(`/ip-zones/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getIpAssignments(params?: { subnetId?: string; deviceId?: string }) {
+    return request<IpAssignment[]>('/ip-assignments', undefined, params)
+  },
+
   createIpAssignment(body: Omit<IpAssignment, 'id'> & { id?: string }) {
     return request<IpAssignment>('/ip-assignments', {
       method: 'POST',
@@ -196,10 +426,37 @@ export const api = {
     })
   },
 
-  createAuditEntry(body: Omit<AuditEntry, 'id' | 'ts'> & { id?: string; ts?: string }) {
+  getAuditLog(params?: { entityId?: string; entityType?: string; limit?: number }) {
+    return request<AuditEntry[]>('/audit-log', undefined, params)
+  },
+
+  createAuditEntry(body: Omit<AuditEntry, 'id' | 'ts' | 'user'> & { id?: string; ts?: string; user?: string }) {
     return request<AuditEntry>('/audit-log', {
       method: 'POST',
       body: JSON.stringify(body),
+    })
+  },
+
+  getDeviceMonitors(params?: { deviceId?: string }) {
+    return request<DeviceMonitor[]>('/device-monitors', undefined, params)
+  },
+
+  saveDeviceMonitor(deviceId: string, body: MonitorPatch) {
+    return request<DeviceMonitor>(`/device-monitors/${deviceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+  },
+
+  runAllDeviceMonitors() {
+    return request<{ results: DeviceMonitor[] }>('/device-monitors/run', {
+      method: 'POST',
+    })
+  },
+
+  runDeviceMonitor(deviceId: string) {
+    return request<DeviceMonitor>(`/device-monitors/run/${deviceId}`, {
+      method: 'POST',
     })
   },
 }

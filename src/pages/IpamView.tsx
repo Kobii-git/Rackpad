@@ -1,15 +1,29 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
+import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { Input } from '@/components/ui/Input'
 import { Mono } from '@/components/shared/Mono'
 import { IpUtilizationBar } from '@/components/ip/IpUtilizationBar'
 import { IpZoneBar } from '@/components/vlan/IpZoneBar'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
-import { unassignIp, useStore } from '@/lib/store'
-import type { Device, IpAssignment, Vlan } from '@/lib/types'
-import { Hash, Network } from 'lucide-react'
+import {
+  canEditInventory,
+  createDhcpScopeRecord,
+  createIpZoneRecord,
+  createSubnetRecord,
+  deleteDhcpScopeRecord,
+  deleteIpZoneRecord,
+  deleteSubnetRecord,
+  unassignIp,
+  updateDhcpScopeRecord,
+  updateIpZoneRecord,
+  updateSubnetRecord,
+  useStore,
+} from '@/lib/store'
+import type { Device, DhcpScope, IpAssignment, IpZone, Subnet, Vlan } from '@/lib/types'
+import { Hash, Network, Plus, Save, Trash2 } from 'lucide-react'
 import { cidrSize } from '@/lib/utils'
 
 const TYPE_LABELS: Record<IpAssignment['assignmentType'], string> = {
@@ -30,15 +44,84 @@ const VISIBLE_ASSIGNMENT_TYPES: IpAssignment['assignmentType'][] = [
   'infrastructure',
 ]
 
+type SubnetForm = {
+  cidr: string
+  name: string
+  description: string
+  vlanId: string
+}
+
+type ScopeForm = {
+  name: string
+  startIp: string
+  endIp: string
+  gateway: string
+  dnsServers: string
+  description: string
+}
+
+type ZoneForm = {
+  kind: IpZone['kind']
+  startIp: string
+  endIp: string
+  description: string
+}
+
+const EMPTY_SUBNET_FORM: SubnetForm = {
+  cidr: '',
+  name: '',
+  description: '',
+  vlanId: '',
+}
+
+const EMPTY_SCOPE_FORM: ScopeForm = {
+  name: '',
+  startIp: '',
+  endIp: '',
+  gateway: '',
+  dnsServers: '',
+  description: '',
+}
+
+const EMPTY_ZONE_FORM: ZoneForm = {
+  kind: 'static',
+  startIp: '',
+  endIp: '',
+  description: '',
+}
+
 export default function IpamView() {
+  const currentUser = useStore((s) => s.currentUser)
   const subnets = useStore((s) => s.subnets)
   const vlans = useStore((s) => s.vlans)
   const devices = useStore((s) => s.devices)
   const allAssignments = useStore((s) => s.ipAssignments)
   const allScopes = useStore((s) => s.scopes)
   const allZones = useStore((s) => s.ipZones)
+  const canEdit = canEditInventory(currentUser)
+
   const [subnetId, setSubnetId] = useState('')
   const [releasingId, setReleasingId] = useState<string | null>(null)
+
+  const [creatingSubnet, setCreatingSubnet] = useState(false)
+  const [subnetForm, setSubnetForm] = useState<SubnetForm>(EMPTY_SUBNET_FORM)
+  const [subnetSaving, setSubnetSaving] = useState(false)
+  const [subnetDeleting, setSubnetDeleting] = useState(false)
+  const [subnetError, setSubnetError] = useState('')
+
+  const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null)
+  const [creatingScope, setCreatingScope] = useState(false)
+  const [scopeForm, setScopeForm] = useState<ScopeForm>(EMPTY_SCOPE_FORM)
+  const [scopeSaving, setScopeSaving] = useState(false)
+  const [scopeDeleting, setScopeDeleting] = useState(false)
+  const [scopeError, setScopeError] = useState('')
+
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
+  const [creatingZone, setCreatingZone] = useState(false)
+  const [zoneForm, setZoneForm] = useState<ZoneForm>(EMPTY_ZONE_FORM)
+  const [zoneSaving, setZoneSaving] = useState(false)
+  const [zoneDeleting, setZoneDeleting] = useState(false)
+  const [zoneError, setZoneError] = useState('')
 
   useEffect(() => {
     if (!subnets.length) return
@@ -76,6 +159,79 @@ export default function IpamView() {
     [allZones, subnet?.id],
   )
 
+  useEffect(() => {
+    if (!subnet || creatingSubnet) return
+    setSubnetForm({
+      cidr: subnet.cidr,
+      name: subnet.name,
+      description: subnet.description ?? '',
+      vlanId: subnet.vlanId ?? '',
+    })
+    setSubnetError('')
+  }, [creatingSubnet, subnet])
+
+  useEffect(() => {
+    if (!subnetScopes.length) {
+      setSelectedScopeId(null)
+      return
+    }
+    if (!selectedScopeId || !subnetScopes.some((scope) => scope.id === selectedScopeId)) {
+      setSelectedScopeId(subnetScopes[0].id)
+    }
+  }, [selectedScopeId, subnetScopes])
+
+  const selectedScope = selectedScopeId
+    ? subnetScopes.find((scope) => scope.id === selectedScopeId)
+    : undefined
+
+  useEffect(() => {
+    if (creatingScope) {
+      setScopeForm(EMPTY_SCOPE_FORM)
+      setScopeError('')
+      return
+    }
+    if (!selectedScope) return
+    setScopeForm({
+      name: selectedScope.name,
+      startIp: selectedScope.startIp,
+      endIp: selectedScope.endIp,
+      gateway: selectedScope.gateway ?? '',
+      dnsServers: (selectedScope.dnsServers ?? []).join(', '),
+      description: selectedScope.description ?? '',
+    })
+    setScopeError('')
+  }, [creatingScope, selectedScope])
+
+  useEffect(() => {
+    if (!subnetZones.length) {
+      setSelectedZoneId(null)
+      return
+    }
+    if (!selectedZoneId || !subnetZones.some((zone) => zone.id === selectedZoneId)) {
+      setSelectedZoneId(subnetZones[0].id)
+    }
+  }, [selectedZoneId, subnetZones])
+
+  const selectedZone = selectedZoneId
+    ? subnetZones.find((zone) => zone.id === selectedZoneId)
+    : undefined
+
+  useEffect(() => {
+    if (creatingZone) {
+      setZoneForm(EMPTY_ZONE_FORM)
+      setZoneError('')
+      return
+    }
+    if (!selectedZone) return
+    setZoneForm({
+      kind: selectedZone.kind,
+      startIp: selectedZone.startIp,
+      endIp: selectedZone.endIp,
+      description: selectedZone.description ?? '',
+    })
+    setZoneError('')
+  }, [creatingZone, selectedZone])
+
   const ipsBySubnetId = useMemo(() => {
     return allAssignments.reduce<Record<string, IpAssignment[]>>((acc, assignment) => {
       ;(acc[assignment.subnetId] ??= []).push(assignment)
@@ -90,11 +246,84 @@ export default function IpamView() {
     }, {})
   }, [assignments])
 
-  if (!subnet) {
-    return null
+  if (!subnet && !creatingSubnet) {
+    return (
+      <>
+        <TopBar
+          subtitle="Address management"
+          title="IPAM"
+          actions={
+            canEdit ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCreatingSubnet(true)
+                  setSubnetForm(EMPTY_SUBNET_FORM)
+                }}
+              >
+                <Plus className="size-3.5" />
+                Add subnet
+              </Button>
+            ) : undefined
+          }
+        />
+        <div className="flex flex-1 items-center justify-center px-6">
+          <Card className="w-full max-w-xl">
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>IPAM</CardLabel>
+                <CardHeading>No subnets documented yet</CardHeading>
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              <div className="text-sm text-[var(--color-fg-subtle)]">
+                Create a subnet to start documenting IP allocations, DHCP scopes, and static zones.
+              </div>
+              {canEdit && (
+                <SubnetEditor
+                  creating={creatingSubnet}
+                  form={subnetForm}
+                  vlans={vlans}
+                  error={subnetError}
+                  saving={subnetSaving}
+                  deleting={false}
+                  canDelete={false}
+                  onChange={setSubnetForm}
+                  onSave={async () => {
+                    setSubnetSaving(true)
+                    setSubnetError('')
+                    try {
+                      const created = await createSubnetRecord({
+                        labId: 'lab_home',
+                        cidr: subnetForm.cidr.trim(),
+                        name: subnetForm.name.trim(),
+                        description: subnetForm.description.trim() || undefined,
+                        vlanId: subnetForm.vlanId || undefined,
+                      })
+                      setSubnetId(created.id)
+                      setCreatingSubnet(false)
+                    } catch (err) {
+                      setSubnetError(err instanceof Error ? err.message : 'Failed to create subnet.')
+                    } finally {
+                      setSubnetSaving(false)
+                    }
+                  }}
+                  onDelete={async () => {}}
+                  onNew={() => {
+                    setCreatingSubnet(true)
+                    setSubnetForm(EMPTY_SUBNET_FORM)
+                  }}
+                />
+              )}
+            </CardBody>
+          </Card>
+        </div>
+      </>
+    )
   }
 
-  const vlan = subnet.vlanId ? vlanById[subnet.vlanId] : undefined
+  const vlan = subnet?.vlanId ? vlanById[subnet.vlanId] : undefined
 
   async function handleUnassign(assignmentId: string) {
     setReleasingId(assignmentId)
@@ -102,6 +331,156 @@ export default function IpamView() {
       await unassignIp(assignmentId)
     } finally {
       setReleasingId(null)
+    }
+  }
+
+  async function handleSaveSubnet() {
+    if (!subnet) return
+    setSubnetSaving(true)
+    setSubnetError('')
+    try {
+      if (creatingSubnet) {
+        const created = await createSubnetRecord({
+          labId: 'lab_home',
+          cidr: subnetForm.cidr.trim(),
+          name: subnetForm.name.trim(),
+          description: subnetForm.description.trim() || undefined,
+          vlanId: subnetForm.vlanId || undefined,
+        })
+        setSubnetId(created.id)
+        setCreatingSubnet(false)
+        return
+      }
+
+      await updateSubnetRecord(subnet.id, {
+        cidr: subnetForm.cidr.trim(),
+        name: subnetForm.name.trim(),
+        description: subnetForm.description.trim() || null,
+        vlanId: subnetForm.vlanId || null,
+      })
+    } catch (err) {
+      setSubnetError(err instanceof Error ? err.message : 'Failed to save subnet.')
+    } finally {
+      setSubnetSaving(false)
+    }
+  }
+
+  async function handleDeleteSubnet() {
+    if (!subnet) return
+    if (!window.confirm(`Delete subnet ${subnet.cidr}? This also removes its scopes, zones, and assignments.`)) {
+      return
+    }
+    setSubnetDeleting(true)
+    setSubnetError('')
+    try {
+      await deleteSubnetRecord(subnet.id)
+      setSubnetId('')
+    } catch (err) {
+      setSubnetError(err instanceof Error ? err.message : 'Failed to delete subnet.')
+    } finally {
+      setSubnetDeleting(false)
+    }
+  }
+
+  async function handleSaveScope() {
+    if (!subnet) return
+    setScopeSaving(true)
+    setScopeError('')
+    try {
+      if (creatingScope) {
+        const created = await createDhcpScopeRecord({
+          subnetId: subnet.id,
+          name: scopeForm.name.trim(),
+          startIp: scopeForm.startIp.trim(),
+          endIp: scopeForm.endIp.trim(),
+          gateway: scopeForm.gateway.trim() || undefined,
+          dnsServers: parseDnsServers(scopeForm.dnsServers),
+          description: scopeForm.description.trim() || undefined,
+        })
+        setSelectedScopeId(created.id)
+        setCreatingScope(false)
+        return
+      }
+
+      if (!selectedScope) return
+      await updateDhcpScopeRecord(selectedScope.id, {
+        name: scopeForm.name.trim(),
+        startIp: scopeForm.startIp.trim(),
+        endIp: scopeForm.endIp.trim(),
+        gateway: scopeForm.gateway.trim() || null,
+        dnsServers: parseDnsServers(scopeForm.dnsServers) ?? null,
+        description: scopeForm.description.trim() || null,
+      })
+    } catch (err) {
+      setScopeError(err instanceof Error ? err.message : 'Failed to save DHCP scope.')
+    } finally {
+      setScopeSaving(false)
+    }
+  }
+
+  async function handleDeleteScope() {
+    if (!selectedScope) return
+    if (!window.confirm(`Delete DHCP scope ${selectedScope.name}?`)) return
+    setScopeDeleting(true)
+    setScopeError('')
+    try {
+      await deleteDhcpScopeRecord(selectedScope.id)
+      setSelectedScopeId(null)
+      setCreatingScope(false)
+    } catch (err) {
+      setScopeError(err instanceof Error ? err.message : 'Failed to delete DHCP scope.')
+    } finally {
+      setScopeDeleting(false)
+    }
+  }
+
+  async function handleSaveZone() {
+    if (!subnet) return
+    setZoneSaving(true)
+    setZoneError('')
+    try {
+      if (creatingZone) {
+        const created = await createIpZoneRecord({
+          subnetId: subnet.id,
+          kind: zoneForm.kind,
+          startIp: zoneForm.startIp.trim(),
+          endIp: zoneForm.endIp.trim(),
+          description: zoneForm.description.trim() || undefined,
+        })
+        setSelectedZoneId(created.id)
+        setCreatingZone(false)
+        return
+      }
+
+      if (!selectedZone) return
+      await updateIpZoneRecord(selectedZone.id, {
+        kind: zoneForm.kind,
+        startIp: zoneForm.startIp.trim(),
+        endIp: zoneForm.endIp.trim(),
+        description: zoneForm.description.trim() || undefined,
+      })
+    } catch (err) {
+      setZoneError(err instanceof Error ? err.message : 'Failed to save IP zone.')
+    } finally {
+      setZoneSaving(false)
+    }
+  }
+
+  async function handleDeleteZone() {
+    if (!selectedZone) return
+    if (!window.confirm(`Delete ${selectedZone.kind} zone ${selectedZone.startIp}-${selectedZone.endIp}?`)) {
+      return
+    }
+    setZoneDeleting(true)
+    setZoneError('')
+    try {
+      await deleteIpZoneRecord(selectedZone.id)
+      setSelectedZoneId(null)
+      setCreatingZone(false)
+    } catch (err) {
+      setZoneError(err instanceof Error ? err.message : 'Failed to delete IP zone.')
+    } finally {
+      setZoneDeleting(false)
     }
   }
 
@@ -120,7 +499,24 @@ export default function IpamView() {
             </span>
           </>
         }
-        actions={<AllocatePanel defaultTab="ip" defaultSubnetId={subnet.id} />}
+        actions={
+          <>
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCreatingSubnet(true)
+                  setSubnetForm(EMPTY_SUBNET_FORM)
+                }}
+              >
+                <Plus className="size-3.5" />
+                Add subnet
+              </Button>
+            )}
+            <AllocatePanel defaultTab="ip" defaultSubnetId={subnet?.id} />
+          </>
+        }
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -132,7 +528,7 @@ export default function IpamView() {
           </div>
           <div className="flex-1 overflow-y-auto py-1">
             {subnets.map((entry) => {
-              const isActive = entry.id === subnet.id
+              const isActive = entry.id === subnet?.id
               const entryVlan = entry.vlanId ? vlanById[entry.vlanId] : undefined
               const ipCount = (ipsBySubnetId[entry.id] ?? []).length
               const total = cidrSize(entry.cidr) - 2
@@ -140,7 +536,12 @@ export default function IpamView() {
               return (
                 <button
                   key={entry.id}
-                  onClick={() => setSubnetId(entry.id)}
+                  onClick={() => {
+                    setSubnetId(entry.id)
+                    setCreatingSubnet(false)
+                    setCreatingScope(false)
+                    setCreatingZone(false)
+                  }}
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
                     isActive
                       ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
@@ -172,32 +573,53 @@ export default function IpamView() {
         </div>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-                Subnet
-              </div>
-              <h2 className="flex items-center gap-3 text-lg font-semibold tracking-tight">
-                <span className="font-mono">{subnet.cidr}</span>
-                <span className="font-sans text-[var(--color-fg-muted)]">/</span>
-                <span className="font-sans">{subnet.name}</span>
-              </h2>
-              {vlan && (
-                <div className="mt-1 flex items-center gap-2">
-                  <Hash className="size-3 text-[var(--color-fg-subtle)]" />
-                  <span
-                    className="rounded-[1px] px-1.5 py-0.5 font-mono text-[11px]"
-                    style={{ backgroundColor: `${vlan.color}20`, color: vlan.color }}
-                  >
-                    VLAN {vlan.vlanId} - {vlan.name}
-                  </span>
-                  {vlan.description && (
-                    <span className="text-[11px] text-[var(--color-fg-subtle)]">{vlan.description}</span>
-                  )}
+          {subnet && (
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+                  Subnet
                 </div>
-              )}
+                <h2 className="flex items-center gap-3 text-lg font-semibold tracking-tight">
+                  <span className="font-mono">{subnet.cidr}</span>
+                  <span className="font-sans text-[var(--color-fg-muted)]">/</span>
+                  <span className="font-sans">{subnet.name}</span>
+                </h2>
+                {vlan && (
+                  <div className="mt-1 flex items-center gap-2">
+                    <Hash className="size-3 text-[var(--color-fg-subtle)]" />
+                    <span
+                      className="rounded-[1px] px-1.5 py-0.5 font-mono text-[11px]"
+                      style={{ backgroundColor: `${vlan.color}20`, color: vlan.color }}
+                    >
+                      VLAN {vlan.vlanId} - {vlan.name}
+                    </span>
+                    {vlan.description && (
+                      <span className="text-[11px] text-[var(--color-fg-subtle)]">{vlan.description}</span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
+
+          {canEdit && subnet && (
+            <SubnetEditor
+              creating={creatingSubnet}
+              form={subnetForm}
+              vlans={vlans}
+              error={subnetError}
+              saving={subnetSaving}
+              deleting={subnetDeleting}
+              canDelete={!creatingSubnet}
+              onChange={setSubnetForm}
+              onSave={() => void handleSaveSubnet()}
+              onDelete={() => void handleDeleteSubnet()}
+              onNew={() => {
+                setCreatingSubnet(true)
+                setSubnetForm(EMPTY_SUBNET_FORM)
+              }}
+            />
+          )}
 
           {subnetZones.length > 0 && (
             <Card>
@@ -225,37 +647,38 @@ export default function IpamView() {
             </CardBody>
           </Card>
 
-          {subnetScopes.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <CardLabel>DHCP</CardLabel>
-                  <CardHeading>Scopes</CardHeading>
-                </CardTitle>
-              </CardHeader>
-              <CardBody className="p-0">
-                <div className="divide-y divide-[var(--color-line)]">
-                  {subnetScopes.map((scope) => (
-                    <div key={scope.id} className="flex items-center justify-between px-4 py-2.5">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
-                          {scope.name}
-                        </span>
-                        <Mono className="text-[var(--color-fg-muted)]">
-                          {scope.startIp} -&gt; {scope.endIp}
-                        </Mono>
-                      </div>
-                      {scope.gateway && (
-                        <div className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
-                          gw <span className="text-[var(--color-fg)]">{scope.gateway}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardBody>
-            </Card>
-          )}
+          <ScopeEditor
+            subnet={subnet}
+            scopes={subnetScopes}
+            selectedScopeId={selectedScopeId}
+            setSelectedScopeId={setSelectedScopeId}
+            creating={creatingScope}
+            setCreating={setCreatingScope}
+            form={scopeForm}
+            onChange={setScopeForm}
+            error={scopeError}
+            saving={scopeSaving}
+            deleting={scopeDeleting}
+            canEdit={canEdit}
+            onSave={() => void handleSaveScope()}
+            onDelete={() => void handleDeleteScope()}
+          />
+
+          <ZoneEditor
+            zones={subnetZones}
+            selectedZoneId={selectedZoneId}
+            setSelectedZoneId={setSelectedZoneId}
+            creating={creatingZone}
+            setCreating={setCreatingZone}
+            form={zoneForm}
+            onChange={setZoneForm}
+            error={zoneError}
+            saving={zoneSaving}
+            deleting={zoneDeleting}
+            canEdit={canEdit}
+            onSave={() => void handleSaveZone()}
+            onDelete={() => void handleDeleteZone()}
+          />
 
           {VISIBLE_ASSIGNMENT_TYPES.map((type) => {
             const items = grouped[type]
@@ -290,7 +713,7 @@ export default function IpamView() {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                disabled={releasingId === assignment.id}
+                                disabled={releasingId === assignment.id || !canEdit}
                                 onClick={() => void handleUnassign(assignment.id)}
                               >
                                 {releasingId === assignment.id ? 'Releasing...' : 'Unassign'}
@@ -310,6 +733,419 @@ export default function IpamView() {
   )
 }
 
+function SubnetEditor({
+  creating,
+  form,
+  vlans,
+  error,
+  saving,
+  deleting,
+  canDelete,
+  onChange,
+  onSave,
+  onDelete,
+  onNew,
+}: {
+  creating: boolean
+  form: SubnetForm
+  vlans: Vlan[]
+  error: string
+  saving: boolean
+  deleting: boolean
+  canDelete: boolean
+  onChange: React.Dispatch<React.SetStateAction<SubnetForm>>
+  onSave: () => void
+  onDelete: () => void
+  onNew: () => void
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>{creating ? 'New subnet' : 'Subnet editor'}</CardLabel>
+          <CardHeading>{creating ? 'Create subnet' : 'Update subnet details'}</CardHeading>
+        </CardTitle>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onNew}>
+            <Plus className="size-3.5" />
+            New subnet
+          </Button>
+        </div>
+      </CardHeader>
+      <CardBody className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="CIDR">
+            <Input
+              value={form.cidr}
+              onChange={(event) => onChange((prev) => ({ ...prev, cidr: event.target.value }))}
+              placeholder="10.0.10.0/24"
+            />
+          </Field>
+          <Field label="Name">
+            <Input
+              value={form.name}
+              onChange={(event) => onChange((prev) => ({ ...prev, name: event.target.value }))}
+              placeholder="Servers management"
+            />
+          </Field>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field label="VLAN">
+            <Select
+              value={form.vlanId}
+              onChange={(value) => onChange((prev) => ({ ...prev, vlanId: value }))}
+            >
+              <option value="">Unassigned</option>
+              {vlans.map((vlan) => (
+                <option key={vlan.id} value={vlan.id}>
+                  {vlan.vlanId} - {vlan.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Description">
+            <Input
+              value={form.description}
+              onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+              placeholder="Primary management network"
+            />
+          </Field>
+        </div>
+        {error && <ErrorBanner>{error}</ErrorBanner>}
+        <div className="flex items-center justify-end gap-2">
+          {canDelete && (
+            <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+              <Trash2 className="size-3.5" />
+              {deleting ? 'Deleting...' : 'Delete subnet'}
+            </Button>
+          )}
+          <Button size="sm" onClick={onSave} disabled={saving}>
+            <Save className="size-3.5" />
+            {saving ? 'Saving...' : creating ? 'Create subnet' : 'Save subnet'}
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
+  )
+}
+
+function ScopeEditor({
+  subnet,
+  scopes,
+  selectedScopeId,
+  setSelectedScopeId,
+  creating,
+  setCreating,
+  form,
+  onChange,
+  error,
+  saving,
+  deleting,
+  canEdit,
+  onSave,
+  onDelete,
+}: {
+  subnet: Subnet
+  scopes: DhcpScope[]
+  selectedScopeId: string | null
+  setSelectedScopeId: (value: string | null) => void
+  creating: boolean
+  setCreating: (value: boolean) => void
+  form: ScopeForm
+  onChange: React.Dispatch<React.SetStateAction<ScopeForm>>
+  error: string
+  saving: boolean
+  deleting: boolean
+  canEdit: boolean
+  onSave: () => void
+  onDelete: () => void
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>DHCP</CardLabel>
+          <CardHeading>Scopes</CardHeading>
+        </CardTitle>
+        {canEdit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setCreating(true)
+              setSelectedScopeId(null)
+            }}
+          >
+            <Plus className="size-3.5" />
+            Add scope
+          </Button>
+        )}
+      </CardHeader>
+      <CardBody className="space-y-4">
+        {scopes.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {scopes.map((scope) => (
+              <button
+                key={scope.id}
+                type="button"
+                onClick={() => {
+                  setCreating(false)
+                  setSelectedScopeId(scope.id)
+                }}
+                className={`rounded-[var(--radius-xs)] border px-2.5 py-1 text-xs transition-colors ${
+                  !creating && selectedScopeId === scope.id
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                    : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                }`}
+              >
+                <span className="font-mono">{scope.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-[var(--color-fg-subtle)]">No DHCP scopes documented for {subnet.cidr}.</div>
+        )}
+
+        {(creating || selectedScopeId) && canEdit && (
+          <div className="space-y-4 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Scope name">
+                <Input
+                  value={form.name}
+                  onChange={(event) => onChange((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Clients"
+                />
+              </Field>
+              <Field label="Gateway">
+                <Input
+                  value={form.gateway}
+                  onChange={(event) => onChange((prev) => ({ ...prev, gateway: event.target.value }))}
+                  placeholder="10.0.10.1"
+                />
+              </Field>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label="Start IP">
+                <Input
+                  value={form.startIp}
+                  onChange={(event) => onChange((prev) => ({ ...prev, startIp: event.target.value }))}
+                  placeholder="10.0.10.100"
+                />
+              </Field>
+              <Field label="End IP">
+                <Input
+                  value={form.endIp}
+                  onChange={(event) => onChange((prev) => ({ ...prev, endIp: event.target.value }))}
+                  placeholder="10.0.10.199"
+                />
+              </Field>
+            </div>
+            <Field label="DNS servers">
+              <Input
+                value={form.dnsServers}
+                onChange={(event) => onChange((prev) => ({ ...prev, dnsServers: event.target.value }))}
+                placeholder="1.1.1.1, 8.8.8.8"
+              />
+            </Field>
+            <Field label="Description">
+              <Input
+                value={form.description}
+                onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="General client pool"
+              />
+            </Field>
+            {error && <ErrorBanner>{error}</ErrorBanner>}
+            <div className="flex items-center justify-end gap-2">
+              {!creating && (
+                <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+                  <Trash2 className="size-3.5" />
+                  {deleting ? 'Deleting...' : 'Delete scope'}
+                </Button>
+              )}
+              <Button size="sm" onClick={onSave} disabled={saving}>
+                <Save className="size-3.5" />
+                {saving ? 'Saving...' : creating ? 'Create scope' : 'Save scope'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function ZoneEditor({
+  zones,
+  selectedZoneId,
+  setSelectedZoneId,
+  creating,
+  setCreating,
+  form,
+  onChange,
+  error,
+  saving,
+  deleting,
+  canEdit,
+  onSave,
+  onDelete,
+}: {
+  zones: IpZone[]
+  selectedZoneId: string | null
+  setSelectedZoneId: (value: string | null) => void
+  creating: boolean
+  setCreating: (value: boolean) => void
+  form: ZoneForm
+  onChange: React.Dispatch<React.SetStateAction<ZoneForm>>
+  error: string
+  saving: boolean
+  deleting: boolean
+  canEdit: boolean
+  onSave: () => void
+  onDelete: () => void
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>IP zones</CardLabel>
+          <CardHeading>Static, DHCP, reserved, infrastructure</CardHeading>
+        </CardTitle>
+        {canEdit && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setCreating(true)
+              setSelectedZoneId(null)
+            }}
+          >
+            <Plus className="size-3.5" />
+            Add zone
+          </Button>
+        )}
+      </CardHeader>
+      <CardBody className="space-y-4">
+        {zones.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {zones.map((zone) => (
+              <button
+                key={zone.id}
+                type="button"
+                onClick={() => {
+                  setCreating(false)
+                  setSelectedZoneId(zone.id)
+                }}
+                className={`rounded-[var(--radius-xs)] border px-2.5 py-1 text-xs transition-colors ${
+                  !creating && selectedZoneId === zone.id
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                    : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                }`}
+              >
+                <span className="font-mono">{zone.kind}</span>
+                <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
+                <span>{zone.startIp}-{zone.endIp}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-[var(--color-fg-subtle)]">No IP zones documented yet.</div>
+        )}
+
+        {(creating || selectedZoneId) && canEdit && (
+          <div className="space-y-4 rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+            <div className="grid gap-4 md:grid-cols-3">
+              <Field label="Kind">
+                <Select
+                  value={form.kind}
+                  onChange={(value) => onChange((prev) => ({ ...prev, kind: value as ZoneForm['kind'] }))}
+                >
+                  <option value="static">static</option>
+                  <option value="dhcp">dhcp</option>
+                  <option value="reserved">reserved</option>
+                  <option value="infrastructure">infrastructure</option>
+                </Select>
+              </Field>
+              <Field label="Start IP">
+                <Input
+                  value={form.startIp}
+                  onChange={(event) => onChange((prev) => ({ ...prev, startIp: event.target.value }))}
+                  placeholder="10.0.10.10"
+                />
+              </Field>
+              <Field label="End IP">
+                <Input
+                  value={form.endIp}
+                  onChange={(event) => onChange((prev) => ({ ...prev, endIp: event.target.value }))}
+                  placeholder="10.0.10.99"
+                />
+              </Field>
+            </div>
+            <Field label="Description">
+              <Input
+                value={form.description}
+                onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="Static addresses for infrastructure"
+              />
+            </Field>
+            {error && <ErrorBanner>{error}</ErrorBanner>}
+            <div className="flex items-center justify-end gap-2">
+              {!creating && (
+                <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+                  <Trash2 className="size-3.5" />
+                  {deleting ? 'Deleting...' : 'Delete zone'}
+                </Button>
+              )}
+              <Button size="sm" onClick={onSave} disabled={saving}>
+                <Save className="size-3.5" />
+                {saving ? 'Saving...' : creating ? 'Create zone' : 'Save zone'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+    >
+      {children}
+    </select>
+  )
+}
+
+function ErrorBanner({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+      {children}
+    </div>
+  )
+}
+
 function badgeTone(type: IpAssignment['assignmentType']) {
   switch (type) {
     case 'device':
@@ -325,4 +1161,12 @@ function badgeTone(type: IpAssignment['assignmentType']) {
     default:
       return 'neutral' as const
   }
+}
+
+function parseDnsServers(value: string) {
+  const normalized = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  return normalized.length > 0 ? normalized : undefined
 }

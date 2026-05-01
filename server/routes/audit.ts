@@ -1,30 +1,32 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
+import { createId } from '../lib/ids.js'
+import { asObject, parseLimit, requiredString } from '../lib/validation.js'
 
 export const auditRoutes: FastifyPluginAsync = async (app) => {
-  // GET /api/audit-log  (optional ?entityId=, ?entityType=, ?limit=50)
   app.get<{ Querystring: { entityId?: string; entityType?: string; limit?: string } }>('/', async (req) => {
     let sql = 'SELECT * FROM auditLog WHERE 1=1'
     const params: unknown[] = []
-    if (req.query.entityId)   { sql += ' AND entityId = ?';   params.push(req.query.entityId) }
+    if (req.query.entityId) { sql += ' AND entityId = ?'; params.push(req.query.entityId) }
     if (req.query.entityType) { sql += ' AND entityType = ?'; params.push(req.query.entityType) }
     sql += ' ORDER BY ts DESC'
-    const limit = Math.min(parseInt(req.query.limit ?? '100', 10), 500)
-    sql += ` LIMIT ${limit}`
+    sql += ` LIMIT ${parseLimit(req.query.limit, 100, 500)}`
     return db.prepare(sql).all(...params)
   })
 
-  // POST /api/audit-log  (write a new entry)
-  app.post<{ Body: Record<string, unknown> }>('/', async (req, reply) => {
-    const b = req.body as {
-      id?: string; ts?: string; user: string; action: string
-      entityType: string; entityId: string; summary: string
-    }
-    const id = b.id ?? `a_${Date.now()}`
-    const ts = b.ts ?? new Date().toISOString()
+  app.post('/', async (req, reply) => {
+    const body = asObject(req.body)
+    const id = createId('a')
+    const ts = new Date().toISOString()
+    const action = requiredString(body, 'action', { maxLength: 120 })
+    const entityType = requiredString(body, 'entityType', { maxLength: 120 })
+    const entityId = requiredString(body, 'entityId', { maxLength: 120 })
+    const summary = requiredString(body, 'summary', { maxLength: 500 })
+    const user = req.authUser?.username ?? 'system'
+
     db.prepare(
       'INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary) VALUES (?,?,?,?,?,?,?)'
-    ).run(id, ts, b.user, b.action, b.entityType, b.entityId, b.summary)
+    ).run(id, ts, user, action, entityType, entityId, summary)
     return reply.status(201).send(db.prepare('SELECT * FROM auditLog WHERE id = ?').get(id))
   })
 }

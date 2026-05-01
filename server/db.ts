@@ -8,15 +8,8 @@ const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad
 
 export const db = new Database(DB_PATH)
 
-// Enable WAL mode for better concurrent read performance
 db.pragma('journal_mode = WAL')
 db.pragma('foreign_keys = ON')
-
-// ──────────────────────────────────────────────────────────────
-// Schema
-// All column names use camelCase to match TypeScript types
-// for zero-friction row → object conversion.
-// ──────────────────────────────────────────────────────────────
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS labs (
@@ -51,9 +44,9 @@ db.exec(`
     startU       INTEGER,
     heightU      INTEGER,
     face         TEXT,
-    tags         TEXT,   -- JSON array stored as text
+    tags         TEXT,
     notes        TEXT,
-    lastSeen     TEXT    -- ISO date string
+    lastSeen     TEXT
   );
 
   CREATE TABLE IF NOT EXISTS ports (
@@ -114,7 +107,7 @@ db.exec(`
     startIp     TEXT NOT NULL,
     endIp       TEXT NOT NULL,
     gateway     TEXT,
-    dnsServers  TEXT,  -- JSON array stored as text
+    dnsServers  TEXT,
     description TEXT
   );
 
@@ -149,6 +142,39 @@ db.exec(`
     entityId   TEXT NOT NULL,
     summary    TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id           TEXT PRIMARY KEY,
+    username     TEXT NOT NULL,
+    displayName  TEXT NOT NULL,
+    passwordHash TEXT NOT NULL,
+    role         TEXT NOT NULL,
+    disabled     INTEGER NOT NULL DEFAULT 0,
+    createdAt    TEXT NOT NULL,
+    lastLoginAt  TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS userSessions (
+    id         TEXT PRIMARY KEY,
+    userId     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    tokenHash  TEXT NOT NULL,
+    createdAt  TEXT NOT NULL,
+    expiresAt  TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS deviceMonitors (
+    id          TEXT PRIMARY KEY,
+    deviceId    TEXT NOT NULL UNIQUE REFERENCES devices(id) ON DELETE CASCADE,
+    type        TEXT NOT NULL DEFAULT 'none',
+    target      TEXT,
+    port        INTEGER,
+    path        TEXT,
+    intervalMs  INTEGER,
+    enabled     INTEGER NOT NULL DEFAULT 0,
+    lastCheckAt TEXT,
+    lastResult  TEXT,
+    lastMessage TEXT
+  );
 `)
 
 db.exec(`
@@ -157,23 +183,24 @@ db.exec(`
 
   CREATE UNIQUE INDEX IF NOT EXISTS idx_ip_assignments_subnet_ip
     ON ipAssignments (subnetId, ipAddress);
-`)
 
-// ──────────────────────────────────────────────────────────────
-// Helper: parse JSON text columns back to arrays/objects
-// ──────────────────────────────────────────────────────────────
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username
+    ON users (username);
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_token_hash
+    ON userSessions (tokenHash);
+`)
 
 export function parseRow<T extends Record<string, unknown>>(
   row: T,
-  jsonColumns: (keyof T)[]
+  jsonColumns: (keyof T)[],
 ): T {
   for (const col of jsonColumns) {
     if (typeof row[col] === 'string') {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ;(row as any)[col] = JSON.parse(row[col] as string)
+        ;(row as Record<string, unknown>)[String(col)] = JSON.parse(String(row[col]))
       } catch {
-        // leave as-is
+        // Leave the raw value as-is if JSON parsing fails.
       }
     }
   }

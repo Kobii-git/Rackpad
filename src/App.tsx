@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import Dashboard from '@/pages/Dashboard'
 import RackViewPage from '@/pages/RackViewPage'
@@ -8,6 +8,7 @@ import PortView from '@/pages/PortView'
 import CableView from '@/pages/CableView'
 import VlansView from '@/pages/VlansView'
 import IpamView from '@/pages/IpamView'
+import UsersPage from '@/pages/UsersPage'
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/cables" element={<CableView />} />
         <Route path="/vlans" element={<VlansView />} />
         <Route path="/ipam" element={<IpamView />} />
+        <Route path="/users" element={<UsersPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

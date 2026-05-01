@@ -8,17 +8,19 @@ import { Input } from '@/components/ui/Input'
 import { Mono } from '@/components/shared/Mono'
 import { StatusDot } from '@/components/shared/StatusDot'
 import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
-import { useStore } from '@/lib/store'
+import { canEditInventory, useStore } from '@/lib/store'
 import type { DeviceType, Port, Rack } from '@/lib/types'
-import { Filter, ChevronRight, Plus } from 'lucide-react'
+import { ChevronRight, Filter, Plus } from 'lucide-react'
 import { statusLabel } from '@/lib/utils'
 
 const TYPES: DeviceType[] = ['switch', 'router', 'firewall', 'server', 'storage', 'patch_panel', 'pdu', 'ups']
 
 export default function DevicesList() {
+  const currentUser = useStore((s) => s.currentUser)
   const devices = useStore((s) => s.devices)
   const racks = useStore((s) => s.racks)
   const ports = useStore((s) => s.ports)
+  const canEdit = canEditInventory(currentUser)
   const [query, setQuery] = useState('')
   const [type, setType] = useState<DeviceType | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -77,10 +79,12 @@ export default function DevicesList() {
           </span>
         }
         actions={
-          <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
-            <Plus className="size-3.5" />
-            Add device
-          </Button>
+          canEdit ? (
+            <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+              <Plus className="size-3.5" />
+              Add device
+            </Button>
+          ) : undefined
         }
       />
 
@@ -124,7 +128,7 @@ export default function DevicesList() {
           <Filter className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-[var(--color-fg-faint)]" />
           <Input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => setQuery(event.target.value)}
             placeholder="Search hostname, model, IP, tag..."
             className="pl-7"
           />
@@ -174,24 +178,24 @@ export default function DevicesList() {
                       </Td>
                       <Td>
                         <Mono className="text-[11px] text-[var(--color-fg-subtle)]">
-                          {device.manufacturer ? `${device.manufacturer} ${device.model}` : device.model ?? '—'}
+                          {device.manufacturer ? `${device.manufacturer} ${device.model}` : device.model ?? '-'}
                         </Mono>
                       </Td>
                       <Td>
-                        <Mono className="text-[var(--color-fg)]">{device.managementIp ?? '—'}</Mono>
+                        <Mono className="text-[var(--color-fg)]">{device.managementIp ?? '-'}</Mono>
                       </Td>
                       <Td>
                         {rack && device.startU ? (
                           <span className="text-xs">
                             <span className="text-[var(--color-fg-muted)]">{rack.name}</span>
-                            <span className="mx-1 text-[var(--color-fg-faint)]">·</span>
+                            <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
                             <Mono className="text-[var(--color-fg-muted)]">
                               U{device.startU}
-                              {(device.heightU ?? 1) > 1 ? `-${device.startU + device.heightU! - 1}` : ''}
+                              {(device.heightU ?? 1) > 1 ? `-${device.startU + (device.heightU ?? 1) - 1}` : ''}
                             </Mono>
                           </span>
                         ) : (
-                          <span className="text-[var(--color-fg-faint)]">—</span>
+                          <span className="text-[var(--color-fg-faint)]">-</span>
                         )}
                       </Td>
                       <Td>
@@ -200,7 +204,7 @@ export default function DevicesList() {
                             {linked}/{devicePorts.length}
                           </Mono>
                         ) : (
-                          <span className="text-[var(--color-fg-faint)]">—</span>
+                          <span className="text-[var(--color-fg-faint)]">-</span>
                         )}
                       </Td>
                       <Td>
@@ -228,7 +232,7 @@ export default function DevicesList() {
         </Card>
       </div>
 
-      <DeviceDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      {canEdit && <DeviceDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />}
     </>
   )
 }

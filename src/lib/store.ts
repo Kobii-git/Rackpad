@@ -1,10 +1,10 @@
 import { useSyncExternalStore } from 'react'
-import { api } from './api'
-import type { DevicePatch, PortPatch } from './api'
-import { cidrSize, intToIp, ipToInt, nextFreeStaticIp, nextFreeVlanId } from './utils'
+import { api, ApiError, getAuthToken, setAuthToken } from './api'
 import type {
+  AppUser,
   AuditEntry,
   Device,
+  DeviceMonitor,
   DhcpScope,
   IpAssignment,
   IpAssignmentType,
@@ -12,12 +12,25 @@ import type {
   Lab,
   Port,
   PortLink,
+  PortTemplate,
   Rack,
   RackFace,
   Subnet,
+  UserRole,
   Vlan,
   VlanRange,
 } from './types'
+import type {
+  DevicePatch,
+  DhcpScopePatch,
+  MonitorPatch,
+  PortPatch,
+  RackPatch,
+  SubnetPatch,
+  UserPatch,
+  VlanRangePatch,
+} from './api'
+import { cidrSize, intToIp, ipToInt, nextFreeStaticIp, nextFreeVlanId } from './utils'
 
 const DEFAULT_LAB: Lab = {
   id: 'lab_home',
@@ -26,6 +39,12 @@ const DEFAULT_LAB: Lab = {
 }
 
 interface State {
+  authReady: boolean
+  authLoading: boolean
+  authError: string | null
+  needsBootstrap: boolean
+  currentUser: AppUser | null
+  authExpiresAt: string | null
   loading: boolean
   loaded: boolean
   error: string | null
@@ -41,24 +60,40 @@ interface State {
   ipZones: IpZone[]
   ipAssignments: IpAssignment[]
   auditLog: AuditEntry[]
+  users: AppUser[]
+  deviceMonitors: DeviceMonitor[]
+  portTemplates: PortTemplate[]
+}
+
+const EMPTY_DATA = {
+  racks: [] as Rack[],
+  devices: [] as Device[],
+  ports: [] as Port[],
+  portLinks: [] as PortLink[],
+  vlans: [] as Vlan[],
+  vlanRanges: [] as VlanRange[],
+  subnets: [] as Subnet[],
+  scopes: [] as DhcpScope[],
+  ipZones: [] as IpZone[],
+  ipAssignments: [] as IpAssignment[],
+  auditLog: [] as AuditEntry[],
+  users: [] as AppUser[],
+  deviceMonitors: [] as DeviceMonitor[],
+  portTemplates: [] as PortTemplate[],
 }
 
 let state: State = {
+  authReady: false,
+  authLoading: false,
+  authError: null,
+  needsBootstrap: false,
+  currentUser: null,
+  authExpiresAt: null,
   loading: false,
   loaded: false,
   error: null,
   lab: DEFAULT_LAB,
-  racks: [],
-  devices: [],
-  ports: [],
-  portLinks: [],
-  vlans: [],
-  vlanRanges: [],
-  subnets: [],
-  scopes: [],
-  ipZones: [],
-  ipAssignments: [],
-  auditLog: [],
+  ...EMPTY_DATA,
 }
 
 const listeners = new Set<() => void>()
@@ -92,11 +127,31 @@ function setState(next: State | ((prev: State) => State)) {
   emit()
 }
 
-function pushAuditEntry(entry: AuditEntry) {
+function resetData(): Pick<State, keyof typeof EMPTY_DATA | 'loaded' | 'loading' | 'error'> {
+  return {
+    loading: false,
+    loaded: false,
+    error: null,
+    ...EMPTY_DATA,
+  }
+}
+
+function clearSessionState(authError: string | null = null) {
+  setAuthToken(null)
   setState((prev) => ({
     ...prev,
-    auditLog: [entry, ...prev.auditLog],
+    authReady: true,
+    authLoading: false,
+    authError,
+    needsBootstrap: false,
+    currentUser: null,
+    authExpiresAt: null,
+    ...resetData(),
   }))
+}
+
+function sortByName<T extends { name: string }>(items: T[]) {
+  return [...items].sort((a, b) => a.name.localeCompare(b.name))
 }
 
 function sortDevices(devices: Device[]) {
@@ -105,8 +160,8 @@ function sortDevices(devices: Device[]) {
 
 function sortPorts(ports: Port[]) {
   return [...ports].sort((a, b) => {
-    const deviceCompare = a.deviceId.localeCompare(b.deviceId)
-    return deviceCompare !== 0 ? deviceCompare : a.position - b.position
+    const byDevice = a.deviceId.localeCompare(b.deviceId)
+    return byDevice !== 0 ? byDevice : a.position - b.position
   })
 }
 
@@ -114,45 +169,60 @@ function sortVlans(vlans: Vlan[]) {
   return [...vlans].sort((a, b) => a.vlanId - b.vlanId)
 }
 
+function sortVlanRanges(ranges: VlanRange[]) {
+  return [...ranges].sort((a, b) => a.startVlan - b.startVlan)
+}
+
+function sortSubnets(subnets: Subnet[]) {
+  return [...subnets].sort((a, b) => a.cidr.localeCompare(b.cidr))
+}
+
+function sortIpZones(zones: IpZone[]) {
+  return [...zones].sort((a, b) => {
+    const bySubnet = a.subnetId.localeCompare(b.subnetId)
+    return bySubnet !== 0 ? bySubnet : ipToInt(a.startIp) - ipToInt(b.startIp)
+  })
+}
+
+function sortScopes(scopes: DhcpScope[]) {
+  return [...scopes].sort((a, b) => {
+    const bySubnet = a.subnetId.localeCompare(b.subnetId)
+    return bySubnet !== 0 ? bySubnet : a.name.localeCompare(b.name)
+  })
+}
+
 function sortIpAssignments(assignments: IpAssignment[]) {
-  return [...assignments].sort((a, b) => ipToInt(a.ipAddress) - ipToInt(b.ipAddress))
+  return [...assignments].sort((a, b) => {
+    const bySubnet = a.subnetId.localeCompare(b.subnetId)
+    return bySubnet !== 0 ? bySubnet : ipToInt(a.ipAddress) - ipToInt(b.ipAddress)
+  })
 }
 
-function replaceDevice(devices: Device[], updated: Device) {
-  return sortDevices(devices.map((device) => (device.id === updated.id ? updated : device)))
+function sortAudit(entries: AuditEntry[]) {
+  return [...entries].sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))
 }
 
-function replacePort(ports: Port[], updated: Port) {
-  return sortPorts(ports.map((port) => (port.id === updated.id ? updated : port)))
+function sortUsers(users: AppUser[]) {
+  return [...users].sort((a, b) => a.username.localeCompare(b.username))
 }
 
-function replacePortLink(portLinks: PortLink[], updated: PortLink) {
-  const exists = portLinks.some((link) => link.id === updated.id)
-  return exists
-    ? portLinks.map((link) => (link.id === updated.id ? updated : link))
-    : [...portLinks, updated]
+function sortMonitors(monitors: DeviceMonitor[]) {
+  return [...monitors].sort((a, b) => a.deviceId.localeCompare(b.deviceId))
 }
 
-function replaceIpAssignment(assignments: IpAssignment[], updated: IpAssignment) {
-  const exists = assignments.some((assignment) => assignment.id === updated.id)
-  return sortIpAssignments(
-    exists
-      ? assignments.map((assignment) => (assignment.id === updated.id ? updated : assignment))
-      : [...assignments, updated],
-  )
+function replaceById<T extends { id: string }>(items: T[], updated: T, sorter?: (value: T[]) => T[]) {
+  const exists = items.some((item) => item.id === updated.id)
+  const next = exists
+    ? items.map((item) => (item.id === updated.id ? updated : item))
+    : [...items, updated]
+  return sorter ? sorter(next) : next
 }
 
-function removeIpAssignment(assignments: IpAssignment[], assignmentId: string) {
-  return assignments.filter((assignment) => assignment.id !== assignmentId)
+function removeById<T extends { id: string }>(items: T[], id: string) {
+  return items.filter((item) => item.id !== id)
 }
 
-function removePortLink(portLinks: PortLink[], portLinkId: string) {
-  return portLinks.filter((link) => link.id !== portLinkId)
-}
-
-function normalizeDeviceChanges(
-  changes: Partial<Omit<Device, 'id' | 'labId'>>,
-): DevicePatch {
+function normalizeDeviceChanges(changes: Partial<Omit<Device, 'id' | 'labId'>>): DevicePatch {
   const patch: DevicePatch = {}
   const nullableKeys = [
     'rackId',
@@ -183,6 +253,13 @@ function normalizeDeviceChanges(
   }
 
   return patch
+}
+
+function pushAuditEntry(entry: AuditEntry) {
+  setState((prev) => ({
+    ...prev,
+    auditLog: sortAudit([entry, ...prev.auditLog]),
+  }))
 }
 
 function isValidIpv4(ipAddress: string) {
@@ -255,15 +332,9 @@ function findManagementAssignment(
   )
 }
 
-async function recordAudit(
-  action: string,
-  entityType: string,
-  entityId: string,
-  summary: string,
-) {
+async function recordAudit(action: string, entityType: string, entityId: string, summary: string) {
   try {
     const audit = await api.createAuditEntry({
-      user: 'admin',
       action,
       entityType,
       entityId,
@@ -318,12 +389,268 @@ function applyAssignmentSync(
 ) {
   let next = assignments
   if (syncResult.deletedId) {
-    next = removeIpAssignment(next, syncResult.deletedId)
+    next = removeById(next, syncResult.deletedId)
   }
   if (syncResult.upserted) {
-    next = replaceIpAssignment(next, syncResult.upserted)
+    next = replaceById(next, syncResult.upserted, sortIpAssignments)
   }
   return next
+}
+
+function isUnauthorized(error: unknown) {
+  return error instanceof ApiError && error.status === 401
+}
+
+let initPromise: Promise<void> | null = null
+let dataLoadPromise: Promise<void> | null = null
+
+export function canEditInventory(user: AppUser | null) {
+  return !!user && user.role !== 'viewer'
+}
+
+export function isAdmin(user: AppUser | null) {
+  return user?.role === 'admin'
+}
+
+export async function initializeApp(force = false): Promise<void> {
+  if (initPromise && !force) return initPromise
+
+  setState((prev) => ({
+    ...prev,
+    authLoading: true,
+    authError: null,
+  }))
+
+  initPromise = (async () => {
+    try {
+      const status = await api.getAuthStatus()
+
+      if (status.needsBootstrap) {
+        setAuthToken(null)
+        setState((prev) => ({
+          ...prev,
+          authReady: true,
+          authLoading: false,
+          authError: null,
+          needsBootstrap: true,
+          currentUser: null,
+          authExpiresAt: null,
+          ...resetData(),
+        }))
+        return
+      }
+
+      const token = getAuthToken()
+      if (!token) {
+        setState((prev) => ({
+          ...prev,
+          authReady: true,
+          authLoading: false,
+          authError: null,
+          needsBootstrap: false,
+          currentUser: null,
+          authExpiresAt: null,
+          ...resetData(),
+        }))
+        return
+      }
+
+      const session = await api.getCurrentSession()
+      setState((prev) => ({
+        ...prev,
+        authReady: true,
+        authLoading: false,
+        authError: null,
+        needsBootstrap: false,
+        currentUser: session.user,
+        authExpiresAt: session.expiresAt,
+      }))
+
+      await loadAll(true)
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        clearSessionState(null)
+        return
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to initialize Rackpad.'
+      setState((prev) => ({
+        ...prev,
+        authReady: true,
+        authLoading: false,
+        authError: message,
+      }))
+      throw error
+    } finally {
+      initPromise = null
+    }
+  })()
+
+  return initPromise
+}
+
+async function applyAuthSession(session: { token: string; expiresAt: string; user: AppUser }) {
+  setAuthToken(session.token)
+  setState((prev) => ({
+    ...prev,
+    authReady: true,
+    authLoading: false,
+    authError: null,
+    needsBootstrap: false,
+    currentUser: session.user,
+    authExpiresAt: session.expiresAt,
+  }))
+  await loadAll(true)
+}
+
+export async function bootstrapAdmin(input: {
+  username: string
+  displayName?: string
+  password: string
+}): Promise<void> {
+  setState((prev) => ({
+    ...prev,
+    authLoading: true,
+    authError: null,
+  }))
+
+  try {
+    const session = await api.bootstrap(input)
+    await applyAuthSession(session)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to create the initial account.'
+    setState((prev) => ({
+      ...prev,
+      authLoading: false,
+      authError: message,
+    }))
+    throw error
+  }
+}
+
+export async function login(input: { username: string; password: string }): Promise<void> {
+  setState((prev) => ({
+    ...prev,
+    authLoading: true,
+    authError: null,
+  }))
+
+  try {
+    const session = await api.login(input)
+    await applyAuthSession(session)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to sign in.'
+    setState((prev) => ({
+      ...prev,
+      authLoading: false,
+      authError: message,
+    }))
+    throw error
+  }
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await api.logout()
+  } catch {
+    // Best effort only.
+  }
+  clearSessionState(null)
+}
+
+export async function loadAll(force = false): Promise<void> {
+  const currentUser = state.currentUser
+  if (!currentUser) return
+  if (dataLoadPromise && !force) return dataLoadPromise
+
+  setState((prev) => ({
+    ...prev,
+    loading: true,
+    error: null,
+  }))
+
+  dataLoadPromise = (async () => {
+    try {
+      const [
+        racks,
+        devices,
+        ports,
+        portLinks,
+        vlans,
+        vlanRanges,
+        subnets,
+        scopes,
+        ipZones,
+        ipAssignments,
+        auditLog,
+        deviceMonitors,
+        portTemplates,
+        users,
+      ] = await Promise.all([
+        api.getRacks(),
+        api.getDevices(),
+        api.getPorts(),
+        api.getPortLinks(),
+        api.getVlans(),
+        api.getVlanRanges(),
+        api.getSubnets(),
+        api.getDhcpScopes(),
+        api.getIpZones(),
+        api.getIpAssignments(),
+        api.getAuditLog({ limit: 100 }),
+        api.getDeviceMonitors(),
+        api.getPortTemplates(),
+        currentUser.role === 'admin' ? api.getUsers() : Promise.resolve([]),
+      ])
+
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        loaded: true,
+        error: null,
+        racks: sortByName(racks),
+        devices: sortDevices(devices),
+        ports: sortPorts(ports),
+        portLinks,
+        vlans: sortVlans(vlans),
+        vlanRanges: sortVlanRanges(vlanRanges),
+        subnets: sortSubnets(subnets),
+        scopes: sortScopes(scopes),
+        ipZones: sortIpZones(ipZones),
+        ipAssignments: sortIpAssignments(ipAssignments),
+        auditLog: sortAudit(auditLog),
+        deviceMonitors: sortMonitors(deviceMonitors),
+        portTemplates,
+        users: sortUsers(users),
+      }))
+    } catch (error) {
+      if (isUnauthorized(error)) {
+        clearSessionState('Your session expired. Please sign in again.')
+        return
+      }
+
+      const message = error instanceof Error ? error.message : 'Failed to load Rackpad data.'
+      setState((prev) => ({
+        ...prev,
+        loading: false,
+        error: message,
+      }))
+      throw error
+    } finally {
+      dataLoadPromise = null
+    }
+  })()
+
+  return dataLoadPromise
+}
+
+export async function refreshUsers(): Promise<void> {
+  if (!state.currentUser || state.currentUser.role !== 'admin') return
+  const users = await api.getUsers()
+  setState((prev) => ({
+    ...prev,
+    users: sortUsers(users),
+  }))
 }
 
 export function previewNextStaticIp(subnetId: string): string | null {
@@ -337,7 +664,9 @@ export function previewNextStaticIp(subnetId: string): string | null {
     .sort((a, b) => ipToInt(a.startIp) - ipToInt(b.startIp))
   const reservedZones = subnetZones.filter((zone) => zone.kind === 'reserved')
   const assignedSet = new Set(
-    state.ipAssignments.filter((assignment) => assignment.subnetId === subnetId).map((assignment) => ipToInt(assignment.ipAddress)),
+    state.ipAssignments
+      .filter((assignment) => assignment.subnetId === subnetId)
+      .map((assignment) => ipToInt(assignment.ipAddress)),
   )
 
   if (staticZones.length > 0) {
@@ -374,76 +703,33 @@ export function previewNextVlanId(rangeId: string): number | null {
   )
 }
 
-let loadPromise: Promise<void> | null = null
-
-export async function loadAll(force = false): Promise<void> {
-  if (loadPromise && !force) return loadPromise
-
+export async function createRackRecord(input: Omit<Rack, 'id'>): Promise<Rack> {
+  const created = await api.createRack(input)
   setState((prev) => ({
     ...prev,
-    loading: true,
-    error: null,
+    racks: sortByName([...prev.racks, created]),
   }))
+  void recordAudit('rack.create', 'Rack', created.id, `Added rack ${created.name}`)
+  return created
+}
 
-  loadPromise = (async () => {
-    try {
-      const [
-        racks,
-        devices,
-        ports,
-        portLinks,
-        vlans,
-        vlanRanges,
-        subnets,
-        scopes,
-        ipZones,
-        ipAssignments,
-        auditLog,
-      ] = await Promise.all([
-        api.getRacks(),
-        api.getDevices(),
-        api.getPorts(),
-        api.getPortLinks(),
-        api.getVlans(),
-        api.getVlanRanges(),
-        api.getSubnets(),
-        api.getDhcpScopes(),
-        api.getIpZones(),
-        api.getIpAssignments(),
-        api.getAuditLog({ limit: 100 }),
-      ])
+export async function updateRackRecord(id: string, changes: RackPatch): Promise<Rack> {
+  const updated = await api.updateRack(id, changes)
+  setState((prev) => ({
+    ...prev,
+    racks: replaceById(prev.racks, updated, sortByName),
+  }))
+  void recordAudit('rack.update', 'Rack', id, `Updated rack ${updated.name}`)
+  return updated
+}
 
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        loaded: true,
-        error: null,
-        racks,
-        devices,
-        ports,
-        portLinks,
-        vlans,
-        vlanRanges,
-        subnets,
-        scopes,
-        ipZones,
-        ipAssignments,
-        auditLog,
-      }))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to load Rackpad data'
-      setState((prev) => ({
-        ...prev,
-        loading: false,
-        error: message,
-      }))
-      throw error
-    } finally {
-      loadPromise = null
-    }
-  })()
-
-  return loadPromise
+export async function deleteRackRecord(id: string): Promise<void> {
+  const rack = state.racks.find((entry) => entry.id === id)
+  await api.deleteRack(id)
+  await loadAll(true)
+  if (rack) {
+    void recordAudit('rack.delete', 'Rack', id, `Deleted rack ${rack.name}`)
+  }
 }
 
 export async function updatePort(
@@ -464,7 +750,7 @@ export async function updatePort(
   const updated = await api.updatePort(id, patch)
   setState((prev) => ({
     ...prev,
-    ports: replacePort(prev.ports, updated),
+    ports: replaceById(prev.ports, updated, sortPorts),
   }))
 
   void recordAudit(
@@ -475,6 +761,35 @@ export async function updatePort(
   )
 
   return updated
+}
+
+export async function createPortRecord(input: Omit<Port, 'id'>): Promise<Port> {
+  const created = await api.createPort(input)
+  setState((prev) => ({
+    ...prev,
+    ports: sortPorts([...prev.ports, created]),
+  }))
+  void recordAudit(
+    'port.create',
+    'Port',
+    created.id,
+    `Added port ${created.name} on ${state.devices.find((device) => device.id === created.deviceId)?.hostname ?? created.deviceId}`,
+  )
+  return created
+}
+
+export async function deletePortRecord(id: string): Promise<void> {
+  const port = state.ports.find((entry) => entry.id === id)
+  await api.deletePort(id)
+  await loadAll(true)
+  if (port) {
+    void recordAudit(
+      'port.delete',
+      'Port',
+      id,
+      `Deleted port ${port.name} from ${state.devices.find((device) => device.id === port.deviceId)?.hostname ?? port.deviceId}`,
+    )
+  }
 }
 
 export interface CreateCableInput {
@@ -507,7 +822,7 @@ export async function createCable(input: CreateCableInput): Promise<PortLink> {
 
   setState((prev) => ({
     ...prev,
-    portLinks: replacePortLink(prev.portLinks, created),
+    portLinks: replaceById(prev.portLinks, created),
     ports: sortPorts(
       prev.ports.map((port) =>
         port.id === created.fromPortId || port.id === created.toPortId
@@ -539,7 +854,7 @@ export async function deleteCable(id: string): Promise<boolean> {
 
   setState((prev) => ({
     ...prev,
-    portLinks: removePortLink(prev.portLinks, id),
+    portLinks: removeById(prev.portLinks, id),
     ports: sortPorts(
       prev.ports.map((port) => {
         if (port.id !== link.fromPortId && port.id !== link.toPortId) {
@@ -587,7 +902,7 @@ export async function updateCable(
 
   setState((prev) => ({
     ...prev,
-    portLinks: replacePortLink(prev.portLinks, updated),
+    portLinks: replaceById(prev.portLinks, updated),
   }))
 
   const fromPort = state.ports.find((port) => port.id === updated.fromPortId)
@@ -620,6 +935,7 @@ export interface CreateDeviceInput {
   face?: RackFace
   tags?: string[]
   notes?: string
+  portTemplateId?: string
 }
 
 export async function createDevice(input: CreateDeviceInput): Promise<Device> {
@@ -645,6 +961,7 @@ export async function createDevice(input: CreateDeviceInput): Promise<Device> {
     tags: input.tags,
     notes: input.notes,
     lastSeen: new Date().toISOString(),
+    portTemplateId: input.portTemplateId,
   })
 
   let syncResult: { upserted?: IpAssignment; deletedId?: string } = {}
@@ -656,9 +973,12 @@ export async function createDevice(input: CreateDeviceInput): Promise<Device> {
     throw error
   }
 
+  const createdPorts = await api.getPorts({ deviceId: created.id })
+
   setState((prev) => ({
     ...prev,
     devices: sortDevices([...prev.devices, created]),
+    ports: sortPorts([...prev.ports, ...createdPorts]),
     ipAssignments: applyAssignmentSync(prev.ipAssignments, syncResult),
   }))
 
@@ -674,7 +994,7 @@ export async function createDevice(input: CreateDeviceInput): Promise<Device> {
 
 export async function updateDevice(
   id: string,
-  changes: Partial<Omit<Device, 'id' | 'labId'>>,
+  changes: Partial<Omit<Device, 'id' | 'labId'>> & { portTemplateId?: string },
 ): Promise<Device | null> {
   const existing = state.devices.find((device) => device.id === id)
   if (!existing) return null
@@ -692,12 +1012,23 @@ export async function updateDevice(
     ...normalizeDeviceChanges(changes),
     managementIp:
       Object.prototype.hasOwnProperty.call(changes, 'managementIp') ? nextManagementIp ?? null : undefined,
+    portTemplateId: changes.portTemplateId ?? undefined,
   })
   const syncResult = await syncDeviceManagementAssignment(updated, existing.managementIp)
 
+  let nextPorts = state.ports
+  if (changes.portTemplateId) {
+    const refreshedPorts = await api.getPorts({ deviceId: id })
+    nextPorts = sortPorts([
+      ...state.ports.filter((port) => port.deviceId !== id),
+      ...refreshedPorts,
+    ])
+  }
+
   setState((prev) => ({
     ...prev,
-    devices: replaceDevice(prev.devices, updated),
+    devices: replaceById(prev.devices, updated, sortDevices),
+    ports: nextPorts,
     ipAssignments: applyAssignmentSync(prev.ipAssignments, syncResult),
   }))
 
@@ -717,7 +1048,9 @@ export async function deleteDevice(id: string): Promise<boolean> {
 
   const devicePortIds = state.ports.filter((port) => port.deviceId === id).map((port) => port.id)
   const relatedAssignments = state.ipAssignments.filter(
-    (assignment) => assignment.deviceId === id || (assignment.portId != null && devicePortIds.includes(assignment.portId)),
+    (assignment) =>
+      assignment.deviceId === id ||
+      (assignment.portId != null && devicePortIds.includes(assignment.portId)),
   )
 
   await Promise.all(relatedAssignments.map((assignment) => api.deleteIpAssignment(assignment.id)))
@@ -731,8 +1064,11 @@ export async function deleteDevice(id: string): Promise<boolean> {
       (link) => !devicePortIds.includes(link.fromPortId) && !devicePortIds.includes(link.toPortId),
     ),
     ipAssignments: prev.ipAssignments.filter(
-      (assignment) => assignment.deviceId !== id && (assignment.portId == null || !devicePortIds.includes(assignment.portId)),
+      (assignment) =>
+        assignment.deviceId !== id &&
+        (assignment.portId == null || !devicePortIds.includes(assignment.portId)),
     ),
+    deviceMonitors: prev.deviceMonitors.filter((monitor) => monitor.deviceId !== id),
   }))
 
   void recordAudit(
@@ -769,7 +1105,7 @@ export async function allocateIp(input: AllocateIpInput): Promise<IpAssignment |
 
   setState((prev) => ({
     ...prev,
-    ipAssignments: replaceIpAssignment(prev.ipAssignments, created),
+    ipAssignments: replaceById(prev.ipAssignments, created, sortIpAssignments),
   }))
 
   void recordAudit(
@@ -799,8 +1135,8 @@ export async function unassignIp(id: string): Promise<boolean> {
 
   setState((prev) => ({
     ...prev,
-    devices: updatedDevice ? replaceDevice(prev.devices, updatedDevice) : prev.devices,
-    ipAssignments: removeIpAssignment(prev.ipAssignments, id),
+    devices: updatedDevice ? replaceById(prev.devices, updatedDevice, sortDevices) : prev.devices,
+    ipAssignments: removeById(prev.ipAssignments, id),
   }))
 
   void recordAudit(
@@ -869,4 +1205,203 @@ export async function deleteVlan(id: string): Promise<boolean> {
   )
 
   return true
+}
+
+export async function createVlanRangeRecord(input: Omit<VlanRange, 'id'>): Promise<VlanRange> {
+  const created = await api.createVlanRange(input)
+  setState((prev) => ({
+    ...prev,
+    vlanRanges: sortVlanRanges([...prev.vlanRanges, created]),
+  }))
+  void recordAudit('vlan.range.create', 'VlanRange', created.id, `Added VLAN range ${created.name}`)
+  return created
+}
+
+export async function updateVlanRangeRecord(id: string, changes: VlanRangePatch): Promise<VlanRange> {
+  const updated = await api.updateVlanRange(id, changes)
+  setState((prev) => ({
+    ...prev,
+    vlanRanges: replaceById(prev.vlanRanges, updated, sortVlanRanges),
+  }))
+  void recordAudit('vlan.range.update', 'VlanRange', id, `Updated VLAN range ${updated.name}`)
+  return updated
+}
+
+export async function deleteVlanRangeRecord(id: string): Promise<void> {
+  const range = state.vlanRanges.find((entry) => entry.id === id)
+  await api.deleteVlanRange(id)
+  setState((prev) => ({
+    ...prev,
+    vlanRanges: removeById(prev.vlanRanges, id),
+  }))
+  if (range) {
+    void recordAudit('vlan.range.delete', 'VlanRange', id, `Deleted VLAN range ${range.name}`)
+  }
+}
+
+export async function createSubnetRecord(input: Omit<Subnet, 'id'>): Promise<Subnet> {
+  const created = await api.createSubnet(input)
+  setState((prev) => ({
+    ...prev,
+    subnets: sortSubnets([...prev.subnets, created]),
+  }))
+  void recordAudit('subnet.create', 'Subnet', created.id, `Added subnet ${created.cidr} (${created.name})`)
+  return created
+}
+
+export async function updateSubnetRecord(id: string, changes: SubnetPatch): Promise<Subnet> {
+  const updated = await api.updateSubnet(id, changes)
+  setState((prev) => ({
+    ...prev,
+    subnets: replaceById(prev.subnets, updated, sortSubnets),
+  }))
+  void recordAudit('subnet.update', 'Subnet', id, `Updated subnet ${updated.cidr}`)
+  return updated
+}
+
+export async function deleteSubnetRecord(id: string): Promise<void> {
+  const subnet = state.subnets.find((entry) => entry.id === id)
+  await api.deleteSubnet(id)
+  await loadAll(true)
+  if (subnet) {
+    void recordAudit('subnet.delete', 'Subnet', id, `Deleted subnet ${subnet.cidr}`)
+  }
+}
+
+export async function createDhcpScopeRecord(input: Omit<DhcpScope, 'id'>): Promise<DhcpScope> {
+  const created = await api.createDhcpScope(input)
+  setState((prev) => ({
+    ...prev,
+    scopes: sortScopes([...prev.scopes, created]),
+  }))
+  void recordAudit('dhcp.scope.create', 'DhcpScope', created.id, `Added DHCP scope ${created.name}`)
+  return created
+}
+
+export async function updateDhcpScopeRecord(id: string, changes: DhcpScopePatch): Promise<DhcpScope> {
+  const updated = await api.updateDhcpScope(id, changes)
+  setState((prev) => ({
+    ...prev,
+    scopes: replaceById(prev.scopes, updated, sortScopes),
+  }))
+  void recordAudit('dhcp.scope.update', 'DhcpScope', id, `Updated DHCP scope ${updated.name}`)
+  return updated
+}
+
+export async function deleteDhcpScopeRecord(id: string): Promise<void> {
+  const scope = state.scopes.find((entry) => entry.id === id)
+  await api.deleteDhcpScope(id)
+  setState((prev) => ({
+    ...prev,
+    scopes: removeById(prev.scopes, id),
+  }))
+  if (scope) {
+    void recordAudit('dhcp.scope.delete', 'DhcpScope', id, `Deleted DHCP scope ${scope.name}`)
+  }
+}
+
+export async function createIpZoneRecord(input: Omit<IpZone, 'id'>): Promise<IpZone> {
+  const created = await api.createIpZone(input)
+  setState((prev) => ({
+    ...prev,
+    ipZones: sortIpZones([...prev.ipZones, created]),
+  }))
+  void recordAudit('ip.zone.create', 'IpZone', created.id, `Added ${created.kind} zone ${created.startIp}-${created.endIp}`)
+  return created
+}
+
+export async function updateIpZoneRecord(id: string, changes: {
+  kind?: IpZone['kind']
+  startIp?: string
+  endIp?: string
+  description?: string
+}): Promise<IpZone> {
+  const updated = await api.updateIpZone(id, changes)
+  setState((prev) => ({
+    ...prev,
+    ipZones: replaceById(prev.ipZones, updated, sortIpZones),
+  }))
+  void recordAudit('ip.zone.update', 'IpZone', id, `Updated ${updated.kind} zone ${updated.startIp}-${updated.endIp}`)
+  return updated
+}
+
+export async function deleteIpZoneRecord(id: string): Promise<void> {
+  const zone = state.ipZones.find((entry) => entry.id === id)
+  await api.deleteIpZone(id)
+  setState((prev) => ({
+    ...prev,
+    ipZones: removeById(prev.ipZones, id),
+  }))
+  if (zone) {
+    void recordAudit('ip.zone.delete', 'IpZone', id, `Deleted ${zone.kind} zone ${zone.startIp}-${zone.endIp}`)
+  }
+}
+
+export async function createUserAccount(input: {
+  username: string
+  displayName?: string
+  password: string
+  role: UserRole
+  disabled?: boolean
+}): Promise<AppUser> {
+  const created = await api.createUser(input)
+  setState((prev) => ({
+    ...prev,
+    users: sortUsers([...prev.users, created]),
+  }))
+  void recordAudit('user.create', 'User', created.id, `Added user ${created.username}`)
+  return created
+}
+
+export async function updateUserAccount(id: string, changes: UserPatch): Promise<AppUser> {
+  const updated = await api.updateUser(id, changes)
+  setState((prev) => ({
+    ...prev,
+    users: replaceById(prev.users, updated, sortUsers),
+    currentUser: prev.currentUser?.id === id ? updated : prev.currentUser,
+  }))
+  void recordAudit('user.update', 'User', id, `Updated user ${updated.username}`)
+  return updated
+}
+
+export async function deleteUserAccount(id: string): Promise<void> {
+  const user = state.users.find((entry) => entry.id === id)
+  await api.deleteUser(id)
+  setState((prev) => ({
+    ...prev,
+    users: removeById(prev.users, id),
+  }))
+  if (user) {
+    void recordAudit('user.delete', 'User', id, `Deleted user ${user.username}`)
+  }
+}
+
+export async function saveDeviceMonitorConfig(deviceId: string, changes: MonitorPatch): Promise<DeviceMonitor> {
+  const updated = await api.saveDeviceMonitor(deviceId, changes)
+  setState((prev) => ({
+    ...prev,
+    deviceMonitors: replaceById(prev.deviceMonitors, updated, sortMonitors),
+  }))
+  void recordAudit('monitor.update', 'DeviceMonitor', updated.id, `Updated monitor for ${state.devices.find((device) => device.id === deviceId)?.hostname ?? deviceId}`)
+  return updated
+}
+
+export async function runDeviceMonitorCheck(deviceId: string): Promise<DeviceMonitor> {
+  const [monitor, device] = await Promise.all([
+    api.runDeviceMonitor(deviceId),
+    api.getDevice(deviceId),
+  ])
+
+  setState((prev) => ({
+    ...prev,
+    deviceMonitors: replaceById(prev.deviceMonitors, monitor, sortMonitors),
+    devices: replaceById(prev.devices, device, sortDevices),
+  }))
+
+  return monitor
+}
+
+export async function runAllDeviceMonitorChecks(): Promise<void> {
+  await api.runAllDeviceMonitors()
+  await loadAll(true)
 }

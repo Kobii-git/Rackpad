@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { X, Save } from 'lucide-react'
+import { X, Save, Network } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Separator } from '@/components/ui/Separator'
+import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
 import { createDevice, updateDevice, useStore } from '@/lib/store'
 import type { Device, DeviceStatus, DeviceType, RackFace } from '@/lib/types'
@@ -36,6 +37,7 @@ interface FormState {
   startU: string
   heightU: string
   face: RackFace
+  portTemplateId: string
   tags: string
   notes: string
 }
@@ -54,6 +56,7 @@ function blankForm(defaults?: Partial<FormState>): FormState {
     startU: '',
     heightU: '1',
     face: 'front',
+    portTemplateId: '',
     tags: '',
     notes: '',
     ...defaults,
@@ -74,6 +77,7 @@ function deviceToForm(device: Device): FormState {
     startU: device.startU != null ? String(device.startU) : '',
     heightU: device.heightU != null ? String(device.heightU) : '1',
     face: device.face ?? 'front',
+    portTemplateId: '',
     tags: (device.tags ?? []).join(', '),
     notes: device.notes ?? '',
   }
@@ -89,6 +93,8 @@ interface DeviceDrawerProps {
 
 export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: DeviceDrawerProps) {
   const racks = useStore((s) => s.racks)
+  const ports = useStore((s) => s.ports)
+  const portTemplates = useStore((s) => s.portTemplates)
   const isEdit = !!device
   const [form, setForm] = useState<FormState>(() =>
     device ? deviceToForm(device) : blankForm({ rackId: defaultRackId ?? '' }),
@@ -103,12 +109,21 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
     }
   }, [defaultRackId, device, open])
 
+  const devicePortCount = useMemo(
+    () => (device ? ports.filter((port) => port.deviceId === device.id).length : 0),
+    [device, ports],
+  )
+
+  const canApplyTemplate = !device || devicePortCount === 0
+  const selectedTemplate = portTemplates.find((template) => template.id === form.portTemplateId)
+  const hasRackPlacement = !!form.rackId
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
     setError('')
 
     if (!form.hostname.trim()) {
@@ -133,9 +148,10 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
         managementIp: form.managementIp.trim() || undefined,
         status: form.status,
         rackId: hasRackPlacement ? form.rackId : undefined,
-        startU: hasRackPlacement && form.startU ? parseInt(form.startU, 10) : undefined,
-        heightU: hasRackPlacement ? (form.heightU ? parseInt(form.heightU, 10) : 1) : undefined,
+        startU: hasRackPlacement && form.startU ? Number.parseInt(form.startU, 10) : undefined,
+        heightU: hasRackPlacement ? (form.heightU ? Number.parseInt(form.heightU, 10) : 1) : undefined,
         face: hasRackPlacement ? form.face : undefined,
+        portTemplateId: canApplyTemplate && form.portTemplateId ? form.portTemplateId : undefined,
         tags: tags.length > 0 ? tags : undefined,
         notes: form.notes.trim() || undefined,
       }
@@ -157,8 +173,6 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
     }
   }
 
-  const hasRackPlacement = !!form.rackId
-
   return (
     <AnimatePresence>
       {open && (
@@ -179,7 +193,7 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="fixed right-0 top-0 z-40 flex h-full w-[440px] flex-col border-l border-[var(--color-line-strong)] bg-[var(--color-bg-2)]"
+            className="fixed right-0 top-0 z-40 flex h-full w-[460px] flex-col border-l border-[var(--color-line-strong)] bg-[var(--color-bg-2)]"
             style={{ boxShadow: '-16px 0 48px rgb(0 0 0 / 0.4)' }}
           >
             <div className="flex items-center justify-between border-b border-[var(--color-line)] px-5 py-3.5">
@@ -196,13 +210,13 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
               </Button>
             </div>
 
-            <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-1 flex-col overflow-hidden">
+            <form onSubmit={(event) => void handleSubmit(event)} className="flex flex-1 flex-col overflow-hidden">
               <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
                 <Section label="Identity">
                   <Field label="Hostname *">
                     <Input
                       value={form.hostname}
-                      onChange={(e) => set('hostname', e.target.value)}
+                      onChange={(event) => set('hostname', event.target.value)}
                       placeholder="e.g. core-sw-01"
                       autoFocus
                     />
@@ -210,7 +224,7 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                   <Field label="Display name">
                     <Input
                       value={form.displayName}
-                      onChange={(e) => set('displayName', e.target.value)}
+                      onChange={(event) => set('displayName', event.target.value)}
                       placeholder="e.g. Core Switch"
                     />
                   </Field>
@@ -251,14 +265,14 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                     <Field label="Manufacturer">
                       <Input
                         value={form.manufacturer}
-                        onChange={(e) => set('manufacturer', e.target.value)}
+                        onChange={(event) => set('manufacturer', event.target.value)}
                         placeholder="e.g. Cisco"
                       />
                     </Field>
                     <Field label="Model">
                       <Input
                         value={form.model}
-                        onChange={(e) => set('model', e.target.value)}
+                        onChange={(event) => set('model', event.target.value)}
                         placeholder="e.g. C9300-48P"
                       />
                     </Field>
@@ -266,17 +280,56 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                   <Field label="Serial number">
                     <Input
                       value={form.serial}
-                      onChange={(e) => set('serial', e.target.value)}
+                      onChange={(event) => set('serial', event.target.value)}
                       placeholder="e.g. FOC2134X0AB"
                     />
                   </Field>
                   <Field label="Management IP">
                     <Input
                       value={form.managementIp}
-                      onChange={(e) => set('managementIp', e.target.value)}
+                      onChange={(event) => set('managementIp', event.target.value)}
                       placeholder="e.g. 10.0.10.12"
                     />
                   </Field>
+                </Section>
+
+                <Separator />
+
+                <Section label="Ports">
+                  <Field label="Port template">
+                    <Select
+                      value={form.portTemplateId}
+                      onChange={(value) => set('portTemplateId', value)}
+                      disabled={!canApplyTemplate}
+                    >
+                      <option value="">No template</option>
+                      {portTemplates.map((template) => (
+                        <option key={template.id} value={template.id}>
+                          {template.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  {!canApplyTemplate ? (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-fg-subtle)]">
+                      This device already has {devicePortCount} ports. Templates can only be applied to empty devices.
+                    </div>
+                  ) : selectedTemplate ? (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-accent-soft)]/30 bg-[var(--color-accent)]/5 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
+                            Template preview
+                          </div>
+                          <div className="text-sm text-[var(--color-fg)]">{selectedTemplate.description}</div>
+                        </div>
+                        <Badge tone="accent">
+                          <Network className="size-3" />
+                          {selectedTemplate.ports.length} ports
+                        </Badge>
+                      </div>
+                    </div>
+                  ) : null}
                 </Section>
 
                 <Separator />
@@ -301,7 +354,7 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                           min={1}
                           max={48}
                           value={form.startU}
-                          onChange={(e) => set('startU', e.target.value)}
+                          onChange={(event) => set('startU', event.target.value)}
                           placeholder="e.g. 12"
                         />
                       </Field>
@@ -311,7 +364,7 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                           min={1}
                           max={12}
                           value={form.heightU}
-                          onChange={(e) => set('heightU', e.target.value)}
+                          onChange={(event) => set('heightU', event.target.value)}
                           placeholder="1"
                         />
                       </Field>
@@ -331,14 +384,14 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                   <Field label="Tags (comma-separated)">
                     <Input
                       value={form.tags}
-                      onChange={(e) => set('tags', e.target.value)}
+                      onChange={(event) => set('tags', event.target.value)}
                       placeholder="e.g. core, managed, poe"
                     />
                   </Field>
                   <Field label="Notes">
                     <textarea
                       value={form.notes}
-                      onChange={(e) => set('notes', e.target.value)}
+                      onChange={(event) => set('notes', event.target.value)}
                       placeholder="Any additional notes..."
                       rows={3}
                       className={cn(
@@ -397,15 +450,18 @@ function Select({
   value,
   onChange,
   children,
+  disabled,
 }: {
   value: string
-  onChange: (v: string) => void
+  onChange: (value: string) => void
   children: ReactNode
+  disabled?: boolean
 }) {
   return (
     <select
       value={value}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(event) => onChange(event.target.value)}
+      disabled={disabled}
       className={cn(
         'h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm font-sans',
         'text-[var(--color-fg)] capitalize',

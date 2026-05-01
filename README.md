@@ -2,34 +2,33 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.2.0`
+Current release: `v0.3.0`
 
-It is a full-stack app now:
+It is a full-stack app:
 - React + Vite frontend
 - Fastify API
 - SQLite persistence through `better-sqlite3`
+- session-based authentication with admin/editor/viewer roles
+- per-device health checks with TCP and HTTP/HTTPS monitor support
 - Docker support for a single-container test deployment
 
 ## What works
 
-- Rack inventory and device browsing
+- Rack inventory and physical placement
+- Add, edit, and delete racks
 - Add, edit, and delete devices
-- Edit port metadata from the ports screen
-- Create, edit, and delete cables from the cables screen
+- Port templates for new devices
+- Manual port create, edit, and delete
+- Create, edit, and delete cables
+- VLAN allocation and VLAN deletion
+- IPAM subnet, DHCP scope, and IP zone CRUD
 - Management IP synchronization between device records and IPAM
 - Next-free IP allocation and IP release
-- VLAN allocation and VLAN deletion
-- Audit log writes for the main device/IPAM/VLAN flows
+- Audit log writes for the main workflows
+- User bootstrap, login, logout, and user management
+- Device health-check configuration and on-demand monitor runs
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
-
-## Current focus
-
-Rackpad is ready for Linux server and Docker testing, especially around the device and IPAM workflows.
-
-The remaining rough edges are mostly product-surface gaps rather than build/deploy gaps:
-- no auth yet
-- no live monitoring
 
 ## Versioning
 
@@ -39,7 +38,7 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 - Release notes live in [CHANGELOG.md](./CHANGELOG.md).
 - Install and deploy examples should pin a version instead of assuming `main`.
 
-Every future shipped change should update the version and add a matching changelog entry describing what changed.
+Every shipped change should update the version and add a matching changelog entry describing what changed.
 
 ## Requirements
 
@@ -86,16 +85,24 @@ Start the compiled app:
 npm start
 ```
 
-By default the server listens on `0.0.0.0:3000`.
-
-Environment variables:
+Default environment variables:
 
 ```bash
 HOST=0.0.0.0
 PORT=3000
 DATABASE_PATH=./rackpad.db
+MONITOR_INTERVAL_MS=300000
 NODE_ENV=production
 ```
+
+## First run
+
+On the first boot there are no users yet.
+
+1. Open Rackpad in the browser.
+2. Create the initial admin account.
+3. Sign in.
+4. Start documenting racks, devices, VLANs, and IPAM.
 
 ## Docker
 
@@ -109,6 +116,7 @@ The compose stack:
 - exposes Rackpad on `${RACKPAD_PORT:-3000}`
 - stores SQLite data in the named volume `rackpad_data`
 - serves the compiled frontend and API from the same container
+- uses `/api/health` for the container health check
 
 To stop it:
 
@@ -121,9 +129,6 @@ To stop it and remove the database volume:
 ```bash
 docker compose down -v
 ```
-
-Full step-by-step setup instructions are in [INSTALL.md](./INSTALL.md).
-Version-by-version release notes are in [CHANGELOG.md](./CHANGELOG.md).
 
 ## Linux test deploy
 
@@ -144,19 +149,31 @@ sudo apt-get install -y python3 make g++
 
 ## Windows note
 
-On this Windows machine, the app builds cleanly but the local runtime is still blocked under Node 24 because `better-sqlite3` does not have a matching native binding installed.
+On this Windows machine, the app builds and lints cleanly, but the local runtime is still blocked under Node 24 because `better-sqlite3` does not have a matching native binding installed.
 
 The intended local fix is:
 - switch to Node 22
 - rerun `npm install`
 
-Docker and Linux deployment are the preferred validation paths from here.
+Linux and Docker remain the preferred validation paths.
+
+## Quality checks
+
+These are wired into the repo now:
+
+```bash
+npm run build
+npm run lint
+npm run test:server
+```
+
+`npm run test:server` is expected to work on Linux/Node 22 or any environment where `better-sqlite3` can load successfully.
 
 ## Project layout
 
 ```text
 rackpad/
-|- server/                 Fastify API, SQLite schema, seed data, routes
+|- server/                 Fastify API, SQLite schema, seed data, routes, tests
 |- src/
 |  |- components/          UI and feature components
 |  |- lib/                 typed API client, store, types, helpers
@@ -166,3 +183,6 @@ rackpad/
 |- Dockerfile              production container build
 |- docker-compose.yml      local container orchestration
 ```
+
+Full step-by-step setup instructions are in [INSTALL.md](./INSTALL.md).
+Version-by-version release notes are in [CHANGELOG.md](./CHANGELOG.md).

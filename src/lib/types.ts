@@ -1,7 +1,3 @@
-// Rackpad domain types
-// These mirror what the Prisma schema will be later. Keeping them strict here
-// means the GUI is implicitly speccing the backend.
-
 export type ID = string
 
 export type DeviceType =
@@ -27,11 +23,8 @@ export type PortKind =
   | 'usb'
 
 export type RackFace = 'front' | 'rear'
-
 export type LinkState = 'up' | 'down' | 'disabled' | 'unknown'
-
 export type DeviceStatus = 'online' | 'offline' | 'warning' | 'unknown' | 'maintenance'
-
 export type IpAssignmentType =
   | 'device'
   | 'interface'
@@ -39,8 +32,9 @@ export type IpAssignmentType =
   | 'container'
   | 'reserved'
   | 'infrastructure'
-
-// ----- Lab / Rack -----
+export type IpZoneKind = 'static' | 'dhcp' | 'reserved' | 'infrastructure'
+export type UserRole = 'admin' | 'editor' | 'viewer'
+export type MonitorType = 'none' | 'tcp' | 'http' | 'https'
 
 export interface Lab {
   id: ID
@@ -59,8 +53,6 @@ export interface Rack {
   notes?: string
 }
 
-// ----- Device -----
-
 export interface Device {
   id: ID
   labId: ID
@@ -73,49 +65,41 @@ export interface Device {
   serial?: string
   managementIp?: string
   status: DeviceStatus
-  // Rack placement
-  startU?: number          // bottom-most U (U1 at the bottom of the rack)
-  heightU?: number         // device height in U
+  startU?: number
+  heightU?: number
   face?: RackFace
-  // Misc
   tags?: string[]
   notes?: string
-  lastSeen?: string        // ISO date
+  lastSeen?: string
 }
-
-// ----- Port -----
 
 export interface Port {
   id: ID
   deviceId: ID
-  name: string             // "1", "1/1/1", "eth0", "mgmt", etc
-  position: number         // ordering on device face
+  name: string
+  position: number
   kind: PortKind
-  speed?: string           // "1G", "10G", "40G", "100G"
+  speed?: string
   linkState: LinkState
   vlanId?: ID
   description?: string
   face?: RackFace
 }
 
-// ----- Cable / Link between ports -----
-
 export interface PortLink {
   id: ID
   fromPortId: ID
   toPortId: ID
-  cableType?: string       // "Cat6", "Cat6a", "DAC", "OM4 LC-LC"
-  cableLength?: string     // "0.5m", "1m", "3m"
-  color?: string           // "yellow", "blue" — physical cable jacket color
+  cableType?: string
+  cableLength?: string
+  color?: string
   notes?: string
 }
-
-// ----- IPAM -----
 
 export interface Subnet {
   id: ID
   labId: ID
-  cidr: string             // "10.0.10.0/24"
+  cidr: string
   name: string
   description?: string
   vlanId?: ID
@@ -145,55 +129,91 @@ export interface IpAssignment {
   description?: string
 }
 
-// ----- VLAN -----
-
 export interface Vlan {
   id: ID
   labId: ID
-  vlanId: number           // 1-4094
+  vlanId: number
   name: string
   description?: string
   color?: string
 }
 
-// VLAN ID range — documents how the 1-4094 ID space is sliced
-// e.g. "IoT 20-29", "DMZ 30-39"
 export interface VlanRange {
   id: ID
   labId: ID
-  name: string             // "IoT", "DMZ", "Servers"
-  startVlan: number        // 1-4094
-  endVlan: number          // inclusive
-  purpose?: string         // free text
+  name: string
+  startVlan: number
+  endVlan: number
+  purpose?: string
   color?: string
 }
-
-// IP zone — documents how a subnet is sliced into static / DHCP / reserved bands
-// e.g. ".10-.99 static", ".100-.199 DHCP", ".200-.250 reserved"
-export type IpZoneKind = 'static' | 'dhcp' | 'reserved' | 'infrastructure'
 
 export interface IpZone {
   id: ID
   subnetId: ID
   kind: IpZoneKind
-  startIp: string          // inclusive
-  endIp: string            // inclusive
+  startIp: string
+  endIp: string
   description?: string
 }
 
-// ----- Audit -----
-
 export interface AuditEntry {
   id: ID
-  ts: string               // ISO date
+  ts: string
   user: string
-  action: string           // "device.create", "ip.assign", etc
+  action: string
   entityType: string
   entityId: ID
   summary: string
 }
 
-// ----- Aggregate types for UI convenience -----
+export interface AppUser {
+  id: ID
+  username: string
+  displayName: string
+  role: UserRole
+  disabled: boolean
+  createdAt: string
+  lastLoginAt?: string | null
+}
+
+export interface AuthSession {
+  token: string
+  expiresAt: string
+  user: AppUser
+}
+
+export interface DeviceMonitor {
+  id: ID
+  deviceId: ID
+  type: MonitorType
+  target?: string | null
+  port?: number | null
+  path?: string | null
+  intervalMs?: number | null
+  enabled: boolean
+  lastCheckAt?: string | null
+  lastResult?: string | null
+  lastMessage?: string | null
+}
+
+export interface PortTemplatePort {
+  name: string
+  position: number
+  kind: PortKind
+  speed?: string
+  linkState: LinkState
+  vlanId?: ID | null
+  description?: string | null
+  face?: RackFace | null
+}
+
+export interface PortTemplate {
+  id: string
+  name: string
+  description: string
+  ports: PortTemplatePort[]
+}
 
 export interface DeviceWithPorts extends Device {
   ports: Port[]

@@ -1,31 +1,32 @@
 import { motion } from 'motion/react'
 import {
-  AreaChart,
   Area,
+  AreaChart,
+  CartesianGrid,
   ResponsiveContainer,
+  Tooltip as ReTooltip,
   XAxis,
   YAxis,
-  Tooltip as ReTooltip,
-  CartesianGrid,
 } from 'recharts'
 import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
+import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { StatCard } from '@/components/shared/StatCard'
 import { StatusDot } from '@/components/shared/StatusDot'
 import { Mono } from '@/components/shared/Mono'
 import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
-import { useStore } from '@/lib/store'
+import { canEditInventory, useStore } from '@/lib/store'
 import { relativeTime, statusLabel } from '@/lib/utils'
 import { Activity, ChevronRight } from 'lucide-react'
 
-const trafficData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${String(i).padStart(2, '0')}:00`,
-  ingress: Math.round(40 + Math.sin(i / 3) * 20 + Math.random() * 12),
-  egress: Math.round(28 + Math.cos(i / 4) * 14 + Math.random() * 9),
+const trafficData = Array.from({ length: 24 }, (_, index) => ({
+  hour: `${String(index).padStart(2, '0')}:00`,
+  ingress: Math.round(40 + Math.sin(index / 3) * 20 + Math.random() * 12),
+  egress: Math.round(28 + Math.cos(index / 4) * 14 + Math.random() * 9),
 }))
 
 export default function Dashboard() {
+  const currentUser = useStore((s) => s.currentUser)
   const lab = useStore((s) => s.lab)
   const racks = useStore((s) => s.racks)
   const devices = useStore((s) => s.devices)
@@ -35,10 +36,11 @@ export default function Dashboard() {
   const ipAssignments = useStore((s) => s.ipAssignments)
   const auditLog = useStore((s) => s.auditLog)
   const vlans = useStore((s) => s.vlans)
+  const canEdit = canEditInventory(currentUser)
 
-  const onlineCount = devices.filter((d) => d.status === 'online').length
-  const warningCount = devices.filter((d) => d.status === 'warning').length
-  const linkedPortCount = ports.filter((p) => p.linkState === 'up').length
+  const onlineCount = devices.filter((device) => device.status === 'online').length
+  const warningCount = devices.filter((device) => device.status === 'warning').length
+  const linkedPortCount = ports.filter((port) => port.linkState === 'up').length
   const totalPorts = ports.length
 
   return (
@@ -53,11 +55,11 @@ export default function Dashboard() {
             </span>
             <span className="text-[13px] text-[var(--color-fg)]">{lab.name}</span>
             <span className="font-mono text-[10px] text-[var(--color-fg-faint)]">
-              {racks.length} racks · {devices.length} devices
+              {racks.length} racks | {devices.length} devices
             </span>
           </>
         }
-        actions={<AllocatePanel />}
+        actions={canEdit ? <AllocatePanel /> : undefined}
       />
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
@@ -65,7 +67,7 @@ export default function Dashboard() {
           <StatCard
             label="Devices"
             value={devices.length}
-            hint={`${onlineCount} online · ${warningCount} warning`}
+            hint={`${onlineCount} online | ${warningCount} warning`}
             accent
             delay={0}
           />
@@ -102,7 +104,7 @@ export default function Dashboard() {
             <CardBody>
               <div className="space-y-2.5">
                 {(['online', 'warning', 'maintenance', 'offline', 'unknown'] as const).map((status) => {
-                  const count = devices.filter((d) => d.status === status).length
+                  const count = devices.filter((device) => device.status === status).length
                   const pct = Math.round((count / Math.max(1, devices.length)) * 100)
                   if (count === 0) return null
                   return (
@@ -142,7 +144,7 @@ export default function Dashboard() {
           <Card className="col-span-12 lg:col-span-8">
             <CardHeader>
               <CardTitle>
-                <CardLabel>Network · 24h</CardLabel>
+                <CardLabel>Network | 24h</CardLabel>
                 <CardHeading>Aggregate throughput</CardHeading>
               </CardTitle>
               <div className="flex items-center gap-3 font-mono text-[11px] text-[var(--color-fg-subtle)]">
@@ -211,12 +213,12 @@ export default function Dashboard() {
             </CardHeader>
             <CardBody className="p-0">
               <ul className="divide-y divide-[var(--color-line)]">
-                {auditLog.map((entry, i) => (
+                {auditLog.map((entry, index) => (
                   <motion.li
                     key={entry.id}
                     initial={{ opacity: 0, x: -4 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 + i * 0.04, duration: 0.25 }}
+                    transition={{ delay: 0.1 + index * 0.04, duration: 0.25 }}
                     className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--color-surface)]/40"
                   >
                     <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
@@ -224,7 +226,7 @@ export default function Dashboard() {
                       <div className="truncate text-xs text-[var(--color-fg)]">{entry.summary}</div>
                       <div className="mt-0.5 flex items-center gap-2">
                         <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{entry.user}</Mono>
-                        <span className="text-[10px] text-[var(--color-fg-faint)]">·</span>
+                        <span className="text-[10px] text-[var(--color-fg-faint)]">|</span>
                         <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{entry.action}</Mono>
                       </div>
                     </div>

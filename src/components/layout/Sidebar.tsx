@@ -9,11 +9,12 @@ import {
   Search,
   ChevronDown,
   Hash,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/lib/store'
 
-const navItems = [
+const baseNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/racks', icon: Server, label: 'Racks' },
   { to: '/devices', icon: Boxes, label: 'Devices' },
@@ -29,18 +30,24 @@ interface SidebarProps {
 
 export function Sidebar({ onOpenSearch }: SidebarProps) {
   const lab = useStore((s) => s.lab)
+  const currentUser = useStore((s) => s.currentUser)
+  const authExpiresAt = useStore((s) => s.authExpiresAt)
+
+  const navItems = currentUser?.role === 'admin'
+    ? [...baseNavItems, { to: '/users', icon: Shield, label: 'Users' }] as const
+    : baseNavItems
 
   return (
-    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]">
       <div className="flex items-center gap-2 px-4 pb-3 pt-4">
         <Logo />
         <span className="font-sans text-[15px] font-semibold tracking-tight">Rackpad</span>
         <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-faint)]">
-          v0.1
+          v0.3
         </span>
       </div>
 
-      <div className="mx-3 mb-4 flex cursor-pointer items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-1.5 transition-colors hover:border-[var(--color-line-strong)]">
+      <div className="mx-3 mb-4 flex cursor-default items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-1.5">
         <div className="min-w-0 flex flex-col leading-tight">
           <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-fg-faint)]">Lab</span>
           <span className="truncate text-xs font-medium">{lab.name}</span>
@@ -50,7 +57,7 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
 
       <button
         onClick={onOpenSearch}
-        className="mx-3 mb-3 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] px-2.5 py-1.5 text-[var(--color-fg-faint)] transition-colors hover:border-[var(--color-line-strong)] hover:text-[var(--color-fg-subtle)]"
+        className="mx-3 mb-3 flex w-[calc(100%-1.5rem)] items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] px-2.5 py-1.5 text-[var(--color-fg-faint)] transition-colors hover:border-[var(--color-line-strong)] hover:text-[var(--color-fg-subtle)]"
       >
         <Search className="size-3.5" />
         <span className="text-xs">Search...</span>
@@ -88,11 +95,20 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-[var(--color-line)] px-4 py-3">
+      <div className="mt-auto space-y-2 border-t border-[var(--color-line)] px-4 py-3">
         <div className="flex items-center gap-2 text-[11px]">
           <span className="size-1.5 rounded-full bg-[var(--color-ok)] shadow-[0_0_0_2px_var(--color-ok-glow)]" />
-          <span className="font-mono uppercase tracking-wider text-[var(--color-fg-subtle)]">Connected</span>
+          <span className="font-mono uppercase tracking-wider text-[var(--color-fg-subtle)]">Authenticated</span>
         </div>
+        {currentUser && (
+          <div className="space-y-1 text-[11px] text-[var(--color-fg-subtle)]">
+            <div>{currentUser.displayName}</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-faint)]">
+              {currentUser.role}
+              {authExpiresAt ? ` | expires ${new Date(authExpiresAt).toLocaleDateString()}` : ''}
+            </div>
+          </div>
+        )}
       </div>
     </aside>
   )
