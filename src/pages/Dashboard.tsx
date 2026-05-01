@@ -1,0 +1,274 @@
+import { motion } from 'motion/react'
+import {
+  AreaChart,
+  Area,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
+  Tooltip as ReTooltip,
+  CartesianGrid,
+} from 'recharts'
+import { TopBar } from '@/components/layout/TopBar'
+import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
+import { StatCard } from '@/components/shared/StatCard'
+import { StatusDot } from '@/components/shared/StatusDot'
+import { Mono } from '@/components/shared/Mono'
+import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
+import { AllocatePanel } from '@/components/shared/AllocatePanel'
+import { useStore } from '@/lib/store'
+import { relativeTime, statusLabel } from '@/lib/utils'
+import { Activity, ChevronRight } from 'lucide-react'
+
+const trafficData = Array.from({ length: 24 }, (_, i) => ({
+  hour: `${String(i).padStart(2, '0')}:00`,
+  ingress: Math.round(40 + Math.sin(i / 3) * 20 + Math.random() * 12),
+  egress: Math.round(28 + Math.cos(i / 4) * 14 + Math.random() * 9),
+}))
+
+export default function Dashboard() {
+  const lab = useStore((s) => s.lab)
+  const racks = useStore((s) => s.racks)
+  const devices = useStore((s) => s.devices)
+  const ports = useStore((s) => s.ports)
+  const subnets = useStore((s) => s.subnets)
+  const portLinks = useStore((s) => s.portLinks)
+  const ipAssignments = useStore((s) => s.ipAssignments)
+  const auditLog = useStore((s) => s.auditLog)
+  const vlans = useStore((s) => s.vlans)
+
+  const onlineCount = devices.filter((d) => d.status === 'online').length
+  const warningCount = devices.filter((d) => d.status === 'warning').length
+  const linkedPortCount = ports.filter((p) => p.linkState === 'up').length
+  const totalPorts = ports.length
+
+  return (
+    <>
+      <TopBar
+        subtitle="Overview"
+        title="Dashboard"
+        meta={
+          <>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+              Lab
+            </span>
+            <span className="text-[13px] text-[var(--color-fg)]">{lab.name}</span>
+            <span className="font-mono text-[10px] text-[var(--color-fg-faint)]">
+              {racks.length} racks · {devices.length} devices
+            </span>
+          </>
+        }
+        actions={<AllocatePanel />}
+      />
+
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <StatCard
+            label="Devices"
+            value={devices.length}
+            hint={`${onlineCount} online · ${warningCount} warning`}
+            accent
+            delay={0}
+          />
+          <StatCard
+            label="Ports linked"
+            value={linkedPortCount}
+            unit={`/ ${totalPorts}`}
+            hint={`${Math.round((linkedPortCount / Math.max(1, totalPorts)) * 100)}% utilization`}
+            delay={0.04}
+          />
+          <StatCard
+            label="IPs allocated"
+            value={ipAssignments.length}
+            unit={`/ ${subnets.length * 254}`}
+            hint={`${subnets.length} subnets`}
+            delay={0.08}
+          />
+          <StatCard
+            label="Cables"
+            value={portLinks.length}
+            hint={`${vlans.length} VLANs configured`}
+            delay={0.12}
+          />
+        </div>
+
+        <div className="grid grid-cols-12 gap-3">
+          <Card className="col-span-12 lg:col-span-4">
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Health</CardLabel>
+                <CardHeading>Device status</CardHeading>
+              </CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="space-y-2.5">
+                {(['online', 'warning', 'maintenance', 'offline', 'unknown'] as const).map((status) => {
+                  const count = devices.filter((d) => d.status === status).length
+                  const pct = Math.round((count / Math.max(1, devices.length)) * 100)
+                  if (count === 0) return null
+                  return (
+                    <div key={status}>
+                      <div className="mb-1 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <StatusDot status={status} />
+                          <span className="text-xs text-[var(--color-fg)]">{statusLabel[status]}</span>
+                        </div>
+                        <Mono className="text-[var(--color-fg-muted)]">{count}</Mono>
+                      </div>
+                      <div className="h-1 overflow-hidden rounded-[1px] bg-[var(--color-bg)]">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.5, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                          className="h-full"
+                          style={{
+                            backgroundColor:
+                              status === 'online'
+                                ? 'var(--color-ok)'
+                                : status === 'warning'
+                                  ? 'var(--color-warn)'
+                                  : status === 'maintenance'
+                                    ? 'var(--color-info)'
+                                    : 'var(--color-fg-faint)',
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card className="col-span-12 lg:col-span-8">
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Network · 24h</CardLabel>
+                <CardHeading>Aggregate throughput</CardHeading>
+              </CardTitle>
+              <div className="flex items-center gap-3 font-mono text-[11px] text-[var(--color-fg-subtle)]">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-[1px] bg-[var(--color-accent)]" />
+                  ingress
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 rounded-[1px] bg-[var(--color-cyan)]" />
+                  egress
+                </span>
+              </div>
+            </CardHeader>
+            <CardBody className="p-0">
+              <div className="h-44 px-3 pt-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trafficData} margin={{ top: 6, right: 6, left: -28, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="ingress" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.4} />
+                        <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="egress" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--color-cyan)" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="var(--color-cyan)" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 4" vertical={false} />
+                    <XAxis
+                      dataKey="hour"
+                      tick={{ fontSize: 10, fill: 'var(--color-fg-subtle)', fontFamily: 'IBM Plex Mono' }}
+                      tickLine={false}
+                      axisLine={false}
+                      interval={3}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: 'var(--color-fg-subtle)', fontFamily: 'IBM Plex Mono' }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <ReTooltip
+                      contentStyle={{
+                        backgroundColor: 'var(--color-surface-3)',
+                        border: '1px solid var(--color-line-strong)',
+                        borderRadius: 'var(--radius-xs)',
+                        fontSize: 11,
+                        fontFamily: 'IBM Plex Mono',
+                      }}
+                      labelStyle={{ color: 'var(--color-fg)' }}
+                    />
+                    <Area type="monotone" dataKey="ingress" stroke="var(--color-accent)" strokeWidth={1.5} fill="url(#ingress)" />
+                    <Area type="monotone" dataKey="egress" stroke="var(--color-cyan)" strokeWidth={1.5} fill="url(#egress)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card className="col-span-12 lg:col-span-7">
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Audit log</CardLabel>
+                <CardHeading>Recent activity</CardHeading>
+              </CardTitle>
+              <Activity className="size-4 text-[var(--color-fg-subtle)]" />
+            </CardHeader>
+            <CardBody className="p-0">
+              <ul className="divide-y divide-[var(--color-line)]">
+                {auditLog.map((entry, i) => (
+                  <motion.li
+                    key={entry.id}
+                    initial={{ opacity: 0, x: -4 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 + i * 0.04, duration: 0.25 }}
+                    className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-[var(--color-surface)]/40"
+                  >
+                    <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-xs text-[var(--color-fg)]">{entry.summary}</div>
+                      <div className="mt-0.5 flex items-center gap-2">
+                        <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{entry.user}</Mono>
+                        <span className="text-[10px] text-[var(--color-fg-faint)]">·</span>
+                        <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{entry.action}</Mono>
+                      </div>
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap font-mono text-[10px] text-[var(--color-fg-faint)]">
+                      {relativeTime(entry.ts)}
+                    </span>
+                  </motion.li>
+                ))}
+              </ul>
+            </CardBody>
+          </Card>
+
+          <Card className="col-span-12 lg:col-span-5">
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>By type</CardLabel>
+                <CardHeading>Inventory</CardHeading>
+              </CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(
+                  devices.reduce<Record<string, number>>((acc, device) => {
+                    acc[device.deviceType] = (acc[device.deviceType] ?? 0) + 1
+                    return acc
+                  }, {}),
+                ).map(([type, count]) => (
+                  <div
+                    key={type}
+                    className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2"
+                  >
+                    <DeviceTypeIcon type={type as never} className="size-4 text-[var(--color-accent)]" />
+                    <div className="flex min-w-0 flex-1 flex-col leading-tight">
+                      <span className="text-xs capitalize text-[var(--color-fg)]">{type.replace('_', ' ')}</span>
+                      <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{count}</Mono>
+                    </div>
+                    <ChevronRight className="size-3 text-[var(--color-fg-faint)]" />
+                  </div>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+    </>
+  )
+}

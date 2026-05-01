@@ -1,0 +1,161 @@
+import { clsx, type ClassValue } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+import type { DeviceStatus, LinkState, PortKind } from './types'
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs))
+}
+
+// ---------- Status color tokens ----------
+
+export const statusColor: Record<DeviceStatus, string> = {
+  online: 'var(--color-ok)',
+  offline: 'var(--color-fg-faint)',
+  warning: 'var(--color-warn)',
+  unknown: 'var(--color-fg-subtle)',
+  maintenance: 'var(--color-info)',
+}
+
+export const statusGlow: Record<DeviceStatus, string> = {
+  online: 'var(--color-ok-glow)',
+  offline: 'transparent',
+  warning: 'var(--color-warn-glow)',
+  unknown: 'transparent',
+  maintenance: 'var(--color-info-glow)',
+}
+
+export const statusLabel: Record<DeviceStatus, string> = {
+  online: 'Online',
+  offline: 'Offline',
+  warning: 'Warning',
+  unknown: 'Unknown',
+  maintenance: 'Maintenance',
+}
+
+// ---------- Port type colors ----------
+
+export const portTypeColor: Record<PortKind, string> = {
+  rj45: 'var(--color-port-rj45)',
+  sfp: 'var(--color-port-sfp)',
+  sfp_plus: 'var(--color-port-sfp-plus)',
+  qsfp: 'var(--color-port-qsfp)',
+  fiber: 'var(--color-port-fiber)',
+  power: 'var(--color-port-power)',
+  console: 'var(--color-port-console)',
+  usb: 'var(--color-port-usb)',
+}
+
+export const portTypeLabel: Record<PortKind, string> = {
+  rj45: 'RJ45',
+  sfp: 'SFP',
+  sfp_plus: 'SFP+',
+  qsfp: 'QSFP',
+  fiber: 'Fiber',
+  power: 'Power',
+  console: 'Console',
+  usb: 'USB',
+}
+
+// ---------- Link state ----------
+
+export const linkColor: Record<LinkState, string> = {
+  up: 'var(--color-cyan)',
+  down: 'var(--color-fg-faint)',
+  disabled: 'var(--color-fg-faint)',
+  unknown: 'var(--color-fg-subtle)',
+}
+
+// ---------- Time formatting ----------
+
+export function relativeTime(iso: string | undefined): string {
+  if (!iso) return '—'
+  const date = new Date(iso)
+  const diff = Date.now() - date.getTime()
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months}mo ago`
+  return `${Math.floor(months / 12)}y ago`
+}
+
+// ---------- IP utilities ----------
+
+export function ipToInt(ip: string): number {
+  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0
+}
+
+export function intToIp(n: number): string {
+  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff].join('.')
+}
+
+export function cidrSize(cidr: string): number {
+  const prefix = parseInt(cidr.split('/')[1], 10)
+  return Math.pow(2, 32 - prefix)
+}
+
+export function utilization(used: number, total: number): number {
+  if (total === 0) return 0
+  return Math.min(100, Math.round((used / total) * 100))
+}
+
+// ---------- IP allocation ----------
+
+// Returns the lowest unused IP that is:
+//   - inside the subnet
+//   - NOT the network or broadcast address
+//   - NOT inside any DHCP scope range (skip dynamic pool by default)
+//   - NOT already assigned
+// Returns null if nothing available.
+export function nextFreeStaticIp(
+  subnetCidr: string,
+  dhcpRanges: { startIp: string; endIp: string }[],
+  reservedRanges: { startIp: string; endIp: string }[],
+  assignedIps: string[],
+  options: { skipDhcp?: boolean; skipReserved?: boolean } = {},
+): string | null {
+  const { skipDhcp = true, skipReserved = false } = options
+  const baseInt = ipToInt(subnetCidr.split('/')[0])
+  const total = cidrSize(subnetCidr)
+  const network = baseInt
+  const broadcast = baseInt + total - 1
+
+  const assigned = new Set(assignedIps.map(ipToInt))
+
+  const blocked: Array<[number, number]> = []
+  if (skipDhcp) {
+    for (const r of dhcpRanges) blocked.push([ipToInt(r.startIp), ipToInt(r.endIp)])
+  }
+  if (skipReserved) {
+    for (const r of reservedRanges) blocked.push([ipToInt(r.startIp), ipToInt(r.endIp)])
+  }
+
+  for (let n = network + 1; n < broadcast; n++) {
+    if (assigned.has(n)) continue
+    let blockedHit = false
+    for (const [s, e] of blocked) {
+      if (n >= s && n <= e) { blockedHit = true; break }
+    }
+    if (blockedHit) continue
+    return intToIp(n)
+  }
+  return null
+}
+
+// Returns the lowest unused VLAN ID inside [startVlan, endVlan].
+export function nextFreeVlanId(
+  startVlan: number,
+  endVlan: number,
+  usedVlanIds: number[],
+): number | null {
+  const used = new Set(usedVlanIds)
+  for (let v = startVlan; v <= endVlan; v++) {
+    if (!used.has(v)) return v
+  }
+  return null
+}

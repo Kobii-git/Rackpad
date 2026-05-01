@@ -1,0 +1,43 @@
+# dependencies
+node_modules
+.pnp
+.pnp.js
+
+# build output
+dist
+dist-server
+dist-ssr
+*.local
+.vite
+.tsbuild
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# editors / OS
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# test / cache
+coverage
+.cache
+.eslintcache
+.turbo

@@ -1,0 +1,393 @@
+import { useMemo, useState, type ReactNode } from 'react'
+import { motion } from 'motion/react'
+import { AlertCircle, Plus, Sparkles } from 'lucide-react'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Mono } from '@/components/shared/Mono'
+import { Badge } from '@/components/ui/Badge'
+import { cn } from '@/lib/utils'
+import {
+  allocateIp,
+  allocateVlan,
+  previewNextStaticIp,
+  previewNextVlanId,
+  useStore,
+} from '@/lib/store'
+import type { IpAssignmentType } from '@/lib/types'
+
+interface AllocatePanelProps {
+  defaultTab?: 'ip' | 'vlan'
+  defaultSubnetId?: string
+  defaultRangeId?: string
+  trigger?: ReactNode
+  onAllocated?: (kind: 'ip' | 'vlan', id: string) => void
+}
+
+export function AllocatePanel({
+  defaultTab = 'ip',
+  defaultSubnetId,
+  defaultRangeId,
+  trigger,
+  onAllocated,
+}: AllocatePanelProps) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        {trigger ?? (
+          <Button variant="default" size="sm">
+            <Plus className="size-3.5" />
+            Allocate
+          </Button>
+        )}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-96 p-0">
+        <AllocatePanelBody
+          defaultTab={defaultTab}
+          defaultSubnetId={defaultSubnetId}
+          defaultRangeId={defaultRangeId}
+          onClose={() => setOpen(false)}
+          onAllocated={onAllocated}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+interface BodyProps {
+  defaultTab: 'ip' | 'vlan'
+  defaultSubnetId?: string
+  defaultRangeId?: string
+  onClose: () => void
+  onAllocated?: (kind: 'ip' | 'vlan', id: string) => void
+}
+
+function AllocatePanelBody({
+  defaultTab,
+  defaultSubnetId,
+  defaultRangeId,
+  onClose,
+  onAllocated,
+}: BodyProps) {
+  return (
+    <Tabs defaultValue={defaultTab}>
+      <div className="flex items-center justify-between border-b border-[var(--color-line)] px-4 pb-2 pt-3">
+        <div>
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+            New
+          </div>
+          <div className="text-sm font-semibold tracking-tight">Allocate</div>
+        </div>
+        <Sparkles className="size-4 text-[var(--color-accent)]" />
+      </div>
+
+      <TabsList className="-mb-px px-2">
+        <TabsTrigger value="ip">IP address</TabsTrigger>
+        <TabsTrigger value="vlan">VLAN ID</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="ip">
+        <AllocateIpForm defaultSubnetId={defaultSubnetId} onClose={onClose} onAllocated={onAllocated} />
+      </TabsContent>
+      <TabsContent value="vlan">
+        <AllocateVlanForm defaultRangeId={defaultRangeId} onClose={onClose} onAllocated={onAllocated} />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+function AllocateIpForm({
+  defaultSubnetId,
+  onClose,
+  onAllocated,
+}: {
+  defaultSubnetId?: string
+  onClose: () => void
+  onAllocated?: (kind: 'ip' | 'vlan', id: string) => void
+}) {
+  const subnets = useStore((s) => s.subnets)
+  const ipAssignments = useStore((s) => s.ipAssignments)
+
+  const [subnetId, setSubnetId] = useState(defaultSubnetId ?? subnets[0]?.id ?? '')
+  const [hostname, setHostname] = useState('')
+  const [description, setDescription] = useState('')
+  const [assignmentType, setAssignmentType] = useState<IpAssignmentType>('device')
+  const [saving, setSaving] = useState(false)
+
+  const previewIp = useMemo(() => {
+    if (!subnetId) return null
+    return previewNextStaticIp(subnetId)
+  }, [ipAssignments, subnetId])
+
+  const subnet = subnets.find((entry) => entry.id === subnetId)
+  const canSubmit = !!previewIp && hostname.trim().length > 0
+
+  async function submit() {
+    if (!canSubmit) return
+
+    setSaving(true)
+    try {
+      const result = await allocateIp({
+        subnetId,
+        hostname: hostname.trim(),
+        description: description.trim() || undefined,
+        assignmentType,
+      })
+      if (result) {
+        onAllocated?.('ip', result.id)
+        setHostname('')
+        setDescription('')
+        onClose()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3 px-4 py-3">
+      <Field label="Subnet">
+        <Select value={subnetId} onChange={setSubnetId}>
+          {subnets.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.cidr} · {entry.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <PreviewBox
+        label="Next available"
+        value={previewIp}
+        emptyText="No free static IPs in this subnet"
+        unit={subnet ? `· ${subnet.name}` : ''}
+      />
+
+      <Field label="Type">
+        <div className="grid grid-cols-4 gap-1">
+          {(['device', 'vm', 'container', 'reserved'] as const).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setAssignmentType(type)}
+              className={cn(
+                'rounded-[var(--radius-xs)] border px-2 py-1 font-mono text-[11px] uppercase tracking-wider capitalize transition-colors',
+                assignmentType === type
+                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                  : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]',
+              )}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      </Field>
+
+      <Field label="Hostname">
+        <Input
+          value={hostname}
+          onChange={(e) => setHostname(e.target.value)}
+          placeholder="e.g. monitoring-01"
+          autoFocus
+        />
+      </Field>
+
+      <Field label="Description (optional)">
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="e.g. Grafana on pve-02"
+        />
+      </Field>
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="default" size="sm" disabled={!canSubmit || saving} onClick={() => void submit()}>
+          Allocate {previewIp && <Mono className="text-[var(--color-bg)]">{previewIp}</Mono>}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function AllocateVlanForm({
+  defaultRangeId,
+  onClose,
+  onAllocated,
+}: {
+  defaultRangeId?: string
+  onClose: () => void
+  onAllocated?: (kind: 'ip' | 'vlan', id: string) => void
+}) {
+  const ranges = useStore((s) => s.vlanRanges)
+  const vlans = useStore((s) => s.vlans)
+
+  const [rangeId, setRangeId] = useState(defaultRangeId ?? ranges[0]?.id ?? '')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const previewId = useMemo(() => {
+    if (!rangeId) return null
+    return previewNextVlanId(rangeId)
+  }, [rangeId, vlans])
+
+  const range = ranges.find((entry) => entry.id === rangeId)
+  const canSubmit = previewId != null && name.trim().length > 0
+
+  async function submit() {
+    if (!canSubmit) return
+
+    setSaving(true)
+    try {
+      const result = await allocateVlan({
+        rangeId,
+        name: name.trim(),
+        description: description.trim() || undefined,
+      })
+      if (result) {
+        onAllocated?.('vlan', result.id)
+        setName('')
+        setDescription('')
+        onClose()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3 px-4 py-3">
+      <Field label="Range">
+        <Select value={rangeId} onChange={setRangeId}>
+          {ranges.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.name} · {entry.startVlan}-{entry.endVlan}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <PreviewBox
+        label="Next available"
+        value={previewId != null ? `VLAN ${previewId}` : null}
+        emptyText="No free VLAN IDs in this range"
+        unit={range ? `· ${range.name}` : ''}
+      />
+
+      <Field label="Name">
+        <Input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. cameras"
+          autoFocus
+        />
+      </Field>
+
+      <Field label="Description (optional)">
+        <Input
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="e.g. RTSP cameras + NVR"
+        />
+      </Field>
+
+      <div className="flex items-center justify-end gap-2 pt-1">
+        <Button variant="ghost" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button variant="default" size="sm" disabled={!canSubmit || saving} onClick={() => void submit()}>
+          Allocate {previewId != null && <Mono className="text-[var(--color-bg)]">VLAN {previewId}</Mono>}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (v: string) => void
+  children: ReactNode
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn(
+        'h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm font-sans',
+        'text-[var(--color-fg)]',
+        'focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]',
+      )}
+    >
+      {children}
+    </select>
+  )
+}
+
+function PreviewBox({
+  label,
+  value,
+  unit,
+  emptyText,
+}: {
+  label: string
+  value: string | null
+  unit?: string
+  emptyText: string
+}) {
+  return (
+    <motion.div
+      key={value ?? 'empty'}
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.18 }}
+      className={cn(
+        'flex items-center gap-3 rounded-[var(--radius-sm)] border px-3 py-2',
+        value
+          ? 'border-[var(--color-accent-soft)]/40 bg-[var(--color-accent)]/5'
+          : 'border-[var(--color-err)]/30 bg-[var(--color-err)]/5',
+      )}
+    >
+      {value ? (
+        <>
+          <span className="size-2 rounded-full bg-[var(--color-accent)] shadow-[0_0_6px_var(--color-accent-glow)] animate-pulse-slow" />
+          <div className="min-w-0 flex-1">
+            <div className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+              {label}
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <Mono className="text-base font-semibold text-[var(--color-fg)]">{value}</Mono>
+              {unit && <span className="truncate text-[11px] text-[var(--color-fg-subtle)]">{unit}</span>}
+            </div>
+          </div>
+          <Badge tone="accent">ready</Badge>
+        </>
+      ) : (
+        <>
+          <AlertCircle className="size-4 shrink-0 text-[var(--color-err)]" />
+          <div className="flex-1 text-[11px] text-[var(--color-err)]">{emptyText}</div>
+        </>
+      )}
+    </motion.div>
+  )
+}

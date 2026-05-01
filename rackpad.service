@@ -1,0 +1,33 @@
+[Unit]
+Description=Rackpad - homelab infrastructure management
+After=network.target
+
+[Service]
+Type=simple
+# Change these to match your setup
+User=rackpad
+Group=rackpad
+WorkingDirectory=/opt/rackpad
+# Environment
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=HOST=0.0.0.0
+Environment=DATABASE_PATH=/var/lib/rackpad/rackpad.db
+
+ExecStart=/usr/bin/node /opt/rackpad/dist-server/index.js
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rackpad
+
+# Basic hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=rackpad
+ReadWritePaths=/var/lib/rackpad
+
+[Install]
+WantedBy=multi-user.target
