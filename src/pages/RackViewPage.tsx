@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
+import { ExternalLink, Pencil, Plus, Save, Server, Trash2 } from 'lucide-react'
 import { DeviceDrawer } from '@/components/shared/DeviceDrawer'
 import { TopBar } from '@/components/layout/TopBar'
 import { RackView } from '@/components/rack/RackView'
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/Input'
 import { Mono } from '@/components/shared/Mono'
 import { StatusDot } from '@/components/shared/StatusDot'
 import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
-import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
+import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import {
   canEditInventory,
   createRackRecord,
@@ -19,9 +20,10 @@ import {
   updateRackRecord,
   useStore,
 } from '@/lib/store'
-import { ExternalLink, Pencil, Plus, Save, Server, Trash2 } from 'lucide-react'
-import type { Port, RackFace } from '@/lib/types'
+import type { Device, Port, RackFace } from '@/lib/types'
 import { statusLabel } from '@/lib/utils'
+
+const UNRACKED_VIEW_ID = '__unracked__'
 
 type RackForm = {
   name: string
@@ -30,6 +32,8 @@ type RackForm = {
   location: string
   notes: string
 }
+
+type RackEditorMode = 'closed' | 'create' | 'edit'
 
 const EMPTY_FORM: RackForm = {
   name: '',
@@ -41,39 +45,46 @@ const EMPTY_FORM: RackForm = {
 
 export default function RackViewPage() {
   const currentUser = useStore((s) => s.currentUser)
+  const activeLab = useStore((s) => s.lab)
   const racks = useStore((s) => s.racks)
   const devices = useStore((s) => s.devices)
   const ports = useStore((s) => s.ports)
   const canEdit = canEditInventory(currentUser)
-  const [rackId, setRackId] = useState('')
+  const [selectedViewId, setSelectedViewId] = useState('')
   const [face, setFace] = useState<RackFace>('front')
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | undefined>()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const [editorOpen, setEditorOpen] = useState(false)
-  const [creatingRack, setCreatingRack] = useState(false)
+  const [editorMode, setEditorMode] = useState<RackEditorMode>('closed')
   const [savingRack, setSavingRack] = useState(false)
   const [deletingRack, setDeletingRack] = useState(false)
   const [rackError, setRackError] = useState('')
   const [rackForm, setRackForm] = useState<RackForm>(EMPTY_FORM)
 
+  const unrackedDevices = useMemo(
+    () => devices.filter((device) => !device.rackId),
+    [devices],
+  )
+
   useEffect(() => {
-    if (!racks.length) return
-    if (!rackId || !racks.some((rack) => rack.id === rackId)) {
-      setRackId(racks[0].id)
+    if (selectedViewId === UNRACKED_VIEW_ID) return
+
+    if (!racks.length) {
+      if (unrackedDevices.length > 0) {
+        setSelectedViewId(UNRACKED_VIEW_ID)
+      }
+      return
     }
-  }, [rackId, racks])
 
-  const portsByDeviceId = useMemo(() => {
-    return ports.reduce<Record<string, Port[]>>((acc, port) => {
-      ;(acc[port.deviceId] ??= []).push(port)
-      return acc
-    }, {})
-  }, [ports])
+    if (!selectedViewId || !racks.some((rack) => rack.id === selectedViewId)) {
+      setSelectedViewId(racks[0].id)
+    }
+  }, [racks, selectedViewId, unrackedDevices.length])
 
-  const rack = racks.find((entry) => entry.id === rackId) ?? racks[0]
+  const viewingUnracked = selectedViewId === UNRACKED_VIEW_ID
+  const rack = viewingUnracked ? undefined : racks.find((entry) => entry.id === selectedViewId) ?? racks[0]
 
   useEffect(() => {
-    if (!rack || creatingRack) return
+    if (editorMode !== 'edit' || !rack) return
     setRackForm({
       name: rack.name,
       totalU: String(rack.totalU),
@@ -81,7 +92,14 @@ export default function RackViewPage() {
       location: rack.location ?? '',
       notes: rack.notes ?? '',
     })
-  }, [creatingRack, rack])
+  }, [editorMode, rack])
+
+  const portsByDeviceId = useMemo(() => {
+    return ports.reduce<Record<string, Port[]>>((acc, port) => {
+      ;(acc[port.deviceId] ??= []).push(port)
+      return acc
+    }, {})
+  }, [ports])
 
   const rackDevices = rack ? devices.filter((device) => device.rackId === rack.id) : []
   const selectedDevice = selectedDeviceId
@@ -92,18 +110,17 @@ export default function RackViewPage() {
     setSavingRack(true)
     setRackError('')
     try {
-      if (creatingRack) {
+      if (editorMode === 'create') {
         const created = await createRackRecord({
-          labId: 'lab_home',
+          labId: activeLab.id,
           name: rackForm.name.trim(),
           totalU: Number.parseInt(rackForm.totalU, 10) || 42,
           description: rackForm.description.trim() || undefined,
           location: rackForm.location.trim() || undefined,
           notes: rackForm.notes.trim() || undefined,
         })
-        setRackId(created.id)
-        setCreatingRack(false)
-        setEditorOpen(false)
+        setSelectedViewId(created.id)
+        setEditorMode('closed')
         return
       }
 
@@ -115,7 +132,7 @@ export default function RackViewPage() {
         location: rackForm.location.trim() || null,
         notes: rackForm.notes.trim() || null,
       })
-      setEditorOpen(false)
+      setEditorMode('closed')
     } catch (err) {
       setRackError(err instanceof Error ? err.message : 'Failed to save rack.')
     } finally {
@@ -131,8 +148,8 @@ export default function RackViewPage() {
     setRackError('')
     try {
       await deleteRackRecord(rack.id)
-      setRackId('')
-      setEditorOpen(false)
+      setSelectedViewId(unrackedDevices.length > 0 ? UNRACKED_VIEW_ID : '')
+      setEditorMode('closed')
     } catch (err) {
       setRackError(err instanceof Error ? err.message : 'Failed to delete rack.')
     } finally {
@@ -140,29 +157,51 @@ export default function RackViewPage() {
     }
   }
 
-  if (!rack && !creatingRack) {
-    return (
-      <>
-        <TopBar
-          subtitle="Physical layout"
-          title="Racks"
-          actions={
-            canEdit ? (
+  const showEmptyState = racks.length === 0 && unrackedDevices.length === 0
+
+  return (
+    <>
+      <TopBar
+        subtitle={activeLab.name}
+        title="Racks"
+        actions={
+          canEdit ? (
+            <>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCreatingRack(true)
-                  setEditorOpen(true)
                   setRackForm(EMPTY_FORM)
+                  setRackError('')
+                  setEditorMode('create')
                 }}
               >
                 <Plus className="size-3.5" />
                 Add rack
               </Button>
-            ) : undefined
-          }
-        />
+              {rack && !viewingUnracked && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setRackError('')
+                    setEditorMode('edit')
+                  }}
+                >
+                  <Pencil className="size-3.5" />
+                  Edit rack
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+                <Plus className="size-3.5" />
+                Add device
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
+
+      {showEmptyState ? (
         <div className="flex flex-1 items-center justify-center px-6">
           <Card className="w-full max-w-xl">
             <CardHeader>
@@ -173,258 +212,326 @@ export default function RackViewPage() {
             </CardHeader>
             <CardBody className="space-y-4">
               <div className="text-sm text-[var(--color-fg-subtle)]">
-                Create your first rack to start placing devices physically.
+                Create your first rack or start by adding loose room tech as unracked gear.
               </div>
               {canEdit && (
-                <Button
-                  onClick={() => {
-                    setCreatingRack(true)
-                    setEditorOpen(true)
-                    setRackForm(EMPTY_FORM)
-                  }}
-                >
-                  <Plus className="size-3.5" />
-                  Create first rack
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => {
+                      setRackForm(EMPTY_FORM)
+                      setRackError('')
+                      setEditorMode('create')
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Create first rack
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedViewId(UNRACKED_VIEW_ID)
+                      setDrawerOpen(true)
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    Add loose gear
+                  </Button>
+                </div>
               )}
             </CardBody>
           </Card>
         </div>
-        {editorOpen && <RackEditorCard
-          creatingRack={creatingRack}
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex w-72 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]/40">
+            <div className="border-b border-[var(--color-line)] px-4 py-3">
+              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+                {racks.length} racks | {unrackedDevices.length} unracked
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              <button
+                onClick={() => {
+                  setSelectedViewId(UNRACKED_VIEW_ID)
+                  setSelectedDeviceId(undefined)
+                }}
+                className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
+                  viewingUnracked
+                    ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
+                    : 'border-transparent hover:bg-[var(--color-surface)]/40'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs font-medium text-[var(--color-fg)]">Loose / room tech</span>
+                  <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{unrackedDevices.length}</Mono>
+                </div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-fg-subtle)]">
+                  Devices not mounted in a physical rack
+                </div>
+              </button>
+
+              {racks.map((entry) => {
+                const inRack = devices.filter((device) => device.rackId === entry.id)
+                const used = inRack.reduce((sum, device) => sum + (device.heightU ?? 0), 0)
+                const isActive = entry.id === rack?.id && !viewingUnracked
+                return (
+                  <button
+                    key={entry.id}
+                    onClick={() => {
+                      setSelectedViewId(entry.id)
+                      setSelectedDeviceId(undefined)
+                    }}
+                    className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
+                      isActive
+                        ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
+                        : 'border-transparent hover:bg-[var(--color-surface)]/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs font-medium text-[var(--color-fg)]">{entry.name}</span>
+                      <Mono className="text-[10px] text-[var(--color-fg-subtle)]">
+                        {used}/{entry.totalU}U
+                      </Mono>
+                    </div>
+                    <div className="mt-0.5 truncate text-[11px] text-[var(--color-fg-subtle)]">
+                      {entry.description}
+                    </div>
+                    <div className="mt-1.5 h-1 overflow-hidden rounded-[1px] bg-[var(--color-bg)]">
+                      <div
+                        className="h-full bg-[var(--color-accent)]"
+                        style={{ width: `${Math.round((used / entry.totalU) * 100)}%`, opacity: 0.7 }}
+                      />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-8 py-6">
+            {viewingUnracked ? (
+              <UnrackedPanel devices={unrackedDevices} portsByDeviceId={portsByDeviceId} />
+            ) : rack ? (
+              <>
+                <div className="mb-4 flex items-center justify-between gap-4">
+                  <div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+                      Rack
+                    </div>
+                    <h2 className="text-lg font-semibold tracking-tight text-[var(--color-fg)]">{rack.name}</h2>
+                    <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">{rack.location}</div>
+                  </div>
+
+                  <Tabs value={face} onValueChange={(value) => setFace(value as RackFace)}>
+                    <TabsList>
+                      <TabsTrigger value="front">Front</TabsTrigger>
+                      <TabsTrigger value="rear">Rear</TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
+                <div className="flex items-start gap-6">
+                  <RackView
+                    rack={rack}
+                    devices={rackDevices}
+                    face={face}
+                    selectedDeviceId={selectedDeviceId}
+                    onSelectDevice={(id) => setSelectedDeviceId(id === selectedDeviceId ? undefined : id)}
+                  />
+
+                  <AnimatePresence>
+                    {selectedDevice && (
+                      <motion.div
+                        key={selectedDevice.id}
+                        initial={{ opacity: 0, x: 8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 8 }}
+                        transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                        className="w-80 shrink-0"
+                      >
+                        <DeviceSummaryCard
+                          device={selectedDevice}
+                          portCount={portsByDeviceId[selectedDevice.id]?.length ?? 0}
+                          position={`${selectedDevice.face} | U${selectedDevice.startU}${
+                            (selectedDevice.heightU ?? 1) > 1
+                              ? `-${selectedDevice.startU! + selectedDevice.heightU! - 1}`
+                              : ''
+                          }`}
+                        />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      <RackEditorModal open={editorMode !== 'closed'}>
+        <RackEditorCard
+          creatingRack={editorMode === 'create'}
           rackForm={rackForm}
           setRackForm={setRackForm}
           rackError={rackError}
           savingRack={savingRack}
           deletingRack={deletingRack}
-          canDelete={false}
+          canDelete={editorMode === 'edit'}
           onSave={() => void handleSaveRack()}
           onDelete={() => void handleDeleteRack()}
           onCancel={() => {
-            setCreatingRack(false)
-            setEditorOpen(false)
+            setEditorMode('closed')
             setRackError('')
           }}
-        />}
-      </>
-    )
-  }
+        />
+      </RackEditorModal>
 
-  return (
-    <>
-      <TopBar
-        subtitle="Physical layout"
-        title="Racks"
-        actions={
-          canEdit ? (
-            <>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setCreatingRack(true)
-                  setEditorOpen(true)
-                  setRackForm(EMPTY_FORM)
-                }}
-              >
-                <Plus className="size-3.5" />
-                Add rack
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setCreatingRack(false)
-                  setEditorOpen((value) => !value)
-                }}
-              >
-                <Pencil className="size-3.5" />
-                {editorOpen && !creatingRack ? 'Hide rack editor' : 'Edit rack'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
-                <Plus className="size-3.5" />
-                Add device
-              </Button>
-            </>
-          ) : undefined
-        }
+      <DeviceDrawer
+        open={drawerOpen}
+        defaultRackId={viewingUnracked ? undefined : rack?.id}
+        onClose={() => setDrawerOpen(false)}
       />
+    </>
+  )
+}
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex w-64 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]/40">
-          <div className="border-b border-[var(--color-line)] px-4 py-3">
-            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-              {racks.length} racks
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto py-2">
-            {racks.map((entry) => {
-              const inRack = devices.filter((device) => device.rackId === entry.id)
-              const used = inRack.reduce((sum, device) => sum + (device.heightU ?? 0), 0)
-              const isActive = entry.id === rack?.id
-              return (
-                <button
-                  key={entry.id}
-                  onClick={() => {
-                    setRackId(entry.id)
-                    setSelectedDeviceId(undefined)
-                    setCreatingRack(false)
-                  }}
-                  className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
-                    isActive
-                      ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
-                      : 'border-transparent hover:bg-[var(--color-surface)]/40'
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-medium text-[var(--color-fg)]">{entry.name}</span>
-                    <Mono className="text-[10px] text-[var(--color-fg-subtle)]">
-                      {used}/{entry.totalU}U
-                    </Mono>
-                  </div>
-                  <div className="mt-0.5 truncate text-[11px] text-[var(--color-fg-subtle)]">
-                    {entry.description}
-                  </div>
-                  <div className="mt-1.5 h-1 overflow-hidden rounded-[1px] bg-[var(--color-bg)]">
-                    <div
-                      className="h-full bg-[var(--color-accent)]"
-                      style={{ width: `${Math.round((used / entry.totalU) * 100)}%`, opacity: 0.7 }}
-                    />
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+function UnrackedPanel({
+  devices,
+  portsByDeviceId,
+}: {
+  devices: Device[]
+  portsByDeviceId: Record<string, Port[]>
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+          Physical layout
         </div>
-
-        <div className="flex-1 overflow-y-auto px-8 py-6">
-          {rack && (
-            <>
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-                    Rack
-                  </div>
-                  <h2 className="text-lg font-semibold tracking-tight text-[var(--color-fg)]">{rack.name}</h2>
-                  <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">{rack.location}</div>
-                </div>
-
-                <Tabs value={face} onValueChange={(value) => setFace(value as RackFace)}>
-                  <TabsList>
-                    <TabsTrigger value="front">Front</TabsTrigger>
-                    <TabsTrigger value="rear">Rear</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-
-              {editorOpen && canEdit && (
-                <div className="mb-5">
-                  <RackEditorCard
-                    creatingRack={creatingRack}
-                    rackForm={rackForm}
-                    setRackForm={setRackForm}
-                    rackError={rackError}
-                    savingRack={savingRack}
-                    deletingRack={deletingRack}
-                    canDelete={!creatingRack}
-                    onSave={() => void handleSaveRack()}
-                    onDelete={() => void handleDeleteRack()}
-                    onCancel={() => {
-                      setCreatingRack(false)
-                      setEditorOpen(false)
-                      setRackError('')
-                    }}
-                  />
-                </div>
-              )}
-
-              <div className="flex items-start gap-6">
-                <RackView
-                  rack={rack}
-                  devices={rackDevices}
-                  face={face}
-                  selectedDeviceId={selectedDeviceId}
-                  onSelectDevice={(id) => setSelectedDeviceId(id === selectedDeviceId ? undefined : id)}
-                />
-
-                <AnimatePresence>
-                  {selectedDevice && (
-                    <motion.div
-                      key={selectedDevice.id}
-                      initial={{ opacity: 0, x: 8 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 8 }}
-                      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                      className="w-80 shrink-0"
-                    >
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>
-                            <CardLabel>Device</CardLabel>
-                            <CardHeading>{selectedDevice.hostname}</CardHeading>
-                          </CardTitle>
-                          <Button variant="ghost" size="icon" asChild>
-                            <Link to={`/devices/${selectedDevice.id}`}>
-                              <ExternalLink />
-                            </Link>
-                          </Button>
-                        </CardHeader>
-                        <CardBody>
-                          <div className="mb-3 flex items-center gap-2">
-                            <DeviceTypeIcon type={selectedDevice.deviceType} className="size-4 text-[var(--color-accent)]" />
-                            <span className="text-sm capitalize text-[var(--color-fg)]">
-                              {selectedDevice.deviceType.replace('_', ' ')}
-                            </span>
-                            <span className="ml-auto inline-flex items-center gap-1.5">
-                              <StatusDot status={selectedDevice.status} />
-                              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-muted)]">
-                                {statusLabel[selectedDevice.status]}
-                              </span>
-                            </span>
-                          </div>
-
-                          <dl className="space-y-2 text-xs">
-                            <Row label="Manufacturer" value={selectedDevice.manufacturer} />
-                            <Row label="Model" value={selectedDevice.model} mono />
-                            <Row label="Serial" value={selectedDevice.serial} mono />
-                            <Row label="Mgmt IP" value={selectedDevice.managementIp} mono />
-                            <Row
-                              label="Position"
-                              value={`${selectedDevice.face} | U${selectedDevice.startU}${
-                                (selectedDevice.heightU ?? 1) > 1
-                                  ? `-${selectedDevice.startU! + selectedDevice.heightU! - 1}`
-                                  : ''
-                              }`}
-                            />
-                            <Row label="Ports" value={String(portsByDeviceId[selectedDevice.id]?.length ?? 0)} />
-                          </dl>
-
-                          {selectedDevice.tags && selectedDevice.tags.length > 0 && (
-                            <div className="mt-3 flex flex-wrap gap-1">
-                              {selectedDevice.tags.map((tag) => (
-                                <Badge key={tag}>{tag}</Badge>
-                              ))}
-                            </div>
-                          )}
-                        </CardBody>
-                      </Card>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </>
-          )}
+        <h2 className="text-lg font-semibold tracking-tight text-[var(--color-fg)]">Loose / room tech</h2>
+        <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
+          Devices that live on a shelf, desk, wall, or in a room instead of a rack.
         </div>
       </div>
 
-      {rack && (
-        <DeviceDrawer
-          open={drawerOpen}
-          defaultRackId={rack.id}
-          onClose={() => setDrawerOpen(false)}
-        />
+      {devices.length === 0 ? (
+        <Card>
+          <CardBody className="py-8 text-center text-sm text-[var(--color-fg-subtle)]">
+            No unracked devices yet.
+          </CardBody>
+        </Card>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-2">
+          {devices.map((device) => (
+            <Card key={device.id}>
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>Loose gear</CardLabel>
+                  <CardHeading>{device.hostname}</CardHeading>
+                </CardTitle>
+                <Button variant="ghost" size="icon" asChild>
+                  <Link to={`/devices/${device.id}`}>
+                    <ExternalLink />
+                  </Link>
+                </Button>
+              </CardHeader>
+              <CardBody className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <DeviceTypeIcon type={device.deviceType} className="size-4 text-[var(--color-accent)]" />
+                  <span className="text-sm capitalize text-[var(--color-fg)]">
+                    {device.deviceType.replace('_', ' ')}
+                  </span>
+                  <span className="ml-auto inline-flex items-center gap-1.5">
+                    <StatusDot status={device.status} />
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-muted)]">
+                      {statusLabel[device.status]}
+                    </span>
+                  </span>
+                </div>
+                <dl className="space-y-2 text-xs">
+                  <Row label="Manufacturer" value={device.manufacturer} />
+                  <Row label="Model" value={device.model} mono />
+                  <Row label="Serial" value={device.serial} mono />
+                  <Row label="Mgmt IP" value={device.managementIp} mono />
+                  <Row label="Ports" value={String(portsByDeviceId[device.id]?.length ?? 0)} />
+                </dl>
+                {device.notes && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-fg-subtle)]">
+                    {device.notes}
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          ))}
+        </div>
       )}
-    </>
+    </div>
+  )
+}
+
+function RackEditorModal({ open, children }: { open: boolean; children: React.ReactNode }) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-6">
+      <div className="w-full max-w-2xl">{children}</div>
+    </div>
+  )
+}
+
+function DeviceSummaryCard({
+  device,
+  portCount,
+  position,
+}: {
+  device: Device
+  portCount: number
+  position?: string
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>Device</CardLabel>
+          <CardHeading>{device.hostname}</CardHeading>
+        </CardTitle>
+        <Button variant="ghost" size="icon" asChild>
+          <Link to={`/devices/${device.id}`}>
+            <ExternalLink />
+          </Link>
+        </Button>
+      </CardHeader>
+      <CardBody>
+        <div className="mb-3 flex items-center gap-2">
+          <DeviceTypeIcon type={device.deviceType} className="size-4 text-[var(--color-accent)]" />
+          <span className="text-sm capitalize text-[var(--color-fg)]">
+            {device.deviceType.replace('_', ' ')}
+          </span>
+          <span className="ml-auto inline-flex items-center gap-1.5">
+            <StatusDot status={device.status} />
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-muted)]">
+              {statusLabel[device.status]}
+            </span>
+          </span>
+        </div>
+
+        <dl className="space-y-2 text-xs">
+          <Row label="Manufacturer" value={device.manufacturer} />
+          <Row label="Model" value={device.model} mono />
+          <Row label="Serial" value={device.serial} mono />
+          <Row label="Mgmt IP" value={device.managementIp} mono />
+          <Row label="Position" value={position} />
+          <Row label="Ports" value={String(portCount)} />
+        </dl>
+
+        {device.tags && device.tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1">
+            {device.tags.map((tag) => (
+              <Badge key={tag}>{tag}</Badge>
+            ))}
+          </div>
+        )}
+      </CardBody>
+    </Card>
   )
 }
 

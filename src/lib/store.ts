@@ -23,6 +23,7 @@ import type {
 import type {
   DevicePatch,
   DhcpScopePatch,
+  LabPatch,
   MonitorPatch,
   PortPatch,
   PortTemplatePatch,
@@ -39,6 +40,8 @@ const DEFAULT_LAB: Lab = {
   description: 'Primary homelab',
 }
 
+const ACTIVE_LAB_STORAGE_KEY = 'rackpad.active.lab'
+
 interface State {
   authReady: boolean
   authLoading: boolean
@@ -49,6 +52,7 @@ interface State {
   loading: boolean
   loaded: boolean
   error: string | null
+  labs: Lab[]
   lab: Lab
   racks: Rack[]
   devices: Device[]
@@ -67,6 +71,7 @@ interface State {
 }
 
 const EMPTY_DATA = {
+  labs: [] as Lab[],
   racks: [] as Rack[],
   devices: [] as Device[],
   ports: [] as Port[],
@@ -137,8 +142,29 @@ function resetData(): Pick<State, keyof typeof EMPTY_DATA | 'loaded' | 'loading'
   }
 }
 
+function readStoredLabId() {
+  try {
+    return window.localStorage.getItem(ACTIVE_LAB_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function storeLabId(labId: string | null) {
+  try {
+    if (labId) {
+      window.localStorage.setItem(ACTIVE_LAB_STORAGE_KEY, labId)
+    } else {
+      window.localStorage.removeItem(ACTIVE_LAB_STORAGE_KEY)
+    }
+  } catch {
+    // Ignore local storage failures and keep the in-memory selection.
+  }
+}
+
 function clearSessionState(authError: string | null = null) {
   setAuthToken(null)
+  storeLabId(null)
   setState((prev) => ({
     ...prev,
     authReady: true,
@@ -147,12 +173,17 @@ function clearSessionState(authError: string | null = null) {
     needsBootstrap: false,
     currentUser: null,
     authExpiresAt: null,
+    lab: DEFAULT_LAB,
     ...resetData(),
   }))
 }
 
 function sortByName<T extends { name: string }>(items: T[]) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function sortLabs(labs: Lab[]) {
+  return sortByName(labs)
 }
 
 function sortDevices(devices: Device[]) {
@@ -230,6 +261,65 @@ function replaceById<T extends { id: string }>(items: T[], updated: T, sorter?: 
 
 function removeById<T extends { id: string }>(items: T[], id: string) {
   return items.filter((item) => item.id !== id)
+}
+
+function pickActiveLab(labs: Lab[], preferredLabId?: string | null) {
+  if (labs.length === 0) return DEFAULT_LAB
+  return (
+    (preferredLabId ? labs.find((lab) => lab.id === preferredLabId) : undefined) ??
+    labs[0]
+  )
+}
+
+function filterAuditForLab(
+  entries: AuditEntry[],
+  context: {
+    labId: string
+    rackIds: Set<string>
+    deviceIds: Set<string>
+    portIds: Set<string>
+    portLinkIds: Set<string>
+    vlanIds: Set<string>
+    vlanRangeIds: Set<string>
+    subnetIds: Set<string>
+    scopeIds: Set<string>
+    zoneIds: Set<string>
+    assignmentIds: Set<string>
+    monitorIds: Set<string>
+  },
+) {
+  return sortAudit(
+    entries.filter((entry) => {
+      switch (entry.entityType) {
+        case 'Lab':
+          return entry.entityId === context.labId
+        case 'Rack':
+          return context.rackIds.has(entry.entityId)
+        case 'Device':
+          return context.deviceIds.has(entry.entityId)
+        case 'Port':
+          return context.portIds.has(entry.entityId)
+        case 'PortLink':
+          return context.portLinkIds.has(entry.entityId)
+        case 'Vlan':
+          return context.vlanIds.has(entry.entityId)
+        case 'VlanRange':
+          return context.vlanRangeIds.has(entry.entityId)
+        case 'Subnet':
+          return context.subnetIds.has(entry.entityId)
+        case 'DhcpScope':
+          return context.scopeIds.has(entry.entityId)
+        case 'IpZone':
+          return context.zoneIds.has(entry.entityId)
+        case 'IpAssignment':
+          return context.assignmentIds.has(entry.entityId)
+        case 'DeviceMonitor':
+          return context.monitorIds.has(entry.entityId)
+        default:
+          return true
+      }
+    }),
+  )
 }
 
 function normalizeDeviceChanges(changes: Partial<Omit<Device, 'id' | 'labId'>>): DevicePatch {
@@ -569,7 +659,7 @@ export async function logout(): Promise<void> {
   clearSessionState(null)
 }
 
-export async function loadAll(force = false): Promise<void> {
+export async function loadAll(force = false, preferredLabId?: string | null): Promise<void> {
   const currentUser = state.currentUser
   if (!currentUser) return
   if (dataLoadPromise && !force) return dataLoadPromise
@@ -582,6 +672,10 @@ export async function loadAll(force = false): Promise<void> {
 
   dataLoadPromise = (async () => {
     try {
+      const labs = sortLabs(await api.getLabs())
+      const activeLab = pickActiveLab(labs, preferredLabId ?? readStoredLabId() ?? state.lab.id)
+      storeLabId(activeLab.id)
+
       const requests = {
         racks: api.getRacks(),
         devices: api.getDevices(),
@@ -622,34 +716,110 @@ export async function loadAll(force = false): Promise<void> {
         failures.push(key)
       })
 
+      const allRacks = sortByName((resolved.get('racks') as Rack[] | undefined) ?? []).filter(
+        (rack) => rack.labId === activeLab.id,
+      )
+      const rackIds = new Set(allRacks.map((rack) => rack.id))
+
+      const allDevices = sortDevices((resolved.get('devices') as Device[] | undefined) ?? []).filter(
+        (device) => device.labId === activeLab.id,
+      )
+      const deviceIds = new Set(allDevices.map((device) => device.id))
+
+      const allVlans = sortVlans((resolved.get('vlans') as Vlan[] | undefined) ?? []).filter(
+        (vlan) => vlan.labId === activeLab.id,
+      )
+      const vlanIds = new Set(allVlans.map((vlan) => vlan.id))
+
+      const allVlanRanges = sortVlanRanges((resolved.get('vlanRanges') as VlanRange[] | undefined) ?? []).filter(
+        (range) => range.labId === activeLab.id,
+      )
+      const vlanRangeIds = new Set(allVlanRanges.map((range) => range.id))
+
+      const allSubnets = sortSubnets((resolved.get('subnets') as Subnet[] | undefined) ?? []).filter(
+        (subnet) => subnet.labId === activeLab.id,
+      )
+      const subnetIds = new Set(allSubnets.map((subnet) => subnet.id))
+
+      const allPorts = sortPorts((resolved.get('ports') as Port[] | undefined) ?? []).filter((port) =>
+        deviceIds.has(port.deviceId),
+      )
+      const portIds = new Set(allPorts.map((port) => port.id))
+
+      const allPortLinks = ((resolved.get('portLinks') as PortLink[] | undefined) ?? []).filter(
+        (link) => portIds.has(link.fromPortId) && portIds.has(link.toPortId),
+      )
+      const portLinkIds = new Set(allPortLinks.map((link) => link.id))
+
+      const allScopes = sortScopes((resolved.get('scopes') as DhcpScope[] | undefined) ?? []).filter((scope) =>
+        subnetIds.has(scope.subnetId),
+      )
+      const scopeIds = new Set(allScopes.map((scope) => scope.id))
+
+      const allIpZones = sortIpZones((resolved.get('ipZones') as IpZone[] | undefined) ?? []).filter((zone) =>
+        subnetIds.has(zone.subnetId),
+      )
+      const zoneIds = new Set(allIpZones.map((zone) => zone.id))
+
+      const allIpAssignments = sortIpAssignments(
+        ((resolved.get('ipAssignments') as IpAssignment[] | undefined) ?? []).filter(
+          (assignment) =>
+            subnetIds.has(assignment.subnetId) ||
+            (assignment.deviceId != null && deviceIds.has(assignment.deviceId)) ||
+            (assignment.portId != null && portIds.has(assignment.portId)),
+        ),
+      )
+      const assignmentIds = new Set(allIpAssignments.map((assignment) => assignment.id))
+
+      const allMonitors = sortMonitors(
+        ((resolved.get('deviceMonitors') as DeviceMonitor[] | undefined) ?? []).filter((monitor) =>
+          deviceIds.has(monitor.deviceId),
+        ),
+      )
+      const monitorIds = new Set(allMonitors.map((monitor) => monitor.id))
+
+      const filteredAudit = filterAuditForLab(
+        (resolved.get('auditLog') as AuditEntry[] | undefined) ?? [],
+        {
+          labId: activeLab.id,
+          rackIds,
+          deviceIds,
+          portIds,
+          portLinkIds,
+          vlanIds,
+          vlanRangeIds,
+          subnetIds,
+          scopeIds,
+          zoneIds,
+          assignmentIds,
+          monitorIds,
+        },
+      )
+
       setState((prev) => ({
         ...prev,
         loading: false,
         loaded: true,
+        labs,
+        lab: activeLab,
         error:
           failures.length > 0
             ? `Some data failed to load: ${failures.join(', ')}. Showing the data that did load.`
             : null,
-        racks: resolved.has('racks') ? sortByName(resolved.get('racks') as Rack[]) : prev.racks,
-        devices: resolved.has('devices') ? sortDevices(resolved.get('devices') as Device[]) : prev.devices,
-        ports: resolved.has('ports') ? sortPorts(resolved.get('ports') as Port[]) : prev.ports,
-        portLinks: resolved.has('portLinks') ? (resolved.get('portLinks') as PortLink[]) : prev.portLinks,
-        vlans: resolved.has('vlans') ? sortVlans(resolved.get('vlans') as Vlan[]) : prev.vlans,
-        vlanRanges: resolved.has('vlanRanges') ? sortVlanRanges(resolved.get('vlanRanges') as VlanRange[]) : prev.vlanRanges,
-        subnets: resolved.has('subnets') ? sortSubnets(resolved.get('subnets') as Subnet[]) : prev.subnets,
-        scopes: resolved.has('scopes') ? sortScopes(resolved.get('scopes') as DhcpScope[]) : prev.scopes,
-        ipZones: resolved.has('ipZones') ? sortIpZones(resolved.get('ipZones') as IpZone[]) : prev.ipZones,
-        ipAssignments: resolved.has('ipAssignments')
-          ? sortIpAssignments(resolved.get('ipAssignments') as IpAssignment[])
-          : prev.ipAssignments,
-        auditLog: resolved.has('auditLog') ? sortAudit(resolved.get('auditLog') as AuditEntry[]) : prev.auditLog,
-        deviceMonitors: resolved.has('deviceMonitors')
-          ? sortMonitors(resolved.get('deviceMonitors') as DeviceMonitor[])
-          : prev.deviceMonitors,
-        portTemplates: resolved.has('portTemplates')
-          ? sortPortTemplates(resolved.get('portTemplates') as PortTemplate[])
-          : prev.portTemplates,
-        users: resolved.has('users') ? sortUsers(resolved.get('users') as AppUser[]) : prev.users,
+        racks: allRacks,
+        devices: allDevices,
+        ports: allPorts,
+        portLinks: allPortLinks,
+        vlans: allVlans,
+        vlanRanges: allVlanRanges,
+        subnets: allSubnets,
+        scopes: allScopes,
+        ipZones: allIpZones,
+        ipAssignments: allIpAssignments,
+        auditLog: filteredAudit,
+        deviceMonitors: allMonitors,
+        portTemplates: sortPortTemplates((resolved.get('portTemplates') as PortTemplate[] | undefined) ?? []),
+        users: sortUsers((resolved.get('users') as AppUser[] | undefined) ?? []),
       }))
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -679,6 +849,71 @@ export async function refreshUsers(): Promise<void> {
     ...prev,
     users: sortUsers(users),
   }))
+}
+
+export async function selectLab(labId: string): Promise<void> {
+  if (labId === state.lab.id) return
+  const selectedLab = state.labs.find((lab) => lab.id === labId)
+  if (!selectedLab) {
+    throw new Error('That lab no longer exists.')
+  }
+
+  storeLabId(labId)
+  setState((prev) => ({
+    ...prev,
+    lab: selectedLab,
+    loading: true,
+    loaded: false,
+    error: null,
+  }))
+  await loadAll(true, labId)
+}
+
+export async function createLabRecord(input: Omit<Lab, 'id'>): Promise<Lab> {
+  const created = await api.createLab(input)
+  const labs = sortLabs([...state.labs, created])
+  setState((prev) => ({
+    ...prev,
+    labs,
+  }))
+  void recordAudit('lab.create', 'Lab', created.id, `Added lab ${created.name}`)
+  await selectLab(created.id)
+  return created
+}
+
+export async function updateLabRecord(id: string, changes: LabPatch): Promise<Lab> {
+  const updated = await api.updateLab(id, changes)
+  setState((prev) => ({
+    ...prev,
+    labs: sortLabs(replaceById(prev.labs, updated)),
+    lab: prev.lab.id === id ? updated : prev.lab,
+  }))
+  if (state.lab.id === id) {
+    storeLabId(id)
+  }
+  void recordAudit('lab.update', 'Lab', id, `Updated lab ${updated.name}`)
+  return updated
+}
+
+export async function deleteLabRecord(id: string): Promise<void> {
+  const lab = state.labs.find((entry) => entry.id === id)
+  if (!lab) return
+
+  await api.deleteLab(id)
+  const remainingLabs = sortLabs(state.labs.filter((entry) => entry.id !== id))
+  const nextLab = pickActiveLab(remainingLabs, state.lab.id === id ? remainingLabs[0]?.id ?? null : state.lab.id)
+
+  setState((prev) => ({
+    ...prev,
+    labs: remainingLabs,
+    lab: nextLab,
+  }))
+
+  if (remainingLabs.length > 0) {
+    await loadAll(true, nextLab.id)
+  }
+
+  void recordAudit('lab.delete', 'Lab', id, `Deleted lab ${lab.name}`)
 }
 
 export async function downloadAdminBackup(): Promise<string> {

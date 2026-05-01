@@ -1,6 +1,8 @@
-import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
+  Building2,
   Server,
   Cable,
   Network,
@@ -12,11 +14,12 @@ import {
   Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useStore } from '@/lib/store'
+import { selectLab, useStore } from '@/lib/store'
 import { APP_VERSION_TAG } from '@/lib/version'
 
 const baseNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/labs', icon: Building2, label: 'Labs' },
   { to: '/racks', icon: Server, label: 'Racks' },
   { to: '/devices', icon: Boxes, label: 'Devices' },
   { to: '/ports', icon: Cable, label: 'Ports' },
@@ -30,6 +33,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onOpenSearch }: SidebarProps) {
+  const [labMenuOpen, setLabMenuOpen] = useState(false)
+  const [pendingLabId, setPendingLabId] = useState<string | null>(null)
+  const labs = useStore((s) => s.labs)
   const lab = useStore((s) => s.lab)
   const currentUser = useStore((s) => s.currentUser)
   const authExpiresAt = useStore((s) => s.authExpiresAt)
@@ -37,6 +43,16 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
   const navItems = currentUser?.role === 'admin'
     ? [...baseNavItems, { to: '/users', icon: Shield, label: 'Users' }] as const
     : baseNavItems
+
+  async function handleSelectLab(labId: string) {
+    setPendingLabId(labId)
+    try {
+      await selectLab(labId)
+      setLabMenuOpen(false)
+    } finally {
+      setPendingLabId(null)
+    }
+  }
 
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]">
@@ -48,12 +64,56 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         </span>
       </div>
 
-      <div className="mx-3 mb-4 flex cursor-default items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-1.5">
-        <div className="min-w-0 flex flex-col leading-tight">
-          <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-fg-faint)]">Lab</span>
-          <span className="truncate text-xs font-medium">{lab.name}</span>
-        </div>
-        <ChevronDown className="size-3.5 text-[var(--color-fg-subtle)]" />
+      <div className="mx-3 mb-4">
+        <button
+          type="button"
+          onClick={() => setLabMenuOpen((value) => !value)}
+          className="flex w-full items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-1.5 text-left"
+        >
+          <div className="min-w-0 flex flex-col leading-tight">
+            <span className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-fg-faint)]">Lab</span>
+            <span className="truncate text-xs font-medium">{lab.name}</span>
+          </div>
+          <ChevronDown
+            className={cn(
+              'size-3.5 text-[var(--color-fg-subtle)] transition-transform',
+              labMenuOpen ? 'rotate-180' : 'rotate-0',
+            )}
+          />
+        </button>
+        {labMenuOpen && (
+          <div className="mt-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-2 shadow-[var(--shadow-elev)]">
+            <div className="space-y-1">
+              {labs.map((entry) => (
+                <button
+                  key={entry.id}
+                  type="button"
+                  onClick={() => void handleSelectLab(entry.id)}
+                  disabled={pendingLabId === entry.id || entry.id === lab.id}
+                  className={cn(
+                    'flex w-full items-center justify-between rounded-[var(--radius-xs)] px-2 py-1.5 text-left text-xs transition-colors',
+                    entry.id === lab.id
+                      ? 'bg-[var(--color-surface)] text-[var(--color-fg)]'
+                      : 'text-[var(--color-fg-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-fg)]',
+                  )}
+                >
+                  <span className="min-w-0 truncate">{entry.name}</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-faint)]">
+                    {pendingLabId === entry.id ? '...' : entry.id === lab.id ? 'active' : 'use'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <Link
+              to="/labs"
+              onClick={() => setLabMenuOpen(false)}
+              className="mt-2 flex items-center justify-between rounded-[var(--radius-xs)] border border-[var(--color-line)] px-2 py-1.5 text-xs text-[var(--color-fg-muted)] transition-colors hover:border-[var(--color-line-strong)] hover:text-[var(--color-fg)]"
+            >
+              <span>Manage labs</span>
+              <Building2 className="size-3.5" />
+            </Link>
+          </div>
+        )}
       </div>
 
       <button

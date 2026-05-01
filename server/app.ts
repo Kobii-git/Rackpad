@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { authRoutes } from './routes/auth.js'
 import { usersRoutes } from './routes/users.js'
+import { labsRoutes } from './routes/labs.js'
 import { racksRoutes } from './routes/racks.js'
 import { devicesRoutes } from './routes/devices.js'
 import { portsRoutes } from './routes/ports.js'
@@ -110,6 +111,7 @@ export async function createApp() {
 
   await app.register(authRoutes, { prefix: '/api/auth' })
   await app.register(usersRoutes, { prefix: '/api/users' })
+  await app.register(labsRoutes, { prefix: '/api/labs' })
   await app.register(racksRoutes, { prefix: '/api/racks' })
   await app.register(devicesRoutes, { prefix: '/api/devices' })
   await app.register(portsRoutes, { prefix: '/api/ports' })

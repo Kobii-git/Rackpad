@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 
 const Dashboard = lazy(() => import('@/pages/Dashboard'))
+const LabsPage = lazy(() => import('@/pages/LabsPage'))
 const RackViewPage = lazy(() => import('@/pages/RackViewPage'))
 const DevicesList = lazy(() => import('@/pages/DevicesList'))
 const DeviceDetail = lazy(() => import('@/pages/DeviceDetail'))
@@ -17,6 +18,7 @@ export default function App() {
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<RouteFrame><Dashboard /></RouteFrame>} />
+        <Route path="/labs" element={<RouteFrame><LabsPage /></RouteFrame>} />
         <Route path="/racks" element={<RouteFrame><RackViewPage /></RouteFrame>} />
         <Route path="/devices" element={<RouteFrame><DevicesList /></RouteFrame>} />
         <Route path="/devices/:id" element={<RouteFrame><DeviceDetail /></RouteFrame>} />

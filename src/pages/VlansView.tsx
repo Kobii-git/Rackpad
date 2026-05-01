@@ -50,6 +50,7 @@ const EMPTY_SUBNET_FORM: SubnetForm = {
 
 export default function VlansView() {
   const currentUser = useStore((s) => s.currentUser)
+  const activeLab = useStore((s) => s.lab)
   const ranges = useStore((s) => s.vlanRanges)
   const vlans = useStore((s) => s.vlans)
   const subnets = useStore((s) => s.subnets)
@@ -127,7 +128,7 @@ export default function VlansView() {
     try {
       if (creatingRange) {
         const created = await createVlanRangeRecord({
-          labId: 'lab_home',
+          labId: activeLab.id,
           name: rangeForm.name.trim(),
           startVlan: Number.parseInt(rangeForm.startVlan, 10),
           endVlan: Number.parseInt(rangeForm.endVlan, 10),
@@ -176,7 +177,7 @@ export default function VlansView() {
     setSubnetError('')
     try {
       await createSubnetRecord({
-        labId: 'lab_home',
+        labId: activeLab.id,
         cidr: subnetForm.cidr.trim(),
         name: subnetForm.name.trim(),
         description: subnetForm.description.trim() || undefined,

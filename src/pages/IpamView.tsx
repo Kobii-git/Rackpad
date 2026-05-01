@@ -92,6 +92,7 @@ const EMPTY_ZONE_FORM: ZoneForm = {
 
 export default function IpamView() {
   const currentUser = useStore((s) => s.currentUser)
+  const activeLab = useStore((s) => s.lab)
   const subnets = useStore((s) => s.subnets)
   const vlans = useStore((s) => s.vlans)
   const devices = useStore((s) => s.devices)
@@ -246,7 +247,7 @@ export default function IpamView() {
     }, {})
   }, [assignments])
 
-  if (!subnet && !creatingSubnet) {
+  if (!subnet) {
     return (
       <>
         <TopBar
@@ -295,7 +296,7 @@ export default function IpamView() {
                     setSubnetError('')
                     try {
                       const created = await createSubnetRecord({
-                        labId: 'lab_home',
+                        labId: activeLab.id,
                         cidr: subnetForm.cidr.trim(),
                         name: subnetForm.name.trim(),
                         description: subnetForm.description.trim() || undefined,
@@ -341,7 +342,7 @@ export default function IpamView() {
     try {
       if (creatingSubnet) {
         const created = await createSubnetRecord({
-          labId: 'lab_home',
+          labId: activeLab.id,
           cidr: subnetForm.cidr.trim(),
           name: subnetForm.name.trim(),
           description: subnetForm.description.trim() || undefined,

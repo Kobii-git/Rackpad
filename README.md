@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.6.0`
+Current release: `v0.6.1`
 
 It is a full-stack app:
 - React + Vite frontend

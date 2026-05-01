@@ -195,7 +195,9 @@ export default function DevicesList() {
                             </Mono>
                           </span>
                         ) : (
-                          <span className="text-[var(--color-fg-faint)]">-</span>
+                          <span className="text-[var(--color-fg-faint)]">
+                            {device.rackId ? 'Pending placement' : 'Unracked'}
+                          </span>
                         )}
                       </Td>
                       <Td>

@@ -4,6 +4,26 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.6.1] - 2026-05-02
+
+### Added
+
+- Real lab management with backend CRUD, a lab switcher in the sidebar, and a dedicated labs page.
+- A `Loose / room tech` section in the racks workspace so unracked devices have a first-class home.
+
+### Fixed
+
+- `Add rack` now opens a reliable modal editor instead of dropping into a broken inline state.
+- Rack, VLAN range, and subnet creation now use the active lab instead of a stale hard-coded `lab_home` value.
+- VLAN-linked subnet creation from the VLAN page now works correctly in restored or newly created labs.
+- The IPAM empty-state `Add subnet` flow no longer falls through to a blank page when there are no subnets yet.
+- Devices without a rack now display as `Unracked` instead of appearing to have missing placement data.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.6.0] - 2026-05-01
 
 ### Added

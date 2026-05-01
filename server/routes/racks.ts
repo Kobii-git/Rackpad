@@ -4,7 +4,10 @@ import { createId } from '../lib/ids.js'
 import { asObject, optionalInteger, optionalString, requiredString } from '../lib/validation.js'
 
 export const racksRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/', async () => {
+  app.get<{ Querystring: { labId?: string } }>('/', async (req) => {
+    if (req.query.labId) {
+      return db.prepare('SELECT * FROM racks WHERE labId = ? ORDER BY name').all(req.query.labId)
+    }
     return db.prepare('SELECT * FROM racks ORDER BY name').all()
   })
 

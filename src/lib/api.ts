@@ -7,6 +7,7 @@ import type {
   DhcpScope,
   IpAssignment,
   IpZone,
+  Lab,
   Port,
   PortLink,
   PortTemplate,
@@ -36,6 +37,7 @@ export class ApiError extends Error {
 }
 
 export type DevicePatch = Nullable<Omit<Device, 'id' | 'labId'>>
+export type LabPatch = Nullable<Omit<Lab, 'id'>>
 export type RackPatch = Nullable<Omit<Rack, 'id' | 'labId'>>
 export type SubnetPatch = Nullable<Omit<Subnet, 'id' | 'labId'>>
 export type DhcpScopePatch = Nullable<Omit<DhcpScope, 'id' | 'subnetId'>>
@@ -192,6 +194,30 @@ export const api = {
 
   getUsers() {
     return request<AppUser[]>('/users')
+  },
+
+  getLabs() {
+    return request<Lab[]>('/labs')
+  },
+
+  createLab(body: Omit<Lab, 'id'> & { id?: string }) {
+    return request<Lab>('/labs', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateLab(id: string, body: LabPatch) {
+    return request<Lab>(`/labs/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteLab(id: string) {
+    return request<void>(`/labs/${id}`, {
+      method: 'DELETE',
+    })
   },
 
   createUser(body: { username: string; displayName?: string; password: string; role: UserRole; disabled?: boolean }) {
