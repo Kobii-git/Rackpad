@@ -33,7 +33,8 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
     const path = optionalString(body, 'path', { maxLength: 200 })
     const port = optionalInteger(body, 'port', { min: 1, max: 65535 })
     const intervalMs = optionalInteger(body, 'intervalMs', { min: 1000, max: 1000 * 60 * 60 * 24 })
-    const enabled = optionalBoolean(body, 'enabled') ?? type !== 'none'
+    const requestedEnabled = optionalBoolean(body, 'enabled')
+    const enabled = type === 'none' ? false : (requestedEnabled ?? true)
 
     if (type !== 'none' && !target) {
       throw new ValidationError('Target is required when health checks are enabled.')

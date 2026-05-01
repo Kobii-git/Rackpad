@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
+import { createId } from '../lib/ids.js'
 import { asObject, optionalString, requiredString } from '../lib/validation.js'
 
 export const cablesRoutes: FastifyPluginAsync = async (app) => {
@@ -42,7 +43,7 @@ export const cablesRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(409).send({ error: 'One of the selected ports is already linked' })
     }
 
-    const id = `l_${Date.now()}`
+    const id = createId('l')
     db.prepare(
       'INSERT INTO portLinks (id, fromPortId, toPortId, cableType, cableLength, color, notes) VALUES (?,?,?,?,?,?,?)'
     ).run(id, fromPortId, toPortId, cableType ?? null, cableLength ?? null, color ?? null, notes ?? null)

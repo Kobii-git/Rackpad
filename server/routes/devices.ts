@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db, parseRow } from '../db.js'
+import { createId } from '../lib/ids.js'
 import { createPortsFromTemplate, getPortTemplate } from '../lib/port-templates.js'
 import { validateRackPlacement } from '../lib/rack-placement.js'
 import {
@@ -88,7 +89,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       throw new ValidationError('Selected port template does not exist.')
     }
 
-    const id = `d_${Date.now()}`
+    const id = createId('d')
     const insertDevice = db.prepare(`
       INSERT INTO devices
         (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model,

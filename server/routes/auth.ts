@@ -9,6 +9,7 @@ import {
   lookupSession,
   needsBootstrap,
   parsePublicUser,
+  setBootstrapState,
   verifyPassword,
 } from '../lib/auth.js'
 import { createId } from '../lib/ids.js'
@@ -42,6 +43,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       INSERT INTO users (id, username, displayName, passwordHash, role, disabled, createdAt, lastLoginAt)
       VALUES (?, ?, ?, ?, 'admin', 0, ?, ?)
     `).run(userId, username, displayName, hashPassword(password), createdAt, createdAt)
+    setBootstrapState(false)
 
     if (loadDemoData) {
       seedIfEmpty()

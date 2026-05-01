@@ -45,6 +45,7 @@ export type VlanPatch = Nullable<Omit<Vlan, 'id' | 'labId'>>
 export type VlanRangePatch = Nullable<Omit<VlanRange, 'id' | 'labId'>>
 export type PortPatch = Nullable<Omit<Port, 'id' | 'deviceId' | 'position'>>
 export type PortLinkPatch = Nullable<Omit<PortLink, 'id' | 'fromPortId' | 'toPortId'>>
+export type PortTemplatePatch = Nullable<Pick<PortTemplate, 'name' | 'description' | 'deviceTypes' | 'ports'>>
 export type UserPatch = Nullable<Pick<AppUser, 'username' | 'displayName' | 'role' | 'disabled'>> & {
   password?: string | null
 }
@@ -217,6 +218,13 @@ export const api = {
     return requestBlob('/admin/export')
   },
 
+  restoreAdminBackup(body: unknown) {
+    return request<{ restored: boolean; requiresLogin: boolean; counts: Record<string, number> }>('/admin/restore', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
   getRacks(params?: { labId?: string }) {
     return request<Rack[]>('/racks', undefined, params)
   },
@@ -271,6 +279,26 @@ export const api = {
 
   getPortTemplates() {
     return request<PortTemplate[]>('/ports/templates')
+  },
+
+  createPortTemplate(body: Omit<PortTemplate, 'builtIn' | 'id'> & { id?: string }) {
+    return request<PortTemplate>('/ports/templates', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updatePortTemplate(id: string, body: PortTemplatePatch) {
+    return request<PortTemplate>(`/ports/templates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deletePortTemplate(id: string) {
+    return request<void>(`/ports/templates/${id}`, {
+      method: 'DELETE',
+    })
   },
 
   getPorts(params?: { deviceId?: string }) {

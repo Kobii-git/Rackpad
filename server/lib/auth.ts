@@ -1,6 +1,7 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { db } from '../db.js'
+import { createId } from './ids.js'
 
 export const USER_ROLES = ['admin', 'editor', 'viewer'] as const
 export type UserRole = (typeof USER_ROLES)[number]
@@ -22,6 +23,7 @@ interface SessionRow extends AuthUser {
 }
 
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30
+let bootstrapRequired: boolean | null = null
 
 export function hashPassword(password: string) {
   const salt = randomBytes(16).toString('hex')
@@ -47,7 +49,7 @@ export function hashSessionToken(token: string) {
 
 export function createSession(userId: string) {
   const token = createSessionToken()
-  const sessionId = `sess_${Date.now()}_${randomBytes(6).toString('hex')}`
+  const sessionId = createId('sess')
   const createdAt = new Date().toISOString()
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString()
 
@@ -132,8 +134,20 @@ export function getAuthToken(req: FastifyRequest) {
 }
 
 export function needsBootstrap() {
+  if (bootstrapRequired != null) {
+    return bootstrapRequired
+  }
   const row = db.prepare('SELECT COUNT(*) AS count FROM users').get() as { count: number }
-  return row.count === 0
+  bootstrapRequired = row.count === 0
+  return bootstrapRequired
+}
+
+export function setBootstrapState(next: boolean | null) {
+  bootstrapRequired = next
+}
+
+export function purgeExpiredSessions() {
+  db.prepare("DELETE FROM userSessions WHERE expiresAt <= datetime('now')").run()
 }
 
 export function requireAuth(req: FastifyRequest, reply: FastifyReply): req is FastifyRequest & { authUser: AuthUser } {

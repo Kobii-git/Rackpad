@@ -70,17 +70,19 @@ export async function createApp() {
 
   app.get('/api/health', async () => ({ ok: true }))
 
+  const publicPaths = new Set([
+    '/api/health',
+    '/api/auth/status',
+    '/api/auth/bootstrap',
+    '/api/auth/login',
+  ])
+  const readOnlyMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
+  const writeWhitelist = new Set(['/api/auth/logout'])
+
   app.addHook('onRequest', async (req, reply) => {
     if (!req.url.startsWith('/api/')) return
-
-    const publicPaths = new Set([
-      '/api/health',
-      '/api/auth/status',
-      '/api/auth/bootstrap',
-      '/api/auth/login',
-    ])
-
-    if (publicPaths.has(req.url.split('?')[0])) return
+    const urlPath = req.url.split('?')[0]
+    if (publicPaths.has(urlPath)) return
 
     if (needsBootstrap()) {
       return reply.status(503).send({ error: 'Authentication is not configured yet. Create the initial admin account first.' })
@@ -100,11 +102,8 @@ export async function createApp() {
     req.sessionId = session.sessionId
 
     const method = req.method.toUpperCase()
-    const path = req.url.split('?')[0]
-    const readOnlyMethods = new Set(['GET', 'HEAD', 'OPTIONS'])
-    const writeWhitelist = new Set(['/api/auth/logout'])
 
-    if (!readOnlyMethods.has(method) && !writeWhitelist.has(path) && req.authUser.role === 'viewer') {
+    if (!readOnlyMethods.has(method) && !writeWhitelist.has(urlPath) && req.authUser.role === 'viewer') {
       return reply.status(403).send({ error: 'Viewer accounts are read-only.' })
     }
   })

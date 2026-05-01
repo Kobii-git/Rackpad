@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
+import { createId } from '../lib/ids.js'
 import { asObject, optionalInteger, optionalString, requiredString } from '../lib/validation.js'
 
 export const racksRoutes: FastifyPluginAsync = async (app) => {
@@ -15,7 +16,7 @@ export const racksRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/', async (req, reply) => {
     const body = asObject(req.body)
-    const rackId = optionalString(body, 'id', { maxLength: 80 }) ?? `rack_${Date.now()}`
+    const rackId = optionalString(body, 'id', { maxLength: 80 }) ?? createId('rack')
     const labId = requiredString(body, 'labId', { maxLength: 80 })
     const name = requiredString(body, 'name', { maxLength: 120 })
     const totalU = optionalInteger(body, 'totalU', { min: 1, max: 100 }) ?? 42

@@ -242,6 +242,119 @@ test('admin export returns a backup snapshot and blocks viewer access', async ()
   assert.match(forbiddenRes.body, /administrator/i)
 })
 
+test('admin restore reloads a backup snapshot and invalidates the previous session', async () => {
+  const adminToken = await bootstrapAdmin()
+
+  const templateRes = await app.inject({
+    method: 'POST',
+    url: '/api/ports/templates',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      name: 'Custom restore template',
+      description: 'Template created before backup export.',
+      deviceTypes: ['switch'],
+      ports: [
+        { name: '1', kind: 'rj45', speed: '1G', face: 'front' },
+        { name: '2', kind: 'rj45', speed: '1G', face: 'front' },
+      ],
+    },
+  })
+  assert.equal(templateRes.statusCode, 201)
+
+  const rackRes = await app.inject({
+    method: 'POST',
+    url: '/api/racks',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      name: 'Exported Rack',
+      totalU: 42,
+    },
+  })
+  assert.equal(rackRes.statusCode, 201)
+
+  const exportRes = await app.inject({
+    method: 'GET',
+    url: '/api/admin/export',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+  })
+  assert.equal(exportRes.statusCode, 200)
+  const snapshot = readJson(exportRes) as Record<string, unknown>
+
+  const postExportRackRes = await app.inject({
+    method: 'POST',
+    url: '/api/racks',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      name: 'Should disappear',
+      totalU: 42,
+    },
+  })
+  assert.equal(postExportRackRes.statusCode, 201)
+
+  const restoreRes = await app.inject({
+    method: 'POST',
+    url: '/api/admin/restore',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: snapshot,
+  })
+  assert.equal(restoreRes.statusCode, 200)
+
+  const oldSessionRes = await app.inject({
+    method: 'GET',
+    url: '/api/racks',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+  })
+  assert.equal(oldSessionRes.statusCode, 401)
+
+  const loginRes = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: {
+      username: 'admin',
+      password: 'super-secret-1',
+    },
+  })
+  assert.equal(loginRes.statusCode, 200)
+  const refreshedToken = (readJson(loginRes) as { token: string }).token
+
+  const racksAfterRestoreRes = await app.inject({
+    method: 'GET',
+    url: '/api/racks',
+    headers: {
+      authorization: `Bearer ${refreshedToken}`,
+    },
+  })
+  assert.equal(racksAfterRestoreRes.statusCode, 200)
+  const racksAfterRestore = readJson(racksAfterRestoreRes) as Array<{ name: string }>
+  assert.equal(racksAfterRestore.some((rack) => rack.name === 'Exported Rack'), true)
+  assert.equal(racksAfterRestore.some((rack) => rack.name === 'Should disappear'), false)
+
+  const templatesAfterRestoreRes = await app.inject({
+    method: 'GET',
+    url: '/api/ports/templates',
+    headers: {
+      authorization: `Bearer ${refreshedToken}`,
+    },
+  })
+  assert.equal(templatesAfterRestoreRes.statusCode, 200)
+  const templatesAfterRestore = readJson(templatesAfterRestoreRes) as Array<{ name: string }>
+  assert.equal(templatesAfterRestore.some((template) => template.name === 'Custom restore template'), true)
+})
+
 test('creating a device with a port template creates its ports', async () => {
   const adminToken = await bootstrapAdmin()
 
@@ -276,6 +389,59 @@ test('creating a device with a port template creates its ports', async () => {
   assert.equal(ports.length, 28)
   assert.equal(ports[0]?.name, '1')
   assert.equal(ports.at(-1)?.name, 'SFP+4')
+})
+
+test('custom port templates can be created, updated, and deleted', async () => {
+  const adminToken = await bootstrapAdmin()
+
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/ports/templates',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      name: 'Template CRUD',
+      description: 'Editable custom template.',
+      deviceTypes: ['server', 'storage'],
+      ports: [
+        { name: 'eno1', kind: 'rj45', speed: '1G', face: 'front' },
+        { name: 'eno2', kind: 'rj45', speed: '1G', face: 'front' },
+      ],
+    },
+  })
+  assert.equal(createRes.statusCode, 201)
+  const created = readJson(createRes) as { id: string; ports: Array<{ name: string }> }
+  assert.equal(created.ports.length, 2)
+
+  const updateRes = await app.inject({
+    method: 'PATCH',
+    url: `/api/ports/templates/${created.id}`,
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      description: 'Updated template.',
+      ports: [
+        { name: 'eno1', kind: 'rj45', speed: '1G', face: 'front' },
+        { name: 'eno2', kind: 'rj45', speed: '1G', face: 'front' },
+        { name: 'enp1s0f0', kind: 'sfp_plus', speed: '10G', face: 'front' },
+      ],
+    },
+  })
+  assert.equal(updateRes.statusCode, 200)
+  const updated = readJson(updateRes) as { description: string; ports: Array<{ name: string }> }
+  assert.equal(updated.description, 'Updated template.')
+  assert.equal(updated.ports.length, 3)
+
+  const deleteRes = await app.inject({
+    method: 'DELETE',
+    url: `/api/ports/templates/${created.id}`,
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+  })
+  assert.equal(deleteRes.statusCode, 204)
 })
 
 test('rack placement validation rejects overlapping devices', async () => {
@@ -403,6 +569,115 @@ test('monitoring endpoints validate config and persist results', async () => {
   assert.ok(result.lastResult === 'online' || result.lastResult === 'offline')
 })
 
+test('vlan range patch rejects inverted ranges', async () => {
+  const adminToken = await bootstrapAdmin()
+
+  const createRangeRes = await app.inject({
+    method: 'POST',
+    url: '/api/vlans/ranges',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      name: 'Range validation',
+      startVlan: 100,
+      endVlan: 200,
+    },
+  })
+  assert.equal(createRangeRes.statusCode, 201)
+  const range = readJson(createRangeRes) as { id: string }
+
+  const invalidPatchRes = await app.inject({
+    method: 'PATCH',
+    url: `/api/vlans/ranges/${range.id}`,
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      startVlan: 300,
+    },
+  })
+  assert.equal(invalidPatchRes.statusCode, 400)
+  assert.match(invalidPatchRes.body, /startVlan/i)
+})
+
+test('ip assignment patch rejects empty ips and subnet mismatches', async () => {
+  const adminToken = await bootstrapAdmin()
+
+  const subnetARes = await app.inject({
+    method: 'POST',
+    url: '/api/subnets',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      cidr: '10.0.10.0/24',
+      name: 'Subnet A',
+    },
+  })
+  assert.equal(subnetARes.statusCode, 201)
+  const subnetA = readJson(subnetARes) as { id: string }
+
+  const subnetBRes = await app.inject({
+    method: 'POST',
+    url: '/api/subnets',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      cidr: '10.0.20.0/24',
+      name: 'Subnet B',
+    },
+  })
+  assert.equal(subnetBRes.statusCode, 201)
+  const subnetB = readJson(subnetBRes) as { id: string }
+
+  const assignmentRes = await app.inject({
+    method: 'POST',
+    url: '/api/ip-assignments',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      subnetId: subnetA.id,
+      ipAddress: '10.0.10.25',
+      assignmentType: 'reserved',
+      hostname: 'reserved-host',
+    },
+  })
+  assert.equal(assignmentRes.statusCode, 201)
+  const assignment = readJson(assignmentRes) as { id: string }
+
+  const emptyIpRes = await app.inject({
+    method: 'PATCH',
+    url: `/api/ip-assignments/${assignment.id}`,
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      ipAddress: '',
+    },
+  })
+  assert.equal(emptyIpRes.statusCode, 400)
+  assert.match(emptyIpRes.body, /ipAddress cannot be empty/i)
+
+  const mismatchRes = await app.inject({
+    method: 'PATCH',
+    url: `/api/ip-assignments/${assignment.id}`,
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      subnetId: subnetB.id,
+    },
+  })
+  assert.equal(mismatchRes.statusCode, 400)
+  assert.match(mismatchRes.body, /does not belong/i)
+})
+
 function resetDatabase() {
   db.exec(`
     DELETE FROM userSessions;
@@ -416,6 +691,7 @@ function resetDatabase() {
     DELETE FROM subnets;
     DELETE FROM vlanRanges;
     DELETE FROM vlans;
+    DELETE FROM portTemplates;
     DELETE FROM devices;
     DELETE FROM racks;
     DELETE FROM users;

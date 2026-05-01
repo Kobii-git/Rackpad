@@ -1,17 +1,24 @@
+import { db, parseRow } from '../db.js'
+import { createId } from './ids.js'
+
 const PORT_KINDS = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb'] as const
 export type PortTemplateKind = (typeof PORT_KINDS)[number]
+
+export interface PortTemplatePort {
+  name: string
+  position: number
+  kind: PortTemplateKind
+  speed?: string
+  face?: 'front' | 'rear'
+}
 
 export interface PortTemplate {
   id: string
   name: string
   deviceTypes: string[]
   description: string
-  ports: Array<{
-    name: string
-    kind: PortTemplateKind
-    speed?: string
-    face?: 'front' | 'rear'
-  }>
+  ports: PortTemplatePort[]
+  builtIn?: boolean
 }
 
 function rangeNames(prefix: string, count: number, kind: PortTemplateKind, speed?: string) {
@@ -23,23 +30,25 @@ function rangeNames(prefix: string, count: number, kind: PortTemplateKind, speed
   }))
 }
 
-function mapWithPositions(
-  ports: Array<{ name: string; kind: PortTemplateKind; speed?: string; face?: 'front' | 'rear' }>,
+function normalizePorts(
+  ports: Array<{ name: string; kind: PortTemplateKind; speed?: string; face?: 'front' | 'rear'; position?: number }>,
 ) {
   return ports.map((port, index) => ({
-    ...port,
+    name: port.name,
+    position: port.position ?? index + 1,
+    kind: port.kind,
+    speed: port.speed,
     face: port.face ?? 'front',
-    position: index + 1,
   }))
 }
 
-export const PORT_TEMPLATES: PortTemplate[] = [
+export const BUILT_IN_PORT_TEMPLATES: PortTemplate[] = [
   {
     id: 'switch-24g-4sfp+',
     name: '24x1G + 4x10G SFP+',
     deviceTypes: ['switch'],
     description: 'Common 24-port access switch with 4 SFP+ uplinks.',
-    ports: mapWithPositions([
+    ports: normalizePorts([
       ...rangeNames('', 24, 'rj45', '1G'),
       ...rangeNames('SFP+', 4, 'sfp_plus', '10G'),
     ]),
@@ -49,7 +58,7 @@ export const PORT_TEMPLATES: PortTemplate[] = [
     name: '48x1G + 4x10G SFP+',
     deviceTypes: ['switch'],
     description: 'Common 48-port access switch with 4 SFP+ uplinks.',
-    ports: mapWithPositions([
+    ports: normalizePorts([
       ...rangeNames('', 48, 'rj45', '1G'),
       ...rangeNames('SFP+', 4, 'sfp_plus', '10G'),
     ]),
@@ -59,14 +68,14 @@ export const PORT_TEMPLATES: PortTemplate[] = [
     name: '28x10G SFP+',
     deviceTypes: ['switch'],
     description: 'Aggregation switch with 28 SFP+ ports.',
-    ports: mapWithPositions(rangeNames('SFP+', 28, 'sfp_plus', '10G')),
+    ports: normalizePorts(rangeNames('SFP+', 28, 'sfp_plus', '10G')),
   },
   {
     id: 'firewall-6x1g',
     name: '6x1G firewall',
     deviceTypes: ['firewall', 'router'],
     description: 'Firewall or router with six 1G copper ports.',
-    ports: mapWithPositions(
+    ports: normalizePorts(
       Array.from({ length: 6 }, (_, index) => ({
         name: `igb${index}`,
         kind: 'rj45' as const,
@@ -79,7 +88,7 @@ export const PORT_TEMPLATES: PortTemplate[] = [
     name: '4x1G + 2x10G server',
     deviceTypes: ['server', 'storage'],
     description: 'Server with four 1G ports and two 10G uplinks.',
-    ports: mapWithPositions([
+    ports: normalizePorts([
       ...Array.from({ length: 4 }, (_, index) => ({
         name: `eno${index + 1}`,
         kind: 'rj45' as const,
@@ -97,7 +106,7 @@ export const PORT_TEMPLATES: PortTemplate[] = [
     name: '2x1G + 2x10G server',
     deviceTypes: ['server', 'storage'],
     description: 'Compact server with two 1G ports and two 10G uplinks.',
-    ports: mapWithPositions([
+    ports: normalizePorts([
       ...Array.from({ length: 2 }, (_, index) => ({
         name: `eno${index + 1}`,
         kind: 'rj45' as const,
@@ -115,14 +124,14 @@ export const PORT_TEMPLATES: PortTemplate[] = [
     name: '24-port patch panel',
     deviceTypes: ['patch_panel'],
     description: 'Twenty-four copper patch panel ports.',
-    ports: mapWithPositions(rangeNames('', 24, 'rj45', '1G')),
+    ports: normalizePorts(rangeNames('', 24, 'rj45', '1G')),
   },
   {
     id: 'pdu-8',
     name: '8-outlet PDU',
     deviceTypes: ['pdu', 'ups'],
     description: 'Eight power outlets on the rear face.',
-    ports: mapWithPositions(
+    ports: normalizePorts(
       Array.from({ length: 8 }, (_, index) => ({
         name: `Outlet ${index + 1}`,
         kind: 'power' as const,
@@ -130,10 +139,49 @@ export const PORT_TEMPLATES: PortTemplate[] = [
       })),
     ),
   },
-]
+].map((template) => ({ ...template, builtIn: true }))
+
+function parsePortTemplateRow(row: Record<string, unknown>): PortTemplate {
+  const parsed = parseRow(row, ['deviceTypes', 'ports']) as Record<string, unknown> & {
+    deviceTypes?: unknown
+    ports?: unknown
+  }
+
+  const deviceTypes = Array.isArray(parsed.deviceTypes)
+    ? parsed.deviceTypes.map((entry) => String(entry))
+    : []
+  const ports = Array.isArray(parsed.ports)
+    ? normalizePorts(
+        parsed.ports.map((entry) => {
+          const port = entry as Record<string, unknown>
+          return {
+            name: String(port.name),
+            position: Number(port.position),
+            kind: String(port.kind) as PortTemplateKind,
+            speed: port.speed ? String(port.speed) : undefined,
+            face: port.face === 'rear' ? 'rear' : 'front',
+          }
+        }),
+      )
+    : []
+
+  return {
+    id: String(parsed.id),
+    name: String(parsed.name),
+    description: String(parsed.description ?? ''),
+    deviceTypes,
+    ports,
+    builtIn: false,
+  }
+}
+
+export function listPortTemplates() {
+  const rows = db.prepare('SELECT * FROM portTemplates ORDER BY name').all() as Record<string, unknown>[]
+  return [...BUILT_IN_PORT_TEMPLATES, ...rows.map(parsePortTemplateRow)]
+}
 
 export function getPortTemplate(templateId: string) {
-  return PORT_TEMPLATES.find((template) => template.id === templateId) ?? null
+  return listPortTemplates().find((template) => template.id === templateId) ?? null
 }
 
 export function createPortsFromTemplate(deviceId: string, templateId: string) {
@@ -141,7 +189,7 @@ export function createPortsFromTemplate(deviceId: string, templateId: string) {
   if (!template) return []
 
   return template.ports.map((port, index) => ({
-    id: `p_${deviceId}_${index + 1}`,
+    id: createId('p'),
     deviceId,
     name: port.name,
     position: index + 1,

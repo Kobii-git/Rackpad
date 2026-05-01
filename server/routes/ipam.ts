@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db, parseRow } from '../db.js'
+import { createId } from '../lib/ids.js'
 import {
   asObject,
   ensureCidr,
@@ -15,6 +16,33 @@ const ASSIGNMENT_TYPES = ['device', 'interface', 'vm', 'container', 'reserved', 
 
 function parseScope(row: Record<string, unknown>) {
   return parseRow(row, ['dnsServers'])
+}
+
+function ipv4ToInt(ipAddress: string) {
+  return ipAddress
+    .split('.')
+    .map((octet) => Number.parseInt(octet, 10))
+    .reduce((value, octet) => (value << 8) + octet, 0) >>> 0
+}
+
+function subnetContainsIp(cidr: string, ipAddress: string) {
+  const [networkAddress, prefixRaw] = cidr.split('/')
+  const prefix = Number.parseInt(prefixRaw ?? '', 10)
+  const hostBits = 32 - prefix
+  const network = ipv4ToInt(networkAddress)
+  const target = ipv4ToInt(ipAddress)
+  const broadcast = hostBits === 0 ? network : network + (2 ** hostBits - 1)
+  return target >= network && target <= broadcast
+}
+
+function assertAssignmentSubnet(subnetId: string, ipAddress: string) {
+  const subnet = db.prepare('SELECT cidr FROM subnets WHERE id = ?').get(subnetId) as { cidr?: string } | undefined
+  if (!subnet?.cidr) {
+    throw new Error('Subnet not found.')
+  }
+  if (!subnetContainsIp(subnet.cidr, ipAddress)) {
+    throw new Error(`IP ${ipAddress} does not belong to subnet ${subnet.cidr}.`)
+  }
 }
 
 export const ipamRoutes: FastifyPluginAsync = async (app) => {
@@ -33,7 +61,7 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/subnets', async (req, reply) => {
     const body = asObject(req.body)
-    const id = optionalString(body, 'id', { maxLength: 80 }) ?? `s_${Date.now()}`
+    const id = optionalString(body, 'id', { maxLength: 80 }) ?? createId('s')
     const labId = requiredString(body, 'labId', { maxLength: 80 })
     const cidr = ensureCidr(requiredString(body, 'cidr', { maxLength: 40 }))
     const name = requiredString(body, 'name', { maxLength: 120 })
@@ -91,7 +119,7 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/dhcp-scopes', async (req, reply) => {
     const body = asObject(req.body)
-    const id = optionalString(body, 'id', { maxLength: 80 }) ?? `sc_${Date.now()}`
+    const id = optionalString(body, 'id', { maxLength: 80 }) ?? createId('sc')
     const subnetId = requiredString(body, 'subnetId', { maxLength: 80 })
     const name = requiredString(body, 'name', { maxLength: 120 })
     const startIp = ensureIpv4(requiredString(body, 'startIp', { maxLength: 40 }), 'startIp')
@@ -164,7 +192,7 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/ip-zones', async (req, reply) => {
     const body = asObject(req.body)
-    const id = optionalString(body, 'id', { maxLength: 80 }) ?? `iz_${Date.now()}`
+    const id = optionalString(body, 'id', { maxLength: 80 }) ?? createId('iz')
     const subnetId = requiredString(body, 'subnetId', { maxLength: 80 })
     const kind = requiredEnum(body, 'kind', IP_ZONE_KINDS)
     const startIp = ensureIpv4(requiredString(body, 'startIp', { maxLength: 40 }), 'startIp')
@@ -188,8 +216,16 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
     const description = optionalString(body, 'description', { maxLength: 500 })
 
     if ('kind' in body) { updates.push('kind = ?'); values.push(requiredEnum(body, 'kind', IP_ZONE_KINDS)) }
-    if (startIp !== undefined) { updates.push('startIp = ?'); values.push(startIp ? ensureIpv4(startIp, 'startIp') : null) }
-    if (endIp !== undefined) { updates.push('endIp = ?'); values.push(endIp ? ensureIpv4(endIp, 'endIp') : null) }
+    if (startIp !== undefined) {
+      if (!startIp) return reply.status(400).send({ error: 'startIp cannot be empty.' })
+      updates.push('startIp = ?')
+      values.push(ensureIpv4(startIp, 'startIp'))
+    }
+    if (endIp !== undefined) {
+      if (!endIp) return reply.status(400).send({ error: 'endIp cannot be empty.' })
+      updates.push('endIp = ?')
+      values.push(ensureIpv4(endIp, 'endIp'))
+    }
     if (description !== undefined) { updates.push('description = ?'); values.push(description) }
 
     if (updates.length === 0) return reply.status(400).send({ error: 'No valid fields' })
@@ -223,7 +259,7 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/ip-assignments', async (req, reply) => {
     const body = asObject(req.body)
-    const id = optionalString(body, 'id', { maxLength: 80 }) ?? `ip_${Date.now()}`
+    const id = optionalString(body, 'id', { maxLength: 80 }) ?? createId('ip')
     const subnetId = requiredString(body, 'subnetId', { maxLength: 80 })
     const ipAddress = ensureIpv4(requiredString(body, 'ipAddress', { maxLength: 40 }))
     const assignmentType = requiredEnum(body, 'assignmentType', ASSIGNMENT_TYPES)
@@ -233,6 +269,11 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
     const containerId = optionalString(body, 'containerId', { maxLength: 80 })
     const hostname = optionalString(body, 'hostname', { maxLength: 120 })
     const description = optionalString(body, 'description', { maxLength: 500 })
+    try {
+      assertAssignmentSubnet(subnetId, ipAddress)
+    } catch (error) {
+      return reply.status(400).send({ error: error instanceof Error ? error.message : 'Invalid subnet assignment.' })
+    }
     db.prepare(
       'INSERT INTO ipAssignments (id, subnetId, ipAddress, assignmentType, deviceId, portId, vmId, containerId, hostname, description) VALUES (?,?,?,?,?,?,?,?,?,?)'
     ).run(id, subnetId, ipAddress, assignmentType,
@@ -242,7 +283,9 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.patch<{ Params: { id: string } }>('/ip-assignments/:id', async (req, reply) => {
-    const existing = db.prepare('SELECT id FROM ipAssignments WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT subnetId, ipAddress FROM ipAssignments WHERE id = ?').get(req.params.id) as
+      | { subnetId: string; ipAddress: string }
+      | undefined
     if (!existing) return reply.status(404).send({ error: 'IP assignment not found' })
     const body = asObject(req.body)
     const updates: string[] = []
@@ -257,8 +300,25 @@ export const ipamRoutes: FastifyPluginAsync = async (app) => {
     const hostname = optionalString(body, 'hostname', { maxLength: 120 })
     const description = optionalString(body, 'description', { maxLength: 500 })
 
+    const effectiveSubnetId = subnetId ?? existing.subnetId
+    const effectiveIpAddress = ipAddress ?? existing.ipAddress
+
+    if (subnetId !== undefined || ipAddress !== undefined) {
+      if (ipAddress !== undefined && !ipAddress) {
+        return reply.status(400).send({ error: 'ipAddress cannot be empty.' })
+      }
+      try {
+        assertAssignmentSubnet(
+          effectiveSubnetId,
+          ipAddress !== undefined ? ensureIpv4(ipAddress) : effectiveIpAddress,
+        )
+      } catch (error) {
+        return reply.status(400).send({ error: error instanceof Error ? error.message : 'Invalid subnet assignment.' })
+      }
+    }
+
     if (subnetId !== undefined) { updates.push('subnetId = ?'); values.push(subnetId) }
-    if (ipAddress !== undefined) { updates.push('ipAddress = ?'); values.push(ipAddress ? ensureIpv4(ipAddress) : null) }
+    if (ipAddress !== undefined) { updates.push('ipAddress = ?'); values.push(ensureIpv4(ipAddress)) }
     if ('assignmentType' in body) { updates.push('assignmentType = ?'); values.push(requiredEnum(body, 'assignmentType', ASSIGNMENT_TYPES)) }
     if (deviceId !== undefined) { updates.push('deviceId = ?'); values.push(deviceId) }
     if (portId !== undefined) { updates.push('portId = ?'); values.push(portId) }

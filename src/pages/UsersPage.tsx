@@ -9,12 +9,13 @@ import {
   deleteUserAccount,
   downloadAdminBackup,
   isAdmin,
+  restoreAdminBackupSnapshot,
   updateUserAccount,
   useStore,
 } from '@/lib/store'
 import type { AppUser, UserRole } from '@/lib/types'
 import { APP_VERSION_TAG } from '@/lib/version'
-import { Download, Plus, Save, Shield, Trash2, UserRound } from 'lucide-react'
+import { Download, Plus, Save, Shield, Trash2, Upload, UserRound } from 'lucide-react'
 
 type FormState = {
   username: string
@@ -40,9 +41,12 @@ export default function UsersPage() {
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [restoring, setRestoring] = useState(false)
   const [error, setError] = useState('')
   const [exportError, setExportError] = useState('')
   const [exportSuccess, setExportSuccess] = useState('')
+  const [restoreError, setRestoreError] = useState('')
+  const [restoreFile, setRestoreFile] = useState<File | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   useEffect(() => {
@@ -162,6 +166,30 @@ export default function UsersPage() {
       setExportError(err instanceof Error ? err.message : 'Failed to export backup.')
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function handleRestore() {
+    if (!restoreFile) {
+      setRestoreError('Choose a backup JSON file first.')
+      return
+    }
+    if (!window.confirm('Restore this backup and replace the current database contents? You will need to sign in again.')) {
+      return
+    }
+
+    setRestoring(true)
+    setRestoreError('')
+    setExportSuccess('')
+    try {
+      const raw = await restoreFile.text()
+      const snapshot = JSON.parse(raw) as unknown
+      await restoreAdminBackupSnapshot(snapshot)
+      window.alert('Backup restored. Please sign in again.')
+    } catch (err) {
+      setRestoreError(err instanceof Error ? err.message : 'Failed to restore backup.')
+    } finally {
+      setRestoring(false)
     }
   }
 
@@ -364,6 +392,44 @@ export default function UsersPage() {
                 {exportSuccess && (
                   <div className="rounded-[var(--radius-sm)] border border-[var(--color-ok)]/30 bg-[var(--color-ok)]/10 px-3 py-2 text-sm text-[var(--color-ok)]">
                     {exportSuccess}
+                  </div>
+                )}
+
+                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                    Restore snapshot
+                  </div>
+                  <div className="mt-2 text-sm text-[var(--color-fg)]">
+                    Import a Rackpad JSON backup and replace the current database contents.
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
+                    Restoring signs out the current session and reloads the restored users, templates, inventory, IPAM, and audit data.
+                  </div>
+                  <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
+                    <input
+                      type="file"
+                      accept="application/json"
+                      onChange={(event) => {
+                        setRestoreFile(event.target.files?.[0] ?? null)
+                        setRestoreError('')
+                      }}
+                      className="block w-full text-sm text-[var(--color-fg-subtle)] file:mr-3 file:rounded-[var(--radius-xs)] file:border file:border-[var(--color-line)] file:bg-[var(--color-surface)] file:px-3 file:py-1.5 file:text-sm file:text-[var(--color-fg)]"
+                    />
+                    <Button size="sm" onClick={() => void handleRestore()} disabled={restoring || !restoreFile}>
+                      <Upload className="size-3.5" />
+                      {restoring ? 'Restoring...' : 'Restore backup'}
+                    </Button>
+                  </div>
+                  {restoreFile && (
+                    <div className="mt-2 text-xs text-[var(--color-fg-subtle)]">
+                      Selected: {restoreFile.name}
+                    </div>
+                  )}
+                </div>
+
+                {restoreError && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                    {restoreError}
                   </div>
                 )}
 

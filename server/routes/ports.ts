@@ -1,22 +1,152 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
-import { PORT_TEMPLATES } from '../lib/port-templates.js'
+import { BUILT_IN_PORT_TEMPLATES, listPortTemplates } from '../lib/port-templates.js'
+import { createId } from '../lib/ids.js'
 import {
   asObject,
   optionalEnum,
   optionalInteger,
   optionalString,
+  optionalStringArray,
   requiredEnum,
   requiredString,
+  ValidationError,
 } from '../lib/validation.js'
 
 const PORT_KINDS = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb'] as const
 const LINK_STATES = ['up', 'down', 'disabled', 'unknown'] as const
 const PORT_FACES = ['front', 'rear'] as const
+const DEVICE_TYPES = [
+  'switch',
+  'router',
+  'firewall',
+  'server',
+  'patch_panel',
+  'storage',
+  'pdu',
+  'ups',
+  'kvm',
+  'other',
+] as const
+
+function parseTemplatePorts(value: unknown) {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new ValidationError('ports must be a non-empty array.')
+  }
+
+  return value.map((entry, index) => {
+    const port = asObject(entry)
+    const name = requiredString(port, 'name', { maxLength: 120 })
+    const kind = requiredEnum(port, 'kind', PORT_KINDS)
+    const speed = optionalString(port, 'speed', { maxLength: 20 })
+    const face = optionalEnum(port, 'face', PORT_FACES) ?? 'front'
+
+    return {
+      name,
+      position: index + 1,
+      kind,
+      speed: speed ?? undefined,
+      face,
+    }
+  })
+}
 
 export const portsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/templates', async () => {
-    return PORT_TEMPLATES
+    return listPortTemplates()
+  })
+
+  app.post('/templates', async (req, reply) => {
+    const body = asObject(req.body)
+    const id = optionalString(body, 'id', { maxLength: 80 }) ?? createId('pt')
+    const name = requiredString(body, 'name', { maxLength: 120 })
+    const description = requiredString(body, 'description', { maxLength: 500 })
+    const deviceTypes = optionalStringArray(body, 'deviceTypes', { maxItems: DEVICE_TYPES.length })
+    if (!deviceTypes || deviceTypes.length === 0) {
+      return reply.status(400).send({ error: 'deviceTypes must contain at least one device type.' })
+    }
+    for (const deviceType of deviceTypes) {
+      requiredEnum({ deviceType }, 'deviceType', DEVICE_TYPES)
+    }
+
+    const ports = parseTemplatePorts(body.ports)
+    const now = new Date().toISOString()
+
+    db.prepare(`
+      INSERT INTO portTemplates (id, name, description, deviceTypes, ports, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, name, description, JSON.stringify(deviceTypes), JSON.stringify(ports), now, now)
+
+    return reply.status(201).send(listPortTemplates().find((template) => template.id === id) ?? null)
+  })
+
+  app.patch<{ Params: { id: string } }>('/templates/:id', async (req, reply) => {
+    if (BUILT_IN_PORT_TEMPLATES.some((template) => template.id === req.params.id)) {
+      return reply.status(403).send({ error: 'Built-in templates cannot be modified.' })
+    }
+
+    const existing = db.prepare('SELECT id FROM portTemplates WHERE id = ?').get(req.params.id)
+    if (!existing) {
+      return reply.status(404).send({ error: 'Port template not found.' })
+    }
+
+    const body = asObject(req.body)
+    const updates: string[] = []
+    const values: unknown[] = []
+
+    const name = optionalString(body, 'name', { maxLength: 120 })
+    const description = optionalString(body, 'description', { maxLength: 500 })
+    const deviceTypes = optionalStringArray(body, 'deviceTypes', { maxItems: DEVICE_TYPES.length })
+
+    if (name !== undefined) {
+      if (!name) return reply.status(400).send({ error: 'name cannot be empty.' })
+      updates.push('name = ?')
+      values.push(name)
+    }
+    if (description !== undefined) {
+      if (!description) return reply.status(400).send({ error: 'description cannot be empty.' })
+      updates.push('description = ?')
+      values.push(description)
+    }
+    if (deviceTypes !== undefined) {
+      if (!deviceTypes || deviceTypes.length === 0) {
+        return reply.status(400).send({ error: 'deviceTypes must contain at least one device type.' })
+      }
+      for (const deviceType of deviceTypes) {
+        requiredEnum({ deviceType }, 'deviceType', DEVICE_TYPES)
+      }
+      updates.push('deviceTypes = ?')
+      values.push(JSON.stringify(deviceTypes))
+    }
+    if ('ports' in body) {
+      const ports = parseTemplatePorts(body.ports)
+      updates.push('ports = ?')
+      values.push(JSON.stringify(ports))
+    }
+
+    if (updates.length === 0) {
+      return reply.status(400).send({ error: 'No valid fields to update' })
+    }
+
+    updates.push('updatedAt = ?')
+    values.push(new Date().toISOString(), req.params.id)
+    db.prepare(`UPDATE portTemplates SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+
+    return listPortTemplates().find((template) => template.id === req.params.id) ?? null
+  })
+
+  app.delete<{ Params: { id: string } }>('/templates/:id', async (req, reply) => {
+    if (BUILT_IN_PORT_TEMPLATES.some((template) => template.id === req.params.id)) {
+      return reply.status(403).send({ error: 'Built-in templates cannot be deleted.' })
+    }
+
+    const existing = db.prepare('SELECT id FROM portTemplates WHERE id = ?').get(req.params.id)
+    if (!existing) {
+      return reply.status(404).send({ error: 'Port template not found.' })
+    }
+
+    db.prepare('DELETE FROM portTemplates WHERE id = ?').run(req.params.id)
+    return reply.status(204).send()
   })
 
   app.get<{ Querystring: { deviceId?: string } }>('/', async (req) => {
@@ -51,7 +181,7 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
 
     const row = db.prepare('SELECT MAX(position) AS maxPosition FROM ports WHERE deviceId = ?').get(deviceId) as { maxPosition?: number | null }
     const position = requestedPosition ?? ((row.maxPosition ?? 0) + 1)
-    const id = `p_${deviceId}_${Date.now()}`
+    const id = createId('p')
 
     db.prepare(`
       INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face)
@@ -105,10 +235,7 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     const removePort = db.transaction(() => {
       db.prepare('DELETE FROM ports WHERE id = ?').run(req.params.id)
       for (const peer of peers) {
-        const stillLinked = db.prepare('SELECT id FROM portLinks WHERE fromPortId = ? OR toPortId = ?').get(peer.peerPortId, peer.peerPortId)
-        if (!stillLinked) {
-          db.prepare("UPDATE ports SET linkState = 'down' WHERE id = ?").run(peer.peerPortId)
-        }
+        db.prepare("UPDATE ports SET linkState = 'down' WHERE id = ?").run(peer.peerPortId)
       }
     })
 

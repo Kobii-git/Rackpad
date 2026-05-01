@@ -4,6 +4,50 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.6.0] - 2026-05-01
+
+### Added
+
+- Admin backup restore endpoint and in-app restore flow from the users page.
+- Full custom port-template management in the ports page, including create, edit, delete, and clone-from-device actions.
+- Database-backed storage for custom port templates so templates survive restart, export, and restore.
+- Regression tests for backup restore, custom port templates, VLAN range validation, and IP assignment integrity checks.
+
+### Changed
+
+- Backup export now includes custom port templates, and restore rebuilds users, racks, devices, ports, cables, VLANs, IPAM objects, monitors, audit history, and templates in one pass.
+- TCP monitoring now treats `ECONNREFUSED` as host reachable while keeping true network-unreachable errors such as `EHOSTUNREACH` and `ENETUNREACH` offline with clearer server-side messaging.
+- Device activity history can now fetch more audit entries on demand instead of being capped by the initial app load.
+- Initial app loading now tolerates partial API failures and keeps the data that did load instead of failing all-or-nothing.
+- Device creation now filters port templates by device type and clears incompatible template selections when the device type changes.
+
+### Fixed
+
+- `PATCH /api/vlans/ranges/:id` now rejects inverted effective ranges where `startVlan > endVlan`.
+- `PATCH /api/ip-zones/:id` now rejects empty `startIp` and `endIp` values with HTTP `400`.
+- `PATCH /api/ip-assignments/:id` now rejects empty `ipAddress` values and rejects assignments that do not belong to the selected subnet.
+- IP assignment create and patch flows now both enforce subnet membership instead of allowing cross-subnet mismatches.
+- Audit-log writes now use the authenticated request user directly instead of relying on a fallback username path.
+- Session bootstrap state is cached and refreshed after bootstrap and restore, instead of re-running the bootstrap query on every request.
+- Expired API sessions are now purged on startup and on a daily cleanup interval.
+- Remaining route-level `Date.now()` identifiers were replaced with `createId(...)`-based IDs for safer concurrent writes.
+- `type: "none"` monitor updates now explicitly disable the monitor instead of leaving stale enabled state behind.
+- Port delete cleanup no longer does redundant linked-port follow-up work when dropping cable state.
+
+### Schema
+
+- Added schema-version tracking and transactional migrations so new releases can evolve the SQLite database more safely.
+- Added the `portTemplates` table for custom templates, plus JSON serialization for template device types and port definitions.
+- Added foreign-key indexes for the main device, port, cable, IPAM, and monitoring relationships to improve lookup and delete performance.
+- Added a per-lab unique index on VLAN range names so duplicate range names cannot be created inside the same lab.
+
+### Notes
+
+- Backups remain sensitive because they include user records and password hashes; treat exported JSON as a secret.
+- `npm run build` passes.
+- `npm run lint` passes.
+- `npm run test:server` is still blocked on this Windows Node `24.15.0` machine because `better-sqlite3` has no working native binding here.
+
 ## [0.5.0] - 2026-05-01
 
 ### Added

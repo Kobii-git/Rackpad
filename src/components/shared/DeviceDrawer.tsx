@@ -116,7 +116,17 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
 
   const canApplyTemplate = !device || devicePortCount === 0
   const selectedTemplate = portTemplates.find((template) => template.id === form.portTemplateId)
+  const compatibleTemplates = useMemo(
+    () => portTemplates.filter((template) => template.deviceTypes.includes(form.deviceType)),
+    [form.deviceType, portTemplates],
+  )
   const hasRackPlacement = !!form.rackId
+
+  useEffect(() => {
+    if (!form.portTemplateId) return
+    if (compatibleTemplates.some((template) => template.id === form.portTemplateId)) return
+    setForm((prev) => ({ ...prev, portTemplateId: '' }))
+  }, [compatibleTemplates, form.portTemplateId])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -303,7 +313,7 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                       disabled={!canApplyTemplate}
                     >
                       <option value="">No template</option>
-                      {portTemplates.map((template) => (
+                      {compatibleTemplates.map((template) => (
                         <option key={template.id} value={template.id}>
                           {template.name}
                         </option>

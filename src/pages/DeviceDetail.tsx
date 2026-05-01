@@ -12,6 +12,7 @@ import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
 import { Mono } from '@/components/shared/Mono'
 import { PortGrid } from '@/components/ports/PortGrid'
 import { PortList } from '@/components/ports/PortList'
+import { api } from '@/lib/api'
 import {
   canEditInventory,
   deleteDevice,
@@ -64,6 +65,10 @@ export default function DeviceDetail() {
   const [monitorSaving, setMonitorSaving] = useState(false)
   const [monitorRunning, setMonitorRunning] = useState(false)
   const [monitorError, setMonitorError] = useState('')
+  const [activityEntries, setActivityEntries] = useState<typeof auditLog>([])
+  const [activityLimit, setActivityLimit] = useState(500)
+  const [activityLoading, setActivityLoading] = useState(false)
+  const [activityError, setActivityError] = useState('')
 
   const device = id ? devices.find((entry) => entry.id === id) : undefined
   const monitor = id ? deviceMonitors.find((entry) => entry.deviceId === id) : undefined
@@ -151,6 +156,17 @@ export default function DeviceDetail() {
     device.deviceType === 'router'
   const deviceAudit = auditLog.filter((entry) => entry.entityId === device.id)
 
+  useEffect(() => {
+    if (!device) {
+      setActivityEntries([])
+      return
+    }
+    const filtered = auditLog.filter((entry) => entry.entityId === device.id)
+    setActivityEntries(filtered)
+    setActivityLimit(Math.max(500, filtered.length || 0))
+    setActivityError('')
+  }, [auditLog, device])
+
   async function handleRefresh() {
     setRefreshing(true)
     try {
@@ -219,6 +235,22 @@ export default function DeviceDetail() {
       setMonitorError(err instanceof Error ? err.message : 'Failed to run monitor.')
     } finally {
       setMonitorRunning(false)
+    }
+  }
+
+  async function handleLoadMoreActivity() {
+    if (!device) return
+    const nextLimit = activityLimit + 250
+    setActivityLoading(true)
+    setActivityError('')
+    try {
+      const entries = await api.getAuditLog({ entityId: device.id, limit: nextLimit })
+      setActivityEntries(entries)
+      setActivityLimit(nextLimit)
+    } catch (err) {
+      setActivityError(err instanceof Error ? err.message : 'Failed to load additional audit entries.')
+    } finally {
+      setActivityLoading(false)
     }
   }
 
@@ -567,15 +599,24 @@ export default function DeviceDetail() {
                   <CardLabel>History</CardLabel>
                   <CardHeading>Audit log</CardHeading>
                 </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => void handleLoadMoreActivity()} disabled={activityLoading}>
+                  <RefreshCcw className="size-3.5" />
+                  {activityLoading ? 'Loading...' : 'Load more'}
+                </Button>
               </CardHeader>
               <CardBody className="p-0">
+                {activityError && (
+                  <div className="border-b border-[var(--color-line)] px-4 py-3 text-sm text-[var(--color-err)]">
+                    {activityError}
+                  </div>
+                )}
                 <ul className="divide-y divide-[var(--color-line)]">
-                  {deviceAudit.length === 0 ? (
+                  {activityEntries.length === 0 ? (
                     <li className="px-4 py-6 text-center text-xs text-[var(--color-fg-subtle)]">
                       No audit entries for this device.
                     </li>
                   ) : (
-                    deviceAudit.map((entry) => (
+                    activityEntries.map((entry) => (
                       <li key={entry.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-[var(--color-surface)]/40">
                         <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
                         <div className="min-w-0 flex-1">

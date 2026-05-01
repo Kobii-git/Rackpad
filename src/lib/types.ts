@@ -202,7 +202,7 @@ export interface PortTemplatePort {
   position: number
   kind: PortKind
   speed?: string
-  linkState: LinkState
+  linkState?: LinkState | null
   vlanId?: ID | null
   description?: string | null
   face?: RackFace | null
@@ -212,7 +212,9 @@ export interface PortTemplate {
   id: string
   name: string
   description: string
+  deviceTypes: DeviceType[]
   ports: PortTemplatePort[]
+  builtIn?: boolean
 }
 
 export interface DeviceWithPorts extends Device {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TopBar } from '@/components/layout/TopBar'
 import { PortGrid } from '@/components/ports/PortGrid'
 import { PortList } from '@/components/ports/PortList'
@@ -12,12 +12,15 @@ import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
 import {
   canEditInventory,
   createPortRecord,
+  createPortTemplateRecord,
   deletePortRecord,
+  deletePortTemplateRecord,
   updatePort,
+  updatePortTemplateRecord,
   useStore,
 } from '@/lib/store'
-import type { Device, Port, PortLink } from '@/lib/types'
-import { ArrowRight, Plus, Save, Trash2 } from 'lucide-react'
+import type { Device, DeviceType, Port, PortLink, PortTemplate } from '@/lib/types'
+import { ArrowRight, Network, Plus, Save, Trash2 } from 'lucide-react'
 
 const PORT_BEARING: Device['deviceType'][] = [
   'switch',
@@ -26,6 +29,19 @@ const PORT_BEARING: Device['deviceType'][] = [
   'patch_panel',
   'server',
   'storage',
+]
+
+const TEMPLATE_DEVICE_TYPES: DeviceType[] = [
+  'switch',
+  'router',
+  'firewall',
+  'server',
+  'storage',
+  'patch_panel',
+  'pdu',
+  'ups',
+  'kvm',
+  'other',
 ]
 
 const LINK_STATES: Port['linkState'][] = ['up', 'down', 'disabled', 'unknown']
@@ -41,6 +57,20 @@ interface PortFormState {
   face: NonNullable<Port['face']>
 }
 
+interface TemplatePortFormState {
+  name: string
+  kind: Port['kind']
+  speed: string
+  face: NonNullable<Port['face']>
+}
+
+interface TemplateFormState {
+  name: string
+  description: string
+  deviceTypes: DeviceType[]
+  ports: TemplatePortFormState[]
+}
+
 function portToForm(port: Port): PortFormState {
   return {
     name: port.name,
@@ -50,6 +80,36 @@ function portToForm(port: Port): PortFormState {
     vlanId: port.vlanId ?? '',
     description: port.description ?? '',
     face: port.face ?? 'front',
+  }
+}
+
+function templateToForm(template: PortTemplate): TemplateFormState {
+  return {
+    name: template.name,
+    description: template.description,
+    deviceTypes: template.deviceTypes,
+    ports: template.ports.map((port) => ({
+      name: port.name,
+      kind: port.kind,
+      speed: port.speed ?? '',
+      face: port.face ?? 'front',
+    })),
+  }
+}
+
+function blankTemplateForm(deviceType: DeviceType = 'switch'): TemplateFormState {
+  return {
+    name: '',
+    description: '',
+    deviceTypes: [deviceType],
+    ports: [
+      {
+        name: '',
+        kind: 'rj45',
+        speed: '',
+        face: 'front',
+      },
+    ],
   }
 }
 
@@ -68,6 +128,7 @@ export default function PortView() {
   const devices = useStore((s) => s.devices)
   const ports = useStore((s) => s.ports)
   const portLinks = useStore((s) => s.portLinks)
+  const portTemplates = useStore((s) => s.portTemplates)
   const vlans = useStore((s) => s.vlans)
   const canEdit = canEditInventory(currentUser)
   const portBearingDevices = devices.filter((device) => PORT_BEARING.includes(device.deviceType))
@@ -78,6 +139,13 @@ export default function PortView() {
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
+
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>()
+  const [creatingTemplate, setCreatingTemplate] = useState(false)
+  const [templateForm, setTemplateForm] = useState<TemplateFormState>(blankTemplateForm())
+  const [templateSaving, setTemplateSaving] = useState(false)
+  const [templateDeleting, setTemplateDeleting] = useState(false)
+  const [templateError, setTemplateError] = useState('')
 
   useEffect(() => {
     if (!portBearingDevices.length) return
@@ -129,6 +197,19 @@ export default function PortView() {
     }
   }, [devicePorts, selectedPortId])
 
+  useEffect(() => {
+    if (!portTemplates.length) {
+      setSelectedTemplateId(undefined)
+      return
+    }
+    if (!selectedTemplateId || !portTemplates.some((template) => template.id === selectedTemplateId)) {
+      const preferred = device
+        ? portTemplates.find((template) => template.deviceTypes.includes(device.deviceType))
+        : portTemplates[0]
+      setSelectedTemplateId(preferred?.id ?? portTemplates[0].id)
+    }
+  }, [device, portTemplates, selectedTemplateId])
+
   const selectedPort = !creating && selectedPortId ? portById[selectedPortId] : undefined
   const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
   const peerPortId = selectedPort && selectedLink
@@ -136,6 +217,9 @@ export default function PortView() {
     : undefined
   const peerPort = peerPortId ? portById[peerPortId] : undefined
   const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined
+  const selectedTemplate = !creatingTemplate && selectedTemplateId
+    ? portTemplates.find((template) => template.id === selectedTemplateId)
+    : undefined
 
   useEffect(() => {
     if (creating) {
@@ -146,6 +230,13 @@ export default function PortView() {
     setForm(selectedPort ? portToForm(selectedPort) : null)
     setError('')
   }, [creating, selectedPort])
+
+  useEffect(() => {
+    if (creatingTemplate) return
+    if (!selectedTemplate) return
+    setTemplateForm(templateToForm(selectedTemplate))
+    setTemplateError('')
+  }, [creatingTemplate, selectedTemplate])
 
   const isVisualGrid =
     device &&
@@ -205,6 +296,121 @@ export default function PortView() {
       setError(err instanceof Error ? err.message : 'Failed to delete port.')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  function beginBlankTemplate() {
+    setCreatingTemplate(true)
+    setSelectedTemplateId(undefined)
+    setTemplateForm(blankTemplateForm(device?.deviceType ?? 'switch'))
+    setTemplateError('')
+  }
+
+  function beginTemplateFromDevice() {
+    if (!device) {
+      beginBlankTemplate()
+      return
+    }
+
+    setCreatingTemplate(true)
+    setSelectedTemplateId(undefined)
+    setTemplateForm({
+      name: `${device.hostname} template`,
+      description: `Template captured from ${device.hostname}`,
+      deviceTypes: [device.deviceType],
+      ports:
+        devicePorts.length > 0
+          ? devicePorts.map((port) => ({
+              name: port.name,
+              kind: port.kind,
+              speed: port.speed ?? '',
+              face: port.face ?? 'front',
+            }))
+          : blankTemplateForm(device.deviceType).ports,
+    })
+    setTemplateError('')
+  }
+
+  async function handleSaveTemplate() {
+    const normalizedPorts = templateForm.ports
+      .map((port) => ({
+        name: port.name.trim(),
+        kind: port.kind,
+        speed: port.speed.trim() || undefined,
+        face: port.face,
+      }))
+      .filter((port) => port.name)
+
+    if (!templateForm.name.trim()) {
+      setTemplateError('Template name is required.')
+      return
+    }
+    if (!templateForm.description.trim()) {
+      setTemplateError('Template description is required.')
+      return
+    }
+    if (templateForm.deviceTypes.length === 0) {
+      setTemplateError('Select at least one device type.')
+      return
+    }
+    if (normalizedPorts.length === 0) {
+      setTemplateError('Add at least one named port.')
+      return
+    }
+
+    setTemplateSaving(true)
+    setTemplateError('')
+    try {
+      if (creatingTemplate) {
+        const created = await createPortTemplateRecord({
+          name: templateForm.name.trim(),
+          description: templateForm.description.trim(),
+          deviceTypes: templateForm.deviceTypes,
+          ports: normalizedPorts.map((port, index) => ({
+            ...port,
+            position: index + 1,
+          })),
+        })
+        setCreatingTemplate(false)
+        setSelectedTemplateId(created.id)
+        return
+      }
+
+      if (!selectedTemplate || selectedTemplate.builtIn) {
+        setTemplateError('Built-in templates cannot be modified.')
+        return
+      }
+
+      await updatePortTemplateRecord(selectedTemplate.id, {
+        name: templateForm.name.trim(),
+        description: templateForm.description.trim(),
+        deviceTypes: templateForm.deviceTypes,
+        ports: normalizedPorts.map((port, index) => ({
+          ...port,
+          position: index + 1,
+        })),
+      })
+    } catch (err) {
+      setTemplateError(err instanceof Error ? err.message : 'Failed to save port template.')
+    } finally {
+      setTemplateSaving(false)
+    }
+  }
+
+  async function handleDeleteTemplate() {
+    if (!selectedTemplate || selectedTemplate.builtIn) return
+    if (!window.confirm(`Delete port template ${selectedTemplate.name}?`)) return
+
+    setTemplateDeleting(true)
+    setTemplateError('')
+    try {
+      await deletePortTemplateRecord(selectedTemplate.id)
+      setSelectedTemplateId(undefined)
+      setCreatingTemplate(false)
+    } catch (err) {
+      setTemplateError(err instanceof Error ? err.message : 'Failed to delete port template.')
+    } finally {
+      setTemplateDeleting(false)
     }
   }
 
@@ -335,7 +541,7 @@ export default function PortView() {
                 )}
               </div>
 
-              <div className="col-span-12 xl:col-span-4">
+              <div className="col-span-12 space-y-5 xl:col-span-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>
@@ -426,7 +632,7 @@ export default function PortView() {
                             value={form.description}
                             onChange={(event) => setForm((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
                             rows={3}
-                            className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:border-[var(--color-accent-soft)] focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                            className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
                           />
                         </Field>
 
@@ -478,6 +684,282 @@ export default function PortView() {
                     )}
                   </CardBody>
                 </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      <CardLabel>Templates</CardLabel>
+                      <CardHeading>
+                        {creatingTemplate ? 'New template' : selectedTemplate?.name ?? 'Port templates'}
+                      </CardHeading>
+                    </CardTitle>
+                    <Badge tone={selectedTemplate?.builtIn ? 'neutral' : 'accent'}>
+                      <Network className="size-3" />
+                      {creatingTemplate ? 'custom' : selectedTemplate?.builtIn ? 'built-in' : 'custom'}
+                    </Badge>
+                  </CardHeader>
+                  <CardBody className="space-y-4">
+                    {canEdit && (
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={beginTemplateFromDevice}>
+                          <Plus className="size-3.5" />
+                          From device
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={beginBlankTemplate}>
+                          <Plus className="size-3.5" />
+                          Blank template
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2">
+                      {portTemplates.map((template) => {
+                        const active = !creatingTemplate && template.id === selectedTemplateId
+                        const appliesToCurrent = device ? template.deviceTypes.includes(device.deviceType) : false
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            onClick={() => {
+                              setCreatingTemplate(false)
+                              setSelectedTemplateId(template.id)
+                              setTemplateError('')
+                            }}
+                            className={`rounded-[var(--radius-xs)] border px-2.5 py-1 text-left text-xs transition-colors ${
+                              active
+                                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                                : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                            }`}
+                          >
+                            <div className="font-medium">{template.name}</div>
+                            <div className="font-mono text-[10px] uppercase tracking-[0.12em]">
+                              {template.ports.length} ports
+                              {appliesToCurrent ? ' | matches device' : ''}
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {creatingTemplate || selectedTemplate ? (
+                      <div className="space-y-4 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <Field label="Template name">
+                            <Input
+                              value={templateForm.name}
+                              onChange={(event) => setTemplateForm((prev) => ({ ...prev, name: event.target.value }))}
+                              disabled={Boolean(selectedTemplate?.builtIn)}
+                              placeholder="48-port access switch"
+                            />
+                          </Field>
+                          <Field label="Description">
+                            <Input
+                              value={templateForm.description}
+                              onChange={(event) => setTemplateForm((prev) => ({ ...prev, description: event.target.value }))}
+                              disabled={Boolean(selectedTemplate?.builtIn)}
+                              placeholder="Common layout for edge switches"
+                            />
+                          </Field>
+                        </div>
+
+                        <Field label="Applies to">
+                          <div className="flex flex-wrap gap-2">
+                            {TEMPLATE_DEVICE_TYPES.map((deviceType) => {
+                              const selected = templateForm.deviceTypes.includes(deviceType)
+                              return (
+                                <button
+                                  key={deviceType}
+                                  type="button"
+                                  disabled={Boolean(selectedTemplate?.builtIn)}
+                                  onClick={() =>
+                                    setTemplateForm((prev) => ({
+                                      ...prev,
+                                      deviceTypes: selected
+                                        ? prev.deviceTypes.filter((entry) => entry !== deviceType)
+                                        : [...prev.deviceTypes, deviceType],
+                                    }))
+                                  }
+                                  className={`rounded-[var(--radius-xs)] border px-2 py-1 text-xs capitalize transition-colors ${
+                                    selected
+                                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                                      : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                                  } disabled:cursor-default disabled:opacity-70`}
+                                >
+                                  {deviceType.replace('_', ' ')}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </Field>
+
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                              Port layout
+                            </div>
+                            {!selectedTemplate?.builtIn && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  setTemplateForm((prev) => ({
+                                    ...prev,
+                                    ports: [
+                                      ...prev.ports,
+                                      { name: '', kind: 'rj45', speed: '', face: 'front' },
+                                    ],
+                                  }))
+                                }
+                              >
+                                <Plus className="size-3.5" />
+                                Add port
+                              </Button>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            {templateForm.ports.map((port, index) => (
+                              <div key={`${index}-${port.name}`} className="grid grid-cols-12 gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] p-2">
+                                <div className="col-span-4">
+                                  <Field label={`Port ${index + 1}`}>
+                                    <Input
+                                      value={port.name}
+                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      onChange={(event) =>
+                                        setTemplateForm((prev) => ({
+                                          ...prev,
+                                          ports: prev.ports.map((entry, entryIndex) =>
+                                            entryIndex === index ? { ...entry, name: event.target.value } : entry,
+                                          ),
+                                        }))
+                                      }
+                                      placeholder="Gi1/0/1"
+                                    />
+                                  </Field>
+                                </div>
+                                <div className="col-span-3">
+                                  <Field label="Kind">
+                                    <Select
+                                      value={port.kind}
+                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      onChange={(value) =>
+                                        setTemplateForm((prev) => ({
+                                          ...prev,
+                                          ports: prev.ports.map((entry, entryIndex) =>
+                                            entryIndex === index ? { ...entry, kind: value as Port['kind'] } : entry,
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      {PORT_KINDS.map((kind) => (
+                                        <option key={kind} value={kind}>
+                                          {kind}
+                                        </option>
+                                      ))}
+                                    </Select>
+                                  </Field>
+                                </div>
+                                <div className="col-span-2">
+                                  <Field label="Speed">
+                                    <Input
+                                      value={port.speed}
+                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      onChange={(event) =>
+                                        setTemplateForm((prev) => ({
+                                          ...prev,
+                                          ports: prev.ports.map((entry, entryIndex) =>
+                                            entryIndex === index ? { ...entry, speed: event.target.value } : entry,
+                                          ),
+                                        }))
+                                      }
+                                      placeholder="10G"
+                                    />
+                                  </Field>
+                                </div>
+                                <div className="col-span-2">
+                                  <Field label="Face">
+                                    <Select
+                                      value={port.face}
+                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      onChange={(value) =>
+                                        setTemplateForm((prev) => ({
+                                          ...prev,
+                                          ports: prev.ports.map((entry, entryIndex) =>
+                                            entryIndex === index ? { ...entry, face: value as TemplatePortFormState['face'] } : entry,
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      <option value="front">Front</option>
+                                      <option value="rear">Rear</option>
+                                    </Select>
+                                  </Field>
+                                </div>
+                                <div className="col-span-1 flex items-end justify-end">
+                                  {!selectedTemplate?.builtIn && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() =>
+                                        setTemplateForm((prev) => ({
+                                          ...prev,
+                                          ports:
+                                            prev.ports.length === 1
+                                              ? prev.ports
+                                              : prev.ports.filter((_, entryIndex) => entryIndex !== index),
+                                        }))
+                                      }
+                                      aria-label="Remove port"
+                                    >
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {templateError && (
+                          <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                            {templateError}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="text-xs text-[var(--color-fg-subtle)]">
+                            {selectedTemplate?.builtIn
+                              ? 'Built-in templates are read-only but can still be applied to devices.'
+                              : 'Custom templates become available immediately in the device drawer.'}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {creatingTemplate && (
+                              <Button variant="ghost" size="sm" onClick={() => setCreatingTemplate(false)}>
+                                Cancel
+                              </Button>
+                            )}
+                            {!creatingTemplate && selectedTemplate && !selectedTemplate.builtIn && (
+                              <Button variant="destructive" size="sm" onClick={() => void handleDeleteTemplate()} disabled={templateDeleting}>
+                                <Trash2 className="size-3.5" />
+                                {templateDeleting ? 'Deleting...' : 'Delete'}
+                              </Button>
+                            )}
+                            {!selectedTemplate?.builtIn && (
+                              <Button size="sm" onClick={() => void handleSaveTemplate()} disabled={templateSaving}>
+                                <Save className="size-3.5" />
+                                {templateSaving ? 'Saving...' : creatingTemplate ? 'Create template' : 'Save template'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-[var(--color-fg-subtle)]">
+                        Select a template to inspect it, or create a custom one from the current device.
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
               </div>
             </div>
           )}
@@ -487,7 +969,7 @@ export default function PortView() {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
@@ -502,16 +984,19 @@ function Select({
   value,
   onChange,
   children,
+  disabled,
 }: {
   value: string
   onChange: (value: string) => void
-  children: React.ReactNode
+  children: ReactNode
+  disabled?: boolean
 }) {
   return (
     <select
       value={value}
+      disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
-      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:border-[var(--color-accent-soft)] focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
     >
       {children}
     </select>

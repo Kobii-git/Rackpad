@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
 import { createId } from '../lib/ids.js'
+import { requireAuth } from '../lib/auth.js'
 import { asObject, parseLimit, requiredString } from '../lib/validation.js'
 
 export const auditRoutes: FastifyPluginAsync = async (app) => {
@@ -15,6 +16,7 @@ export const auditRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/', async (req, reply) => {
+    if (!requireAuth(req, reply)) return
     const body = asObject(req.body)
     const id = createId('a')
     const ts = new Date().toISOString()
@@ -22,7 +24,7 @@ export const auditRoutes: FastifyPluginAsync = async (app) => {
     const entityType = requiredString(body, 'entityType', { maxLength: 120 })
     const entityId = requiredString(body, 'entityId', { maxLength: 120 })
     const summary = requiredString(body, 'summary', { maxLength: 500 })
-    const user = req.authUser?.username ?? 'system'
+    const user = req.authUser.username
 
     db.prepare(
       'INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary) VALUES (?,?,?,?,?,?,?)'

@@ -129,8 +129,7 @@ async function executeCheck(monitor: DeviceMonitor) {
 
     if (monitor.type === 'tcp') {
       const port = monitor.port ?? 22
-      await tcpCheck(monitor.target, port)
-      return { result: 'online' as const, message: `TCP ${monitor.target}:${port} reachable.` }
+      return tcpCheck(monitor.target, port)
     }
 
     if (monitor.type === 'http' || monitor.type === 'https') {
@@ -154,21 +153,42 @@ async function executeCheck(monitor: DeviceMonitor) {
 }
 
 function tcpCheck(host: string, port: number) {
-  return new Promise<void>((resolve, reject) => {
+  return new Promise<{ result: 'online' | 'offline'; message: string }>((resolve, reject) => {
     const socket = net.connect({ host, port })
     const timeout = setTimeout(() => {
       socket.destroy()
-      reject(new Error(`TCP ${host}:${port} timed out.`))
+      resolve({
+        result: 'offline',
+        message: `TCP ${host}:${port} timed out from the Rackpad server.`,
+      })
     }, 5000)
 
     socket.once('connect', () => {
       clearTimeout(timeout)
       socket.end()
-      resolve()
+      resolve({
+        result: 'online',
+        message: `TCP ${host}:${port} reachable.`,
+      })
     })
 
-    socket.once('error', (error) => {
+    socket.once('error', (error: NodeJS.ErrnoException) => {
       clearTimeout(timeout)
+      socket.destroy()
+      if (error.code === 'ECONNREFUSED') {
+        resolve({
+          result: 'online',
+          message: `Host ${host} is reachable, but TCP ${port} refused the connection.`,
+        })
+        return
+      }
+      if (error.code === 'EHOSTUNREACH' || error.code === 'ENETUNREACH') {
+        resolve({
+          result: 'offline',
+          message: `TCP ${host}:${port} is unreachable from the Rackpad server.`,
+        })
+        return
+      }
       reject(error)
     })
   })

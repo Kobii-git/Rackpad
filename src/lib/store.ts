@@ -25,6 +25,7 @@ import type {
   DhcpScopePatch,
   MonitorPatch,
   PortPatch,
+  PortTemplatePatch,
   RackPatch,
   SubnetPatch,
   UserPatch,
@@ -208,6 +209,15 @@ function sortUsers(users: AppUser[]) {
 
 function sortMonitors(monitors: DeviceMonitor[]) {
   return [...monitors].sort((a, b) => a.deviceId.localeCompare(b.deviceId))
+}
+
+function sortPortTemplates(templates: PortTemplate[]) {
+  return [...templates].sort((a, b) => {
+    if (Boolean(a.builtIn) !== Boolean(b.builtIn)) {
+      return a.builtIn ? -1 : 1
+    }
+    return a.name.localeCompare(b.name)
+  })
 }
 
 function replaceById<T extends { id: string }>(items: T[], updated: T, sorter?: (value: T[]) => T[]) {
@@ -572,57 +582,74 @@ export async function loadAll(force = false): Promise<void> {
 
   dataLoadPromise = (async () => {
     try {
-      const [
-        racks,
-        devices,
-        ports,
-        portLinks,
-        vlans,
-        vlanRanges,
-        subnets,
-        scopes,
-        ipZones,
-        ipAssignments,
-        auditLog,
-        deviceMonitors,
-        portTemplates,
-        users,
-      ] = await Promise.all([
-        api.getRacks(),
-        api.getDevices(),
-        api.getPorts(),
-        api.getPortLinks(),
-        api.getVlans(),
-        api.getVlanRanges(),
-        api.getSubnets(),
-        api.getDhcpScopes(),
-        api.getIpZones(),
-        api.getIpAssignments(),
-        api.getAuditLog({ limit: 100 }),
-        api.getDeviceMonitors(),
-        api.getPortTemplates(),
-        currentUser.role === 'admin' ? api.getUsers() : Promise.resolve([]),
-      ])
+      const requests = {
+        racks: api.getRacks(),
+        devices: api.getDevices(),
+        ports: api.getPorts(),
+        portLinks: api.getPortLinks(),
+        vlans: api.getVlans(),
+        vlanRanges: api.getVlanRanges(),
+        subnets: api.getSubnets(),
+        scopes: api.getDhcpScopes(),
+        ipZones: api.getIpZones(),
+        ipAssignments: api.getIpAssignments(),
+        auditLog: api.getAuditLog({ limit: 500 }),
+        deviceMonitors: api.getDeviceMonitors(),
+        portTemplates: api.getPortTemplates(),
+        users: currentUser.role === 'admin' ? api.getUsers() : Promise.resolve([] as AppUser[]),
+      }
+
+      const requestEntries = Object.entries(requests) as Array<[keyof typeof requests, Promise<unknown>]>
+      const settled = await Promise.allSettled(requestEntries.map(([, request]) => request))
+      const unauthorized = settled.find(
+        (result) => result.status === 'rejected' && isUnauthorized(result.reason),
+      )
+
+      if (unauthorized) {
+        clearSessionState('Your session expired. Please sign in again.')
+        return
+      }
+
+      const resolved = new Map<keyof typeof requests, unknown>()
+      const failures: string[] = []
+
+      settled.forEach((result, index) => {
+        const [key] = requestEntries[index]
+        if (result.status === 'fulfilled') {
+          resolved.set(key, result.value)
+          return
+        }
+        failures.push(key)
+      })
 
       setState((prev) => ({
         ...prev,
         loading: false,
         loaded: true,
-        error: null,
-        racks: sortByName(racks),
-        devices: sortDevices(devices),
-        ports: sortPorts(ports),
-        portLinks,
-        vlans: sortVlans(vlans),
-        vlanRanges: sortVlanRanges(vlanRanges),
-        subnets: sortSubnets(subnets),
-        scopes: sortScopes(scopes),
-        ipZones: sortIpZones(ipZones),
-        ipAssignments: sortIpAssignments(ipAssignments),
-        auditLog: sortAudit(auditLog),
-        deviceMonitors: sortMonitors(deviceMonitors),
-        portTemplates,
-        users: sortUsers(users),
+        error:
+          failures.length > 0
+            ? `Some data failed to load: ${failures.join(', ')}. Showing the data that did load.`
+            : null,
+        racks: resolved.has('racks') ? sortByName(resolved.get('racks') as Rack[]) : prev.racks,
+        devices: resolved.has('devices') ? sortDevices(resolved.get('devices') as Device[]) : prev.devices,
+        ports: resolved.has('ports') ? sortPorts(resolved.get('ports') as Port[]) : prev.ports,
+        portLinks: resolved.has('portLinks') ? (resolved.get('portLinks') as PortLink[]) : prev.portLinks,
+        vlans: resolved.has('vlans') ? sortVlans(resolved.get('vlans') as Vlan[]) : prev.vlans,
+        vlanRanges: resolved.has('vlanRanges') ? sortVlanRanges(resolved.get('vlanRanges') as VlanRange[]) : prev.vlanRanges,
+        subnets: resolved.has('subnets') ? sortSubnets(resolved.get('subnets') as Subnet[]) : prev.subnets,
+        scopes: resolved.has('scopes') ? sortScopes(resolved.get('scopes') as DhcpScope[]) : prev.scopes,
+        ipZones: resolved.has('ipZones') ? sortIpZones(resolved.get('ipZones') as IpZone[]) : prev.ipZones,
+        ipAssignments: resolved.has('ipAssignments')
+          ? sortIpAssignments(resolved.get('ipAssignments') as IpAssignment[])
+          : prev.ipAssignments,
+        auditLog: resolved.has('auditLog') ? sortAudit(resolved.get('auditLog') as AuditEntry[]) : prev.auditLog,
+        deviceMonitors: resolved.has('deviceMonitors')
+          ? sortMonitors(resolved.get('deviceMonitors') as DeviceMonitor[])
+          : prev.deviceMonitors,
+        portTemplates: resolved.has('portTemplates')
+          ? sortPortTemplates(resolved.get('portTemplates') as PortTemplate[])
+          : prev.portTemplates,
+        users: resolved.has('users') ? sortUsers(resolved.get('users') as AppUser[]) : prev.users,
       }))
     } catch (error) {
       if (isUnauthorized(error)) {
@@ -669,6 +696,13 @@ export async function downloadAdminBackup(): Promise<string> {
   anchor.remove()
   window.setTimeout(() => window.URL.revokeObjectURL(url), 0)
   return downloadName
+}
+
+export async function restoreAdminBackupSnapshot(snapshot: unknown) {
+  const result = await api.restoreAdminBackup(snapshot)
+  clearSessionState(null)
+  await initializeApp(true)
+  return result
 }
 
 export function previewNextStaticIp(subnetId: string): string | null {
@@ -806,6 +840,58 @@ export async function deletePortRecord(id: string): Promise<void> {
       'Port',
       id,
       `Deleted port ${port.name} from ${state.devices.find((device) => device.id === port.deviceId)?.hostname ?? port.deviceId}`,
+    )
+  }
+}
+
+export async function createPortTemplateRecord(
+  input: Omit<PortTemplate, 'builtIn' | 'id'> & { id?: string },
+): Promise<PortTemplate> {
+  const created = await api.createPortTemplate(input)
+  setState((prev) => ({
+    ...prev,
+    portTemplates: sortPortTemplates([...prev.portTemplates, created]),
+  }))
+  void recordAudit(
+    'port.template.create',
+    'PortTemplate',
+    created.id,
+    `Added port template ${created.name}`,
+  )
+  return created
+}
+
+export async function updatePortTemplateRecord(
+  id: string,
+  changes: PortTemplatePatch,
+): Promise<PortTemplate> {
+  const updated = await api.updatePortTemplate(id, changes)
+  setState((prev) => ({
+    ...prev,
+    portTemplates: replaceById(prev.portTemplates, updated, sortPortTemplates),
+  }))
+  void recordAudit(
+    'port.template.update',
+    'PortTemplate',
+    id,
+    `Updated port template ${updated.name}`,
+  )
+  return updated
+}
+
+export async function deletePortTemplateRecord(id: string): Promise<void> {
+  const existing = state.portTemplates.find((template) => template.id === id)
+  await api.deletePortTemplate(id)
+  setState((prev) => ({
+    ...prev,
+    portTemplates: removeById(prev.portTemplates, id),
+  }))
+  if (existing) {
+    void recordAudit(
+      'port.template.delete',
+      'PortTemplate',
+      id,
+      `Deleted port template ${existing.name}`,
     )
   }
 }
