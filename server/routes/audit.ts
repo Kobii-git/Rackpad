@@ -26,4 +26,7 @@ export const auditRoutes: FastifyPluginAsync = async (app) => {
 
     db.prepare(
       'INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary) VALUES (?,?,?,?,?,?,?)'
-    ).run(id, ts, user, action, entityType, e
+    ).run(id, ts, user, action, entityType, entityId, summary)
+    return reply.status(201).send(db.prepare('SELECT * FROM auditLog WHERE id = ?').get(id))
+  })
+}

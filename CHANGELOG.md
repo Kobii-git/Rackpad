@@ -4,7 +4,26 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.4.2] - 2026-05-01
+
+### Fixed
+
+- Restored clean committed copies of `server/index.ts`, `server/routes/audit.ts`, `tsconfig.server.json`, `.gitignore`, `README.md`, and `COWORK_SESSION_HANDOFF.md` after file truncation and NUL-padding corruption.
+- Re-synced release metadata so the app version, install guide, compose defaults, and example environment file all point at the same deployable tag.
+
+### Notes
+
+- `v0.4.2` is the first post-recovery tag intended for GitHub and Docker deployment after the truncation issue was cleaned up.
+- `npm run build` passes.
+- `npm run lint` passes.
+- `npm run test:server` still needs Linux/Node 22 or Docker to load the `better-sqlite3` native binding.
+
 ## [0.4.1] - 2026-05-01
+
+Pre-deployment static review of all 41 source files. Six bugs found and fixed;
+no regressions introduced. First release intended for Docker/Linux deployment.
+
+Commit: `d103f8e`
 
 ### Fixed
 
@@ -14,6 +33,14 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 - `PATCH /api/dhcp-scopes/:id` now rejects null `startIp` or `endIp` with HTTP 400 instead of a NOT NULL constraint 500.
 - Error handler now catches `FOREIGN KEY constraint failed` (returns HTTP 422) and `NOT NULL constraint failed` (returns HTTP 400) rather than falling through to a generic 500.
 - `GET /api/dhcp-scopes` now returns results in a consistent `ORDER BY subnetId, name` order.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- `npm run test:server` requires Linux/Node 22 or Docker to load the `better-sqlite3` native binding; still blocked on this Windows Node 24 machine.
+- Recommended deploy path: `docker compose up --build -d` - verify backup export shows `appVersion: "0.4.1"` as a smoke test.
+- Minor observations noted but not changed: `needsBootstrap()` runs a `SELECT COUNT(*)` on every API request (negligible for homelab traffic); ID generation style is inconsistent across routes (cosmetic only); `PORT_KINDS` is duplicated between `ports.ts` and `port-templates.ts` (they match).
 
 ## [0.4.0] - 2026-05-01
 
@@ -29,7 +56,7 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 - Frontend routes now lazy-load to reduce the size of the initial app bundle.
 - Vite now injects the app version from `package.json` and splits major vendor chunks during build.
 - The sidebar version badge now stays in sync with the release version automatically.
-- Docker and install defaults now point to `v0.4.0`.
+- Docker and install defaults now point at `v0.4.0`.
 
 ### Notes
 

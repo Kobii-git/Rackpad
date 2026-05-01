@@ -36,4 +36,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# test / c
+# test / cache
+coverage
+.cache
+.eslintcache
+.turbo
