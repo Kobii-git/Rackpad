@@ -9,4 +9,11 @@
     "moduleResolution": "bundler",
     "allowImportingTsExtensions": true,
     "isolatedModules": true,
-    "moduleDetection": "
+    "moduleDetection": "force",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "outDir": "./.tsbuild/tsconfig.node",
+    "strict": true
+  },
+  "include": ["vite.config.ts"]
+}

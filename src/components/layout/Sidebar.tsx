@@ -102,4 +102,26 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
           <span className="font-mono uppercase tracking-wider text-[var(--color-fg-subtle)]">Authenticated</span>
         </div>
         {currentUser && (
-          <div className="space-y-1 text-[11px] text-[var(--color-fg-subtl
+          <div className="space-y-1 text-[11px] text-[var(--color-fg-subtle)]">
+            <div>{currentUser.displayName}</div>
+            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-faint)]">
+              {currentUser.role}
+              {authExpiresAt ? ` | expires ${new Date(authExpiresAt).toLocaleDateString()}` : ''}
+            </div>
+          </div>
+        )}
+      </div>
+    </aside>
+  )
+}
+
+function Logo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden>
+      <rect x="6" y="6" width="20" height="3" fill="var(--color-accent)" />
+      <rect x="6" y="11" width="20" height="3" fill="var(--color-accent)" opacity="0.7" />
+      <rect x="6" y="16" width="20" height="3" fill="var(--color-accent)" opacity="0.5" />
+      <rect x="6" y="21" width="20" height="3" fill="var(--color-accent)" opacity="0.3" />
+    </svg>
+  )
+}
