@@ -7,6 +7,8 @@ This guide gives you two ways to install Rackpad:
 
 Docker is the recommended path for first testing because it handles the Node runtime and keeps the SQLite database in a persistent volume.
 
+Current version in this guide: `v0.2.0`
+
 ## Before you start
 
 - Use a Linux server or VM.
@@ -34,13 +36,12 @@ newgrp docker
 
 ### Step 2: Copy the Rackpad project to the server
 
-Clone the repo or copy the project folder to the server, then move into it:
+Clone the version you want directly from GitHub, then move into it:
 
 ```bash
 cd /opt
-sudo mkdir -p rackpad
-sudo chown "$USER":"$USER" rackpad
-cd rackpad
+git clone --branch v0.2.0 --depth 1 https://github.com/Kobii-git/Rackpad.git
+cd Rackpad
 ```
 
 ### Step 3: Create your environment file
@@ -57,7 +58,7 @@ Open `.env` and set at least:
 RACKPAD_PORT=3000
 ```
 
-You only need `GITHUB_REPO_OWNER` and `RACKPAD_TAG` if you plan to pull a published image instead of building locally.
+The defaults already point at GitHub owner `Kobii-git` and release tag `v0.2.0`.
 
 ### Step 4: Build and start Rackpad
 
@@ -101,8 +102,12 @@ docker compose down
 Update it after new code changes:
 
 ```bash
+git fetch --tags
+git checkout v0.2.0
 docker compose up --build -d
 ```
+
+When a newer release exists, replace `v0.2.0` with the newer version tag.
 
 Remove the app and database completely:
 
@@ -141,9 +146,11 @@ This matches the included `rackpad.service`, which starts Rackpad with `/usr/bin
 
 ### Step 3: Copy the Rackpad project to the server
 
-Put the repo somewhere like `/opt/rackpad` and move into it:
+Clone the version you want directly from GitHub:
 
 ```bash
+cd /opt
+git clone --branch v0.2.0 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
 cd /opt/rackpad
 ```
 
@@ -252,3 +259,7 @@ Check your firewall or cloud security group rules and make sure TCP `3000` is al
 ## Recommended for now
 
 For your first deployment test, use Docker on a Linux server and keep Rackpad on a private LAN or behind a VPN until authentication is added.
+
+## Release notes
+
+See [CHANGELOG.md](./CHANGELOG.md) for the version history and notes about what changed in each release.

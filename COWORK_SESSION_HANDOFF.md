@@ -73,6 +73,12 @@
   - fully rewritten to match the real app and deploy flow
 - `INSTALL.md`
   - added a step-by-step Docker install and native Linux install guide
+- `CHANGELOG.md`
+  - added versioned release notes
+- versioning
+  - release version is now `0.2.0`
+  - install docs now clone versioned source from GitHub
+  - future shipped changes should include a version bump and changelog entry
 - `eslint.config.mjs`
   - added a minimal flat config so `npm run lint` no longer errors at startup
 
