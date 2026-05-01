@@ -216,3 +216,35 @@ export default function DevicesList() {
                         </span>
                       </Td>
                       <Td className="w-px">
+                        <ChevronRight className="size-3.5 text-[var(--color-fg-faint)] opacity-0 transition-opacity group-hover:opacity-100" />
+                      </Td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="px-4 py-8 text-center text-xs text-[var(--color-fg-subtle)]">
+                No devices match your filter.
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {canEdit && <DeviceDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />}
+    </>
+  )
+}
+
+function Th({ children }: { children?: ReactNode }) {
+  return (
+    <th className="px-3 py-1.5 text-left font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+      {children}
+    </th>
+  )
+}
+
+function Td({ children, className }: { children: ReactNode; className?: string }) {
+  return <td className={`px-3 py-2 align-middle ${className ?? ''}`}>{children}</td>
+}

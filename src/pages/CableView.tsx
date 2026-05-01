@@ -256,3 +256,354 @@ export default function CableView() {
                     placeholder="Cat6a, DAC, OM4..."
                   />
                 </Field>
+                <Field label="Length">
+                  <Input
+                    value={createForm.cableLength}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, cableLength: e.target.value }))}
+                    placeholder="0.5m, 3m..."
+                  />
+                </Field>
+                <Field label="Color">
+                  <Input
+                    value={createForm.color}
+                    onChange={(e) => setCreateForm((prev) => ({ ...prev, color: e.target.value }))}
+                    placeholder="blue, yellow..."
+                  />
+                </Field>
+              </div>
+
+              <Field label="Notes">
+                <textarea
+                  value={createForm.notes}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, notes: e.target.value }))}
+                  rows={3}
+                  className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                />
+              </Field>
+
+              {createError && <div className="text-xs text-[var(--color-err)]">{createError}</div>}
+
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  disabled={creating || !createForm.fromPortId || !createForm.toPortId || !canEdit}
+                  onClick={() => void handleCreateCable()}
+                >
+                  <Plus className="size-3.5" />
+                  {creating ? 'Creating...' : 'Create cable'}
+                </Button>
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card className="col-span-12 xl:col-span-7">
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Inspector</CardLabel>
+                <CardHeading>{selectedLink ? 'Selected cable' : 'Select a cable'}</CardHeading>
+              </CardTitle>
+              {selectedLink && <Badge>{selectedLink.cableType ?? 'Cable'}</Badge>}
+            </CardHeader>
+            <CardBody>
+              {!selectedLink ? (
+                <div className="text-xs text-[var(--color-fg-subtle)]">
+                  Pick a cable from the inventory table to edit its metadata.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
+                    <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
+                      Endpoints
+                    </div>
+                    <CableEndpoints link={selectedLink} portById={portById} deviceById={deviceById} />
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <Field label="Cable type">
+                      <Input
+                        value={editForm.cableType}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, cableType: e.target.value }))}
+                        placeholder="Cat6a, DAC, OM4..."
+                      />
+                    </Field>
+                    <Field label="Length">
+                      <Input
+                        value={editForm.cableLength}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, cableLength: e.target.value }))}
+                        placeholder="0.5m, 3m..."
+                      />
+                    </Field>
+                    <Field label="Color">
+                      <Input
+                        value={editForm.color}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, color: e.target.value }))}
+                        placeholder="blue, yellow..."
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Notes">
+                    <textarea
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, notes: e.target.value }))}
+                      rows={3}
+                      className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                    />
+                  </Field>
+
+                  {editError && <div className="text-xs text-[var(--color-err)]">{editError}</div>}
+
+                  <div className="flex items-center justify-between gap-3">
+                    {canEdit && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={deletingId === selectedLink.id}
+                        onClick={() => void handleDeleteCable(selectedLink.id)}
+                      >
+                        <Trash2 className="size-3.5" />
+                        {deletingId === selectedLink.id ? 'Removing...' : 'Delete cable'}
+                      </Button>
+                    )}
+                    <Button size="sm" disabled={saving || !canEdit} onClick={() => void handleSaveCable()}>
+                      <Save className="size-3.5" />
+                      {saving ? 'Saving...' : 'Save changes'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setCableType(null)}
+            className={`rounded-[var(--radius-xs)] border px-2.5 py-1 transition-colors ${
+              cableType === null
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+            }`}
+          >
+            <span className="font-mono text-[10px] uppercase tracking-wider">All</span>
+            <Mono className="ml-2 text-[10px]">{portLinks.length}</Mono>
+          </button>
+          {Object.entries(byType).map(([type, count]) => (
+            <button
+              key={type}
+              onClick={() => setCableType(type)}
+              className={`rounded-[var(--radius-xs)] border px-2.5 py-1 transition-colors ${
+                cableType === type
+                  ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
+                  : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+              }`}
+            >
+              <span className="font-mono text-[10px] uppercase tracking-wider">{type}</span>
+              <Mono className="ml-2 text-[10px]">{count}</Mono>
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative max-w-md flex-1">
+            <Filter className="pointer-events-none absolute left-2 top-1/2 size-3.5 -translate-y-1/2 text-[var(--color-fg-faint)]" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by device, port, type, color..."
+              className="pl-7"
+            />
+          </div>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <CardLabel>Inventory</CardLabel>
+              <CardHeading>{filtered.length} cables</CardHeading>
+            </CardTitle>
+            <CableIcon className="size-4 text-[var(--color-fg-subtle)]" />
+          </CardHeader>
+          <CardBody className="p-0">
+            <div className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
+                    <Th>From</Th>
+                    <Th />
+                    <Th>To</Th>
+                    <Th>Type</Th>
+                    <Th>Length</Th>
+                    <Th>Color</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((link) => {
+                    const fromPort = portById[link.fromPortId]
+                    const toPort = portById[link.toPortId]
+                    const fromDev = fromPort ? deviceById[fromPort.deviceId] : undefined
+                    const toDev = toPort ? deviceById[toPort.deviceId] : undefined
+                    const isSelected = link.id === selectedLinkId
+                    return (
+                      <tr
+                        key={link.id}
+                        onClick={() => setSelectedLinkId(link.id)}
+                        className={`cursor-pointer border-b border-[var(--color-line)] transition-colors last:border-b-0 hover:bg-[var(--color-surface)] ${
+                          isSelected ? 'bg-[var(--color-accent)]/8' : ''
+                        }`}
+                      >
+                        <Td>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs">{fromDev?.hostname}</span>
+                            <span className="text-[var(--color-fg-faint)]">:</span>
+                            <Mono className="text-[var(--color-cyan)]">{fromPort?.name}</Mono>
+                          </div>
+                        </Td>
+                        <Td className="w-px">
+                          <ArrowRight className="size-3 text-[var(--color-fg-subtle)]" />
+                        </Td>
+                        <Td>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs">{toDev?.hostname}</span>
+                            <span className="text-[var(--color-fg-faint)]">:</span>
+                            <Mono className="text-[var(--color-cyan)]">{toPort?.name}</Mono>
+                          </div>
+                        </Td>
+                        <Td>
+                          <Badge>{link.cableType ?? 'Unknown'}</Badge>
+                        </Td>
+                        <Td>
+                          <Mono className="text-[var(--color-fg-muted)]">{link.cableLength ?? '-'}</Mono>
+                        </Td>
+                        <Td>
+                          {link.color ? (
+                            <span className="inline-flex items-center gap-1.5">
+                              <span
+                                className="size-2.5 rounded-[1px] border border-[var(--color-line-strong)]"
+                                style={{ backgroundColor: cableColorMap(link.color) }}
+                              />
+                              <span className="font-mono text-[11px] capitalize text-[var(--color-fg-muted)]">
+                                {link.color}
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="text-[var(--color-fg-faint)]">-</span>
+                          )}
+                        </Td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              {filtered.length === 0 && (
+                <div className="px-4 py-8 text-center text-xs text-[var(--color-fg-subtle)]">
+                  No cables match your filter.
+                </div>
+              )}
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+    </>
+  )
+}
+
+function Th({ children }: { children?: ReactNode }) {
+  return (
+    <th className="px-3 py-1.5 text-left font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+      {children}
+    </th>
+  )
+}
+
+function Td({ children, className }: { children: ReactNode; className?: string }) {
+  return <td className={`px-3 py-2 align-middle ${className ?? ''}`}>{children}</td>
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+    >
+      {children}
+    </select>
+  )
+}
+
+function CableEndpoints({
+  link,
+  portById,
+  deviceById,
+}: {
+  link: PortLink
+  portById: Record<string, Port>
+  deviceById: Record<string, Device>
+}) {
+  const fromPort = portById[link.fromPortId]
+  const toPort = portById[link.toPortId]
+  const fromDevice = fromPort ? deviceById[fromPort.deviceId] : undefined
+  const toDevice = toPort ? deviceById[toPort.deviceId] : undefined
+
+  return (
+    <div className="inline-flex items-center gap-1.5 text-xs">
+      <span>{fromDevice?.hostname ?? 'Unknown device'}</span>
+      <span className="text-[var(--color-fg-faint)]">:</span>
+      <Mono className="text-[var(--color-cyan)]">{fromPort?.name ?? 'Unknown port'}</Mono>
+      <ArrowRight className="size-3 text-[var(--color-fg-subtle)]" />
+      <span>{toDevice?.hostname ?? 'Unknown device'}</span>
+      <span className="text-[var(--color-fg-faint)]">:</span>
+      <Mono className="text-[var(--color-cyan)]">{toPort?.name ?? 'Unknown port'}</Mono>
+    </div>
+  )
+}
+
+function cableColorMap(color: string): string {
+  const map: Record<string, string> = {
+    blue: '#4a78c4',
+    red: '#c4504a',
+    green: '#5aa05a',
+    yellow: '#d4c43c',
+    black: '#2a2a2a',
+    gray: '#7a7a7a',
+    aqua: '#4cc8d4',
+    orange: '#d4844a',
+    white: '#e8e8e8',
+  }
+  return map[color.toLowerCase()] ?? '#7a7a7a'
+}
+
+function portOptionLabel(port: Port, deviceById: Record<string, Device>) {
+  const device = deviceById[port.deviceId]
+  return `${device?.hostname ?? port.deviceId} | ${port.name}${port.speed ? ` | ${port.speed}` : ''}`
+}
+
+function cableSortLabel(
+  link: PortLink,
+  portById: Record<string, Port>,
+  deviceById: Record<string, Device>,
+) {
+  const fromPort = portById[link.fromPortId]
+  const fromDevice = fromPort ? deviceById[fromPort.deviceId] : undefined
+  return `${fromDevice?.hostname ?? ''}:${fromPort?.name ?? ''}`
+}

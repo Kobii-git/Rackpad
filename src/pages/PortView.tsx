@@ -202,3 +202,328 @@ export default function PortView() {
       await deletePortRecord(selectedPort.id)
       setSelectedPortId(undefined)
     } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete port.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <TopBar
+        subtitle="Ports & cabling"
+        title="Ports"
+        meta={
+          <>
+            <Mono className="text-[var(--color-fg-muted)]">{linkedCount}</Mono>
+            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+              linked / {devicePorts.length} total | {totalCableCount} cables
+            </span>
+          </>
+        }
+        actions={
+          canEdit ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCreating(true)
+                setSelectedPortId(undefined)
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add port
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex w-64 shrink-0 flex-col border-r border-[var(--color-line)] bg-[var(--color-bg-2)]/40">
+          <div className="border-b border-[var(--color-line)] px-4 py-3">
+            <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+              {portBearingDevices.length} devices
+            </span>
+          </div>
+          <div className="flex-1 overflow-y-auto py-1">
+            {portBearingDevices.map((entry) => {
+              const entryPorts = portsByDeviceId[entry.id] ?? []
+              const linked = entryPorts.filter((port) => port.linkState === 'up').length
+              const isActive = entry.id === selectedDeviceId
+              return (
+                <button
+                  key={entry.id}
+                  onClick={() => {
+                    setSelectedDeviceId(entry.id)
+                    setSelectedPortId(undefined)
+                    setCreating(false)
+                  }}
+                  className={`flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left transition-colors ${
+                    isActive
+                      ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
+                      : 'border-transparent hover:bg-[var(--color-surface)]/40'
+                  }`}
+                >
+                  <DeviceTypeIcon type={entry.deviceType} className="size-3.5 shrink-0 text-[var(--color-fg-muted)]" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium text-[var(--color-fg)]">{entry.hostname}</div>
+                    <div className="font-mono text-[10px] text-[var(--color-fg-subtle)]">
+                      {linked}/{entryPorts.length} linked
+                    </div>
+                  </div>
+                  <StatusDot status={entry.status} />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {!device ? (
+            <EmptyDevice />
+          ) : (
+            <div className="grid grid-cols-12 gap-5">
+              <div className="col-span-12 xl:col-span-8">
+                <div className="mb-5">
+                  <div className="mb-1 flex items-center gap-2">
+                    <DeviceTypeIcon type={device.deviceType} className="size-4 text-[var(--color-accent)]" />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+                      {device.deviceType.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-semibold tracking-tight">{device.hostname}</h2>
+                  <div className="mt-0.5 text-xs text-[var(--color-fg-subtle)]">
+                    {device.manufacturer} {device.model}
+                    {device.managementIp && (
+                      <>
+                        <span className="mx-1.5 text-[var(--color-fg-faint)]">|</span>
+                        <span className="font-mono">{device.managementIp}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {isVisualGrid ? (
+                  <PortGrid
+                    device={device}
+                    ports={devicePorts}
+                    links={linkByPortId}
+                    portsById={portById}
+                    devicesById={deviceById}
+                    onSelectPort={setSelectedPortId}
+                    selectedPortId={selectedPortId}
+                  />
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        <CardLabel>Interfaces</CardLabel>
+                        <CardHeading>{devicePorts.length} ports</CardHeading>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardBody className="p-0">
+                      <PortList
+                        ports={devicePorts}
+                        links={linkByPortId}
+                        portsById={portById}
+                        devicesById={deviceById}
+                        onSelectPort={setSelectedPortId}
+                        selectedPortId={selectedPortId}
+                      />
+                    </CardBody>
+                  </Card>
+                )}
+              </div>
+
+              <div className="col-span-12 xl:col-span-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      <CardLabel>Inspector</CardLabel>
+                      <CardHeading>
+                        {creating ? 'New port' : selectedPort ? selectedPort.name : 'Select a port'}
+                      </CardHeading>
+                    </CardTitle>
+                    {(selectedPort || creating) && <Badge tone="cyan">{form?.kind ?? 'port'}</Badge>}
+                  </CardHeader>
+                  <CardBody>
+                    {!form ? (
+                      <div className="text-xs text-[var(--color-fg-subtle)]">
+                        Select a port to edit its details.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Port name">
+                            <Input
+                              value={form.name}
+                              onChange={(event) => setForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))}
+                            />
+                          </Field>
+                          <Field label="Kind">
+                            <Select
+                              value={form.kind}
+                              onChange={(value) => setForm((prev) => (prev ? { ...prev, kind: value as Port['kind'] } : prev))}
+                            >
+                              {PORT_KINDS.map((kind) => (
+                                <option key={kind} value={kind}>
+                                  {kind}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Speed">
+                            <Input
+                              value={form.speed}
+                              onChange={(event) => setForm((prev) => (prev ? { ...prev, speed: event.target.value } : prev))}
+                              placeholder="e.g. 10G"
+                            />
+                          </Field>
+                          <Field label="Face">
+                            <Select
+                              value={form.face}
+                              onChange={(value) => setForm((prev) => (prev ? { ...prev, face: value as PortFormState['face'] } : prev))}
+                            >
+                              <option value="front">Front</option>
+                              <option value="rear">Rear</option>
+                            </Select>
+                          </Field>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <Field label="Link state">
+                            <Select
+                              value={form.linkState}
+                              onChange={(value) => setForm((prev) => (prev ? { ...prev, linkState: value as Port['linkState'] } : prev))}
+                            >
+                              {LINK_STATES.map((state) => (
+                                <option key={state} value={state}>
+                                  {state}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                          <Field label="VLAN">
+                            <Select
+                              value={form.vlanId}
+                              onChange={(value) => setForm((prev) => (prev ? { ...prev, vlanId: value } : prev))}
+                            >
+                              <option value="">Unassigned</option>
+                              {vlans.map((vlan) => (
+                                <option key={vlan.id} value={vlan.id}>
+                                  {vlan.vlanId} - {vlan.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
+
+                        <Field label="Description">
+                          <textarea
+                            value={form.description}
+                            onChange={(event) => setForm((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
+                            rows={3}
+                            className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:border-[var(--color-accent-soft)] focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                          />
+                        </Field>
+
+                        <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
+                          <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-subtle)]">
+                            Link
+                          </div>
+                          {selectedLink && peerDevice && peerPort ? (
+                            <div className="space-y-1 text-xs">
+                              <div className="inline-flex items-center gap-1.5">
+                                <ArrowRight className="size-3 text-[var(--color-cyan)]" />
+                                <span>{peerDevice.hostname}</span>
+                                <span className="text-[var(--color-fg-faint)]">:</span>
+                                <Mono className="text-[var(--color-cyan)]">{peerPort.name}</Mono>
+                              </div>
+                              <div className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
+                                {selectedLink.cableType ?? 'Cable'} | {selectedLink.cableLength ?? 'length n/a'}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-xs text-[var(--color-fg-subtle)]">
+                              {creating ? 'Save the port first before cabling it.' : 'No linked cable.'}
+                            </div>
+                          )}
+                        </div>
+
+                        {error && <div className="text-xs text-[var(--color-err)]">{error}</div>}
+
+                        <div className="flex items-center justify-between gap-3">
+                          {!creating && canEdit && selectedPort && (
+                            <Button variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={deleting}>
+                              <Trash2 className="size-3.5" />
+                              {deleting ? 'Deleting...' : 'Delete port'}
+                            </Button>
+                          )}
+                          <div className="ml-auto flex items-center gap-2">
+                            {creating && (
+                              <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>
+                                Cancel
+                              </Button>
+                            )}
+                            <Button variant="default" size="sm" disabled={saving || !canEdit} onClick={() => void handleSave()}>
+                              <Save className="size-3.5" />
+                              {saving ? 'Saving...' : creating ? 'Create port' : 'Save port'}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardBody>
+                </Card>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: React.ReactNode
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:outline-none focus-visible:border-[var(--color-accent-soft)] focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+    >
+      {children}
+    </select>
+  )
+}
+
+function EmptyDevice() {
+  return (
+    <div className="flex h-full items-center justify-center">
+      <div className="text-center">
+        <div className="text-sm text-[var(--color-fg-subtle)]">Select a device</div>
+      </div>
+    </div>
+  )
+}

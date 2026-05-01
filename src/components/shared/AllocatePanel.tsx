@@ -388,4 +388,6 @@ function PreviewBox({
           <div className="flex-1 text-[11px] text-[var(--color-err)]">{emptyText}</div>
         </>
       )}
-    </motion.div
+    </motion.div>
+  )
+}

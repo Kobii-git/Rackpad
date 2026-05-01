@@ -11,4 +11,104 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const authReady = useStore((s) => s.authReady)
   const authLoading = useStore((s) => s.authLoading)
-  const currentUser = useStore((s) => 
+  const currentUser = useStore((s) => s.currentUser)
+  const loading = useStore((s) => s.loading)
+  const loaded = useStore((s) => s.loaded)
+  const error = useStore((s) => s.error)
+
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
+        event.preventDefault()
+        setPaletteOpen((value) => !value)
+      }
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
+  useEffect(() => {
+    if (!authReady && !authLoading) {
+      void initializeApp()
+    }
+  }, [authLoading, authReady])
+
+  useEffect(() => {
+    if (currentUser && !loaded && !loading) {
+      void loadAll()
+    }
+  }, [currentUser, loaded, loading])
+
+  const shellReady = authReady && !!currentUser
+  const showLoadingCard = !authReady || authLoading || (currentUser != null && !loaded)
+
+  return (
+    <TooltipProvider delayDuration={120}>
+      <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
+        {shellReady && <Sidebar onOpenSearch={() => setPaletteOpen(true)} />}
+        <main className="relative flex flex-1 flex-col overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-grid opacity-50" />
+          <div className="relative flex flex-1 flex-col overflow-hidden">
+            {!authReady || !currentUser ? (
+              showLoadingCard ? (
+                <CenteredStatus
+                  eyebrow="Rackpad"
+                  title={authLoading ? 'Checking authentication' : 'Preparing Rackpad'}
+                  body="Loading session state and verifying whether the server already has an admin account."
+                />
+              ) : (
+                <AuthScreen />
+              )
+            ) : !loaded ? (
+              <CenteredStatus
+                eyebrow="Rackpad"
+                title={loading ? 'Loading infrastructure data' : 'Unable to load data'}
+                body={
+                  loading
+                    ? 'Syncing racks, devices, ports, VLANs, IPAM, monitors, and audit history from the API.'
+                    : error ?? 'Something went wrong while contacting the API.'
+                }
+                action={
+                  !loading ? (
+                    <Button size="sm" onClick={() => void loadAll(true)}>
+                      Retry
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              <Outlet />
+            )}
+          </div>
+        </main>
+      </div>
+      {shellReady && <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
+    </TooltipProvider>
+  )
+}
+
+function CenteredStatus({
+  eyebrow,
+  title,
+  body,
+  action,
+}: {
+  eyebrow: string
+  title: string
+  body: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-1 items-center justify-center px-6">
+      <div className="w-full max-w-md rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-bg-2)] p-6 text-center shadow-[var(--shadow-elev)]">
+        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+          {eyebrow}
+        </div>
+        <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--color-fg)]">{title}</h2>
+        <p className="mt-2 text-sm text-[var(--color-fg-subtle)]">{body}</p>
+        {action && <div className="mt-4 flex justify-center">{action}</div>}
+      </div>
+    </div>
+  )
+}
