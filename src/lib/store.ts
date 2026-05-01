@@ -653,6 +653,23 @@ export async function refreshUsers(): Promise<void> {
   }))
 }
 
+export async function downloadAdminBackup(): Promise<string> {
+  const { blob, filename } = await api.downloadAdminBackup()
+  const downloadName =
+    filename ??
+    `rackpad-backup-${new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').replace('Z', '')}.json`
+  const url = window.URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = downloadName
+  anchor.style.display = 'none'
+  document.body.append(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 0)
+  return downloadName
+}
+
 export function previewNextStaticIp(subnetId: string): string | null {
   const subnet = state.subnets.find((entry) => entry.id === subnetId)
   if (!subnet) return null

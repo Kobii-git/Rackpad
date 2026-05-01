@@ -122,6 +122,72 @@ test('viewer accounts are read-only', async () => {
   assert.match(writeRes.body, /read-only/i)
 })
 
+test('admin export returns a backup snapshot and blocks viewer access', async () => {
+  const adminToken = await bootstrapAdmin()
+
+  const exportRes = await app.inject({
+    method: 'GET',
+    url: '/api/admin/export',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+  })
+
+  assert.equal(exportRes.statusCode, 200)
+  assert.match(exportRes.headers['content-disposition'] ?? '', /rackpad-backup-.*\.json/i)
+
+  const snapshot = readJson(exportRes) as {
+    format: string
+    appVersion: string
+    data: { labs: unknown[]; users: Array<{ username: string }>; userSessions?: unknown[] }
+  }
+
+  assert.equal(snapshot.format, 'rackpad-backup-v1')
+  assert.ok(snapshot.appVersion)
+  assert.equal(snapshot.data.labs.length, 1)
+  assert.equal(snapshot.data.users[0]?.username, 'admin')
+  assert.equal(snapshot.data.userSessions, undefined)
+
+  const viewerRes = await app.inject({
+    method: 'POST',
+    url: '/api/users',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      username: 'viewer-export',
+      displayName: 'Viewer Export',
+      password: 'viewer-export-1',
+      role: 'viewer',
+    },
+  })
+
+  assert.equal(viewerRes.statusCode, 201)
+
+  const loginRes = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: {
+      username: 'viewer-export',
+      password: 'viewer-export-1',
+    },
+  })
+
+  assert.equal(loginRes.statusCode, 200)
+  const viewerToken = (readJson(loginRes) as { token: string }).token
+
+  const forbiddenRes = await app.inject({
+    method: 'GET',
+    url: '/api/admin/export',
+    headers: {
+      authorization: `Bearer ${viewerToken}`,
+    },
+  })
+
+  assert.equal(forbiddenRes.statusCode, 403)
+  assert.match(forbiddenRes.body, /administrator/i)
+})
+
 test('creating a device with a port template creates its ports', async () => {
   const adminToken = await bootstrapAdmin()
 

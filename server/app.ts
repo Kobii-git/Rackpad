@@ -15,6 +15,7 @@ import { vlansRoutes } from './routes/vlans.js'
 import { ipamRoutes } from './routes/ipam.js'
 import { auditRoutes } from './routes/audit.js'
 import { monitoringRoutes } from './routes/monitoring.js'
+import { adminRoutes } from './routes/admin.js'
 import { getAuthToken, lookupSession, needsBootstrap } from './lib/auth.js'
 import { ValidationError } from './lib/validation.js'
 
@@ -109,6 +110,7 @@ export async function createApp() {
   await app.register(ipamRoutes, { prefix: '/api' })
   await app.register(auditRoutes, { prefix: '/api/audit-log' })
   await app.register(monitoringRoutes, { prefix: '/api/device-monitors' })
+  await app.register(adminRoutes, { prefix: '/api/admin' })
 
   if (existsSync(DIST_DIR)) {
     await app.register(staticPlugin, {

@@ -125,6 +125,41 @@ async function request<T>(path: string, init?: RequestInit, query?: Record<strin
   return res.json() as Promise<T>
 }
 
+async function requestBlob(
+  path: string,
+  init?: RequestInit,
+  query?: Record<string, QueryValue>,
+): Promise<{ blob: Blob; filename: string | null }> {
+  const headers = new Headers(init?.headers)
+  if (authToken && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${authToken}`)
+  }
+
+  const res = await fetch(buildUrl(path, query), {
+    ...init,
+    headers,
+  })
+
+  if (!res.ok) {
+    let message = `Request failed: ${res.status}`
+    try {
+      const body = await res.json() as { error?: string }
+      if (body.error) message = body.error
+    } catch {
+      // Keep the fallback message.
+    }
+    throw new ApiError(message, res.status)
+  }
+
+  const disposition = res.headers.get('content-disposition')
+  const filenameMatch = disposition?.match(/filename="?([^"]+)"?/)
+
+  return {
+    blob: await res.blob(),
+    filename: filenameMatch?.[1] ?? null,
+  }
+}
+
 export const api = {
   getAuthStatus() {
     return request<AuthStatus>('/auth/status')
@@ -176,6 +211,10 @@ export const api = {
     return request<void>(`/users/${id}`, {
       method: 'DELETE',
     })
+  },
+
+  downloadAdminBackup() {
+    return requestBlob('/admin/export')
   },
 
   getRacks(params?: { labId?: string }) {

@@ -4,6 +4,28 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.4.0] - 2026-05-01
+
+### Added
+
+- VLAN range create, edit, and delete controls in the frontend.
+- Admin-only backup export endpoint at `/api/admin/export`.
+- Admin operations UI for downloading a full JSON backup from the users screen.
+- Backend test coverage for the admin export workflow and admin-only enforcement.
+
+### Changed
+
+- Frontend routes now lazy-load to reduce the size of the initial app bundle.
+- Vite now injects the app version from `package.json` and splits major vendor chunks during build.
+- The sidebar version badge now stays in sync with the release version automatically.
+- Docker and install defaults now point to `v0.4.0`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- `npm run test:server` still needs Linux/Node 22 or any environment where `better-sqlite3` can load successfully.
+
 ## [0.3.0] - 2026-05-01
 
 ### Added

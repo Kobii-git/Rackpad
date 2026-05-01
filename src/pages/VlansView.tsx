@@ -1,15 +1,39 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { TopBar } from '@/components/layout/TopBar'
 import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Mono } from '@/components/shared/Mono'
 import { Badge } from '@/components/ui/Badge'
+import { Input } from '@/components/ui/Input'
 import { VlanRangeBar } from '@/components/vlan/VlanRangeBar'
 import { IpZoneBar } from '@/components/vlan/IpZoneBar'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
-import { canEditInventory, deleteVlan, useStore } from '@/lib/store'
-import { ChevronRight, Hash, Trash2 } from 'lucide-react'
+import {
+  canEditInventory,
+  createVlanRangeRecord,
+  deleteVlan,
+  deleteVlanRangeRecord,
+  updateVlanRangeRecord,
+  useStore,
+} from '@/lib/store'
+import { ChevronRight, Hash, Plus, Save, Trash2 } from 'lucide-react'
+
+type RangeForm = {
+  name: string
+  startVlan: string
+  endVlan: string
+  purpose: string
+  color: string
+}
+
+const EMPTY_RANGE_FORM: RangeForm = {
+  name: '',
+  startVlan: '',
+  endVlan: '',
+  purpose: '',
+  color: '',
+}
 
 export default function VlansView() {
   const currentUser = useStore((s) => s.currentUser)
@@ -23,6 +47,39 @@ export default function VlansView() {
 
   const [selectedRangeId, setSelectedRangeId] = useState<string | undefined>()
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [creatingRange, setCreatingRange] = useState(false)
+  const [rangeForm, setRangeForm] = useState<RangeForm>(EMPTY_RANGE_FORM)
+  const [rangeSaving, setRangeSaving] = useState(false)
+  const [rangeDeleting, setRangeDeleting] = useState(false)
+  const [rangeError, setRangeError] = useState('')
+
+  useEffect(() => {
+    if (!ranges.length) return
+    if (!selectedRangeId || !ranges.some((range) => range.id === selectedRangeId)) {
+      setSelectedRangeId(ranges[0].id)
+    }
+  }, [ranges, selectedRangeId])
+
+  const selectedRange = selectedRangeId
+    ? ranges.find((range) => range.id === selectedRangeId)
+    : undefined
+
+  useEffect(() => {
+    if (creatingRange) {
+      setRangeForm(EMPTY_RANGE_FORM)
+      setRangeError('')
+      return
+    }
+    if (!selectedRange) return
+    setRangeForm({
+      name: selectedRange.name,
+      startVlan: String(selectedRange.startVlan),
+      endVlan: String(selectedRange.endVlan),
+      purpose: selectedRange.purpose ?? '',
+      color: selectedRange.color ?? '',
+    })
+    setRangeError('')
+  }, [creatingRange, selectedRange])
 
   const totalUsed = vlans.length
   const totalReserved = ranges.reduce((sum, range) => sum + (range.endVlan - range.startVlan + 1), 0)
@@ -47,6 +104,56 @@ export default function VlansView() {
     }
   }
 
+  async function handleSaveRange() {
+    setRangeSaving(true)
+    setRangeError('')
+    try {
+      if (creatingRange) {
+        const created = await createVlanRangeRecord({
+          labId: 'lab_home',
+          name: rangeForm.name.trim(),
+          startVlan: Number.parseInt(rangeForm.startVlan, 10),
+          endVlan: Number.parseInt(rangeForm.endVlan, 10),
+          purpose: rangeForm.purpose.trim() || undefined,
+          color: rangeForm.color.trim() || undefined,
+        })
+        setSelectedRangeId(created.id)
+        setCreatingRange(false)
+        return
+      }
+
+      if (!selectedRange) return
+      await updateVlanRangeRecord(selectedRange.id, {
+        name: rangeForm.name.trim(),
+        startVlan: Number.parseInt(rangeForm.startVlan, 10),
+        endVlan: Number.parseInt(rangeForm.endVlan, 10),
+        purpose: rangeForm.purpose.trim() || null,
+        color: rangeForm.color.trim() || null,
+      })
+    } catch (err) {
+      setRangeError(err instanceof Error ? err.message : 'Failed to save VLAN range.')
+    } finally {
+      setRangeSaving(false)
+    }
+  }
+
+  async function handleDeleteRange() {
+    if (!selectedRange) return
+    if (!window.confirm(`Delete VLAN range ${selectedRange.name}?`)) return
+
+    setRangeDeleting(true)
+    setRangeError('')
+    try {
+      await deleteVlanRangeRecord(selectedRange.id)
+      setSelectedRangeId(undefined)
+      setCreatingRange(false)
+    } catch (err) {
+      setRangeError(err instanceof Error ? err.message : 'Failed to delete VLAN range.')
+    } finally {
+      setRangeDeleting(false)
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -57,7 +164,24 @@ export default function VlansView() {
             {vlans.length} VLANs | {ranges.length} ranges | {totalReserved} IDs reserved
           </span>
         }
-        actions={canEdit ? <AllocatePanel defaultTab="vlan" defaultRangeId={selectedRangeId} /> : undefined}
+        actions={
+          canEdit ? (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCreatingRange(true)
+                  setRangeForm(EMPTY_RANGE_FORM)
+                }}
+              >
+                <Plus className="size-3.5" />
+                Add range
+              </Button>
+              <AllocatePanel defaultTab="vlan" defaultRangeId={selectedRangeId} />
+            </>
+          ) : undefined
+        }
       />
 
       <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
@@ -76,7 +200,10 @@ export default function VlansView() {
               ranges={ranges}
               vlans={vlans}
               selectedRangeId={selectedRangeId}
-              onSelectRange={(id) => setSelectedRangeId(id === selectedRangeId ? undefined : id)}
+              onSelectRange={(id) => {
+                setSelectedRangeId(id === selectedRangeId ? undefined : id)
+                setCreatingRange(false)
+              }}
             />
           </CardBody>
         </Card>
@@ -104,11 +231,14 @@ export default function VlansView() {
                   const used = vlans.filter((vlan) => vlan.vlanId >= range.startVlan && vlan.vlanId <= range.endVlan).length
                   const total = range.endVlan - range.startVlan + 1
                   const free = total - used
-                  const isActive = range.id === selectedRangeId
+                  const isActive = range.id === selectedRangeId && !creatingRange
                   return (
                     <tr
                       key={range.id}
-                      onClick={() => setSelectedRangeId(isActive ? undefined : range.id)}
+                      onClick={() => {
+                        setSelectedRangeId(isActive ? undefined : range.id)
+                        setCreatingRange(false)
+                      }}
                       className={`cursor-pointer border-b border-[var(--color-line)] transition-colors last:border-b-0 ${
                         isActive ? 'bg-[var(--color-surface)]' : 'hover:bg-[var(--color-surface)]/40'
                       }`}
@@ -140,6 +270,103 @@ export default function VlansView() {
             </table>
           </CardBody>
         </Card>
+
+        {canEdit && (
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>{creatingRange ? 'New range' : 'Range editor'}</CardLabel>
+                <CardHeading>{creatingRange ? 'Create VLAN range' : selectedRange ? `Edit ${selectedRange.name}` : 'Select a range'}</CardHeading>
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="space-y-4">
+              {creatingRange || selectedRange ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Name">
+                      <Input
+                        value={rangeForm.name}
+                        onChange={(event) => setRangeForm((prev) => ({ ...prev, name: event.target.value }))}
+                        placeholder="Servers"
+                      />
+                    </Field>
+                    <Field label="Color">
+                      <Input
+                        value={rangeForm.color}
+                        onChange={(event) => setRangeForm((prev) => ({ ...prev, color: event.target.value }))}
+                        placeholder="#4f8cff"
+                      />
+                    </Field>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Start VLAN">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={4094}
+                        value={rangeForm.startVlan}
+                        onChange={(event) => setRangeForm((prev) => ({ ...prev, startVlan: event.target.value }))}
+                        placeholder="100"
+                      />
+                    </Field>
+                    <Field label="End VLAN">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={4094}
+                        value={rangeForm.endVlan}
+                        onChange={(event) => setRangeForm((prev) => ({ ...prev, endVlan: event.target.value }))}
+                        placeholder="149"
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Purpose">
+                    <Input
+                      value={rangeForm.purpose}
+                      onChange={(event) => setRangeForm((prev) => ({ ...prev, purpose: event.target.value }))}
+                      placeholder="Server LANs, storage, management"
+                    />
+                  </Field>
+
+                  {rangeError && (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                      {rangeError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-3">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setCreatingRange(false)
+                        setRangeError('')
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <div className="flex items-center gap-2">
+                      {!creatingRange && selectedRange && (
+                        <Button variant="destructive" size="sm" onClick={() => void handleDeleteRange()} disabled={rangeDeleting}>
+                          <Trash2 className="size-3.5" />
+                          {rangeDeleting ? 'Deleting...' : 'Delete range'}
+                        </Button>
+                      )}
+                      <Button size="sm" onClick={() => void handleSaveRange()} disabled={rangeSaving}>
+                        <Save className="size-3.5" />
+                        {rangeSaving ? 'Saving...' : creatingRange ? 'Create range' : 'Save range'}
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm text-[var(--color-fg-subtle)]">
+                  Select a range from the table above or create a new one.
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -243,6 +470,17 @@ export default function VlansView() {
         </Card>
       </div>
     </>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </span>
+      {children}
+    </label>
   )
 }
 

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useStore } from '@/lib/store'
+import { APP_VERSION_TAG } from '@/lib/version'
 
 const baseNavItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -43,7 +44,7 @@ export function Sidebar({ onOpenSearch }: SidebarProps) {
         <Logo />
         <span className="font-sans text-[15px] font-semibold tracking-tight">Rackpad</span>
         <span className="ml-auto font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-faint)]">
-          v0.3
+          {APP_VERSION_TAG}
         </span>
       </div>
 

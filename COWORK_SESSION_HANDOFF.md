@@ -1,5 +1,5 @@
 # Cowork Session Handoff - Rackpad
-*Updated end of session 7. Pick up here next session.*
+*Updated end of session 8. Pick up here next session.*
 
 ## What changed this session
 
@@ -53,7 +53,7 @@
 - `src/pages/DeviceDetail.tsx`
   - added monitoring configuration and run-now workflow
 
-### Rack and IPAM CRUD in the frontend
+### Rack, IPAM, and VLAN CRUD in the frontend
 
 - `src/pages/RackViewPage.tsx`
   - added rack create, edit, and delete UI
@@ -64,31 +64,48 @@
 - `src/pages/DevicesList.tsx`
   - now respects the auth role for add-device actions
 - `src/pages/VlansView.tsx`
+  - added VLAN range create, edit, and delete UI
   - now respects the auth role for VLAN mutation actions
 - `src/pages/Dashboard.tsx`
   - now hides allocation actions for viewer accounts
 
-### Tests and deploy/docs updates
+### Admin operations, build polish, and deploy/docs updates
+
+- `server/routes/admin.ts`
+  - added admin-only JSON backup export for full Rackpad data snapshots
+- `src/pages/UsersPage.tsx`
+  - added admin operations card for backup download
+- `src/App.tsx`
+  - route screens now lazy-load through `Suspense`
+- `vite.config.ts`
+  - now injects the app version from `package.json`
+  - splits large vendor chunks during build
+- `src/lib/version.ts`
+  - added a single frontend version source
+- `src/components/layout/Sidebar.tsx`
+  - version badge now follows the real release version
 
 - `server/tests/app.test.ts`
-  - added backend tests for bootstrap/auth, viewer write blocking, templates, rack overlap, and monitoring
+  - added backend tests for bootstrap/auth, viewer write blocking, templates, rack overlap, monitoring, and admin export
 - `package.json`
   - added `test:server`
-  - bumped version to `0.3.0`
+  - bumped version to `0.4.0`
 - `Dockerfile`
   - health check now uses `/api/health`
 - `docker-compose.yml`
   - health check now uses `/api/health`
   - added `MONITOR_INTERVAL_MS`
+  - default image tag now points at `v0.4.0`
 - `.env.example`
-  - bumped release tag to `v0.3.0`
+  - bumped release tag to `v0.4.0`
   - added `MONITOR_INTERVAL_MS`
 - `README.md`
-  - rewritten to match auth, monitoring, and the new first-run flow
+  - now includes VLAN range CRUD and admin backup export
 - `INSTALL.md`
-  - rewritten with the real bootstrap-first deployment flow
+  - updated to install `v0.4.0`
+  - first-run checklist now includes backup export verification
 - `CHANGELOG.md`
-  - added `0.3.0`
+  - added `0.4.0`
 
 ## Verification
 
@@ -115,21 +132,23 @@
 
 These are the main items still not at "done done":
 
-- `src/pages/VlansView.tsx`
-  - VLAN range CRUD is still backend-capable but not surfaced in the frontend
 - authorization depth
   - viewer read-only is enforced centrally
-  - editor/admin distinction is still mostly only meaningful for user management
+  - admin now owns user management and backup export
+  - editor/admin distinction is still otherwise light for day-to-day inventory actions
+- restore/import tooling
+  - backup export exists
+  - restore/import flow is not built yet
 - automated verification
   - backend tests are written, but they need a working `better-sqlite3` runtime to execute on this machine
-- bundle size
-  - Vite build warns that the main client chunk is large and could benefit from code splitting later
+- runtime validation
+  - `npm start` and `npm run test:server` still need Linux/Docker or a local Node 22 environment with a working `better-sqlite3` binding
 
 ## Recommended next step
 
 ### Best next validation
 
-Deploy `v0.3.0` to Linux or Docker and test the full first-run flow:
+Deploy `v0.4.0` to Linux or Docker and test the full first-run flow:
 
 1. bootstrap the admin account
 2. create a rack
@@ -138,13 +157,14 @@ Deploy `v0.3.0` to Linux or Docker and test the full first-run flow:
 5. assign a management IP
 6. configure a device monitor
 7. create a viewer account and confirm it is read-only
+8. export a backup from the users page
 
 ### Best next product follow-up after deploy
 
-- add VLAN range CRUD in the frontend
+- add restore/import for the exported backup format if you want recovery workflows
 - tighten editor vs admin authorization if desired
-- add import/export or backup tooling
-- code-split the larger client surfaces if the bundle size matters
+- run the backend tests on Linux or Docker and capture the results
+- consider publish automation for version tags and container images
 
 ## To resume next session
 

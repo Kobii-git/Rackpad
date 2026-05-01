@@ -7,12 +7,14 @@ import { Badge } from '@/components/ui/Badge'
 import {
   createUserAccount,
   deleteUserAccount,
+  downloadAdminBackup,
   isAdmin,
   updateUserAccount,
   useStore,
 } from '@/lib/store'
 import type { AppUser, UserRole } from '@/lib/types'
-import { Plus, Save, Shield, Trash2, UserRound } from 'lucide-react'
+import { APP_VERSION_TAG } from '@/lib/version'
+import { Download, Plus, Save, Shield, Trash2, UserRound } from 'lucide-react'
 
 type FormState = {
   username: string
@@ -37,7 +39,10 @@ export default function UsersPage() {
   const [creating, setCreating] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
+  const [exportError, setExportError] = useState('')
+  const [exportSuccess, setExportSuccess] = useState('')
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   useEffect(() => {
@@ -146,6 +151,20 @@ export default function UsersPage() {
     }
   }
 
+  async function handleExport() {
+    setExporting(true)
+    setExportError('')
+    setExportSuccess('')
+    try {
+      const filename = await downloadAdminBackup()
+      setExportSuccess(`Downloaded ${filename}`)
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Failed to export backup.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <>
       <TopBar
@@ -213,7 +232,8 @@ export default function UsersPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <Card className="max-w-3xl">
+          <div className="max-w-3xl space-y-5">
+            <Card>
             <CardHeader>
               <CardTitle>
                 <CardLabel>{creating ? 'New account' : 'User details'}</CardLabel>
@@ -289,7 +309,7 @@ export default function UsersPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2 text-xs text-[var(--color-fg-subtle)]">
                       <UserRound className="size-3.5" />
-                      Viewer is read-only, editor can manage inventory, admin can manage users.
+                      Viewer is read-only, editor can manage inventory, admin can manage users and backups.
                     </div>
                     <div className="flex items-center gap-2">
                       {selectedUser && (
@@ -311,7 +331,54 @@ export default function UsersPage() {
                 </div>
               )}
             </CardBody>
-          </Card>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>Operations</CardLabel>
+                  <CardHeading>Backup and release state</CardHeading>
+                </CardTitle>
+                <Badge tone="accent">{APP_VERSION_TAG}</Badge>
+              </CardHeader>
+              <CardBody className="space-y-4">
+                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                    Export snapshot
+                  </div>
+                  <div className="mt-2 text-sm text-[var(--color-fg)]">
+                    Download a full JSON backup of racks, devices, ports, cables, VLANs, IPAM, monitors, audit history,
+                    and user accounts.
+                  </div>
+                  <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
+                    Backups include password hashes for local users, so keep the file somewhere private.
+                  </div>
+                </div>
+
+                {exportError && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                    {exportError}
+                  </div>
+                )}
+
+                {exportSuccess && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-ok)]/30 bg-[var(--color-ok)]/10 px-3 py-2 text-sm text-[var(--color-ok)]">
+                    {exportSuccess}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-[var(--color-fg-subtle)]">
+                    Use this before Docker updates or test-database resets so you have a clean checkpoint.
+                  </div>
+                  <Button size="sm" onClick={() => void handleExport()} disabled={exporting}>
+                    <Download className="size-3.5" />
+                    {exporting ? 'Preparing...' : 'Download backup'}
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          </div>
         </div>
       </div>
     </>
