@@ -4,6 +4,19 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.6.2] - 2026-05-02
+
+### Fixed
+
+- Multi-arch Docker builds now run the full dev-dependency install on the build platform instead of under emulated target architectures, which avoids the flaky `tsx` / `esbuild` `ETXTBSY` failure seen in GitHub Actions during `npm ci`.
+- Docker npm cache mounts now use `sharing=locked` so concurrent cache access is less likely to corrupt or race during BuildKit installs.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- This patch is aimed at the GitHub Docker publish pipeline and published image reliability rather than app behavior.
+
 ## [0.6.1] - 2026-05-02
 
 ### Added
