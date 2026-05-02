@@ -4,8 +4,9 @@ import { fileURLToPath } from 'node:url'
 import type { FastifyPluginAsync } from 'fastify'
 import { db, parseRow } from '../db.js'
 import { requireAdmin, setBootstrapState } from '../lib/auth.js'
+import { loadAlertSettings, saveAlertSettings, sendTestAlert } from '../lib/alerts.js'
 import { createId } from '../lib/ids.js'
-import { asObject, ValidationError } from '../lib/validation.js'
+import { asObject, optionalBoolean, optionalString, ValidationError } from '../lib/validation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = path.resolve(__dirname, '../..')
@@ -57,6 +58,7 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
         ORDER BY username, id
       `).all(),
       deviceMonitors: db.prepare('SELECT * FROM deviceMonitors ORDER BY deviceId, id').all(),
+      appSettings: db.prepare('SELECT * FROM appSettings ORDER BY key').all(),
     },
   }
 
@@ -105,6 +107,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const auditLog = normalizeArrayRecordArray(data.auditLog, 'data.auditLog')
   const users = normalizeArrayRecordArray(data.users, 'data.users')
   const deviceMonitors = normalizeArrayRecordArray(data.deviceMonitors, 'data.deviceMonitors')
+  const appSettings = normalizeArrayRecordArray(data.appSettings ?? [], 'data.appSettings')
 
   if (users.length === 0) {
     throw new ValidationError('Backup must contain at least one user account.')
@@ -113,6 +116,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   db.exec(`
     DELETE FROM userSessions;
     DELETE FROM deviceMonitors;
+    DELETE FROM appSettings;
     DELETE FROM auditLog;
     DELETE FROM ipAssignments;
     DELETE FROM discoveredDevices;
@@ -134,8 +138,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const insertRack = db.prepare('INSERT INTO racks (id, labId, name, totalU, description, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
   const insertDevice = db.prepare(`
     INSERT INTO devices
-      (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, placement, parentDeviceId, startU, heightU, face, tags, notes, lastSeen)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, placement, parentDeviceId, cpuCores, memoryGb, storageGb, specs, startU, heightU, face, tags, notes, lastSeen)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertPort = db.prepare('INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
   const insertPortLink = db.prepare('INSERT INTO portLinks (id, fromPortId, toPortId, cableType, cableLength, color, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -154,8 +158,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   `)
   const insertDiscoveredDevice = db.prepare(`
     INSERT INTO discoveredDevices
-      (id, labId, ipAddress, hostname, displayName, deviceType, placement, source, status, notes, importedDeviceId, lastSeen, lastScannedAt)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, labId, ipAddress, hostname, displayName, deviceType, placement, macAddress, vendor, source, status, notes, importedDeviceId, lastSeen, lastScannedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertAudit = db.prepare('INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary) VALUES (?, ?, ?, ?, ?, ?, ?)')
   const insertUser = db.prepare(`
@@ -165,6 +169,10 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const insertDeviceMonitor = db.prepare(`
     INSERT INTO deviceMonitors (id, deviceId, type, target, port, path, intervalMs, enabled, lastCheckAt, lastResult, lastMessage)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertAppSetting = db.prepare(`
+    INSERT INTO appSettings (key, value, updatedAt)
+    VALUES (?, ?, ?)
   `)
 
   for (const row of labs) {
@@ -200,6 +208,10 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.status,
       row.placement ?? null,
       row.parentDeviceId ?? null,
+      row.cpuCores ?? null,
+      row.memoryGb ?? null,
+      row.storageGb ?? null,
+      row.specs ?? null,
       row.startU ?? null,
       row.heightU ?? null,
       row.face ?? null,
@@ -283,6 +295,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.displayName ?? null,
       row.deviceType ?? null,
       row.placement ?? null,
+      row.macAddress ?? null,
+      row.vendor ?? null,
       row.source,
       row.status ?? 'new',
       row.notes ?? null,
@@ -307,6 +321,13 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.lastCheckAt ?? null,
       row.lastResult ?? null,
       row.lastMessage ?? null,
+    )
+  }
+  for (const row of appSettings) {
+    insertAppSetting.run(
+      row.key,
+      row.value,
+      row.updatedAt ?? new Date().toISOString(),
     )
   }
 
@@ -341,6 +362,28 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
 })
 
 export const adminRoutes: FastifyPluginAsync = async (app) => {
+  app.get('/alert-settings', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    return loadAlertSettings()
+  })
+
+  app.put('/alert-settings', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    const body = asObject(req.body)
+    return saveAlertSettings({
+      enabled: optionalBoolean(body, 'enabled') ?? false,
+      notifyOnRecovery: optionalBoolean(body, 'notifyOnRecovery') ?? true,
+      discordWebhookUrl: optionalString(body, 'discordWebhookUrl', { maxLength: 1000 }),
+      telegramBotToken: optionalString(body, 'telegramBotToken', { maxLength: 255 }),
+      telegramChatId: optionalString(body, 'telegramChatId', { maxLength: 255 }),
+    })
+  })
+
+  app.post('/alert-settings/test', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+    return sendTestAlert()
+  })
+
   app.get('/export', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
 

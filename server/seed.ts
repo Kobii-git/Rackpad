@@ -34,7 +34,20 @@ const devices = [
   { id: 'd_srv_backup',labId: 'lab_home', rackId: 'rack_cmp', hostname: 'backup-01',    displayName: 'Backup Server',       deviceType: 'server',      manufacturer: 'HPE',         model: 'DL360 Gen10',        serial: null,           managementIp: '10.0.10.21', status: 'maintenance',startU: 28, heightU: 1, face: 'front', tags: JSON.stringify(['pbs']),                            notes: null, lastSeen: new Date(now - 86_400_000).toISOString() },
   { id: 'd_ups',       labId: 'lab_home', rackId: 'rack_cmp', hostname: 'ups-01',        displayName: 'Rack UPS',            deviceType: 'ups',         manufacturer: 'APC',         model: 'SMT2200RM2U',        serial: null,           managementIp: '10.0.10.251', status: 'online',    startU: 1,  heightU: 2, face: 'front', tags: JSON.stringify(['2200va']),                         notes: null, lastSeen: null },
   { id: 'd_pdu_cmp',   labId: 'lab_home', rackId: 'rack_cmp', hostname: 'pdu-cmp-01',   displayName: 'Compute PDU',         deviceType: 'pdu',         manufacturer: 'APC',         model: 'AP8941',             serial: null,           managementIp: '10.0.10.252', status: 'online',    startU: 42, heightU: 1, face: 'rear',  tags: JSON.stringify(['switched']),                       notes: null, lastSeen: null },
+  { id: 'd_vm_gitea',  labId: 'lab_home', rackId: null,       hostname: 'gitea-01',     displayName: 'Gitea',               deviceType: 'vm',          manufacturer: 'Debian',      model: 'Bookworm VM',        serial: null,           managementIp: null,         status: 'online',      placement: 'virtual', parentDeviceId: 'd_srv_pve1', startU: null, heightU: null, face: null, tags: JSON.stringify(['git', 'dev']),                     notes: 'Hosted on pve-01', lastSeen: new Date(now - 90_000).toISOString(), cpuCores: 2,  memoryGb: 4,  storageGb: 120, specs: '2 vCPU | 4 GB RAM | 120 GB SSD' },
+  { id: 'd_vm_ha',     labId: 'lab_home', rackId: null,       hostname: 'ha-01',        displayName: 'Home Assistant',      deviceType: 'vm',          manufacturer: 'Home Assistant', model: 'Appliance VM',    serial: null,           managementIp: null,         status: 'online',      placement: 'virtual', parentDeviceId: 'd_srv_pve1', startU: null, heightU: null, face: null, tags: JSON.stringify(['automation']),                    notes: 'Hosted on pve-01', lastSeen: new Date(now - 120_000).toISOString(), cpuCores: 4,  memoryGb: 8,  storageGb: 64,  specs: '4 vCPU | 8 GB RAM | 64 GB SSD' },
+  { id: 'd_vm_plex',   labId: 'lab_home', rackId: null,       hostname: 'plex-01',      displayName: 'Plex',                deviceType: 'vm',          manufacturer: 'Ubuntu',      model: 'Media VM',           serial: null,           managementIp: null,         status: 'warning',     placement: 'virtual', parentDeviceId: 'd_srv_pve2', startU: null, heightU: null, face: null, tags: JSON.stringify(['media']),                         notes: 'Hosted on pve-02', lastSeen: new Date(now - 300_000).toISOString(), cpuCores: 8,  memoryGb: 16, storageGb: 250, specs: '8 vCPU | 16 GB RAM | 250 GB SSD' },
+  { id: 'd_vm_next',   labId: 'lab_home', rackId: null,       hostname: 'nextcloud-01', displayName: 'Nextcloud',           deviceType: 'vm',          manufacturer: 'Ubuntu',      model: 'App VM',             serial: null,           managementIp: null,         status: 'online',      placement: 'virtual', parentDeviceId: 'd_srv_pve2', startU: null, heightU: null, face: null, tags: JSON.stringify(['files']),                         notes: 'Hosted on pve-02', lastSeen: new Date(now - 150_000).toISOString(), cpuCores: 4,  memoryGb: 8,  storageGb: 200, specs: '4 vCPU | 8 GB RAM | 200 GB SSD' },
+  { id: 'd_vm_ollama', labId: 'lab_home', rackId: null,       hostname: 'ollama-01',    displayName: 'Ollama',              deviceType: 'vm',          manufacturer: 'Ubuntu',      model: 'GPU VM',             serial: null,           managementIp: null,         status: 'online',      placement: 'virtual', parentDeviceId: 'd_srv_pve3', startU: null, heightU: null, face: null, tags: JSON.stringify(['ai', 'gpu']),                     notes: 'Hosted on pve-03', lastSeen: new Date(now - 45_000).toISOString(), cpuCores: 16, memoryGb: 48, storageGb: 600, specs: '16 vCPU | 48 GB RAM | 600 GB SSD' },
 ]
+
+const deviceCapacityById: Record<string, { cpuCores?: number; memoryGb?: number; storageGb?: number; specs?: string }> = {
+  d_srv_pve1: { cpuCores: 8, memoryGb: 64, storageGb: 2000, specs: 'Xeon-D host | 8 cores | 64 GB RAM | 2 TB NVMe' },
+  d_srv_pve2: { cpuCores: 8, memoryGb: 64, storageGb: 2000, specs: 'Xeon-D host | 8 cores | 64 GB RAM | 2 TB NVMe' },
+  d_srv_pve3: { cpuCores: 32, memoryGb: 128, storageGb: 8000, specs: 'EPYC host | 32 cores | 128 GB RAM | 8 TB mixed SSD' },
+  d_srv_backup: { cpuCores: 16, memoryGb: 64, storageGb: 12000, specs: 'Backup node | 16 cores | 64 GB RAM | 12 TB usable' },
+  d_srv_nas: { cpuCores: 12, memoryGb: 128, storageGb: 96000, specs: '24-bay TrueNAS | 12 cores | 128 GB ECC | 96 TB raw' },
+}
 
 // Helper to generate ports compactly
 function makePorts(
@@ -211,7 +224,14 @@ export function seedIfEmpty() {
 
   const insertLab = db.prepare('INSERT INTO labs VALUES (@id, @name, @description, @location)')
   const insertRack = db.prepare('INSERT INTO racks VALUES (@id, @labId, @name, @totalU, @description, @location, @notes)')
-  const insertDevice = db.prepare('INSERT INTO devices VALUES (@id, @labId, @rackId, @hostname, @displayName, @deviceType, @manufacturer, @model, @serial, @managementIp, @status, @startU, @heightU, @face, @tags, @notes, @lastSeen)')
+  const insertDevice = db.prepare(`
+    INSERT INTO devices
+      (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status,
+       startU, heightU, face, tags, notes, lastSeen, placement, parentDeviceId, cpuCores, memoryGb, storageGb, specs)
+    VALUES
+      (@id, @labId, @rackId, @hostname, @displayName, @deviceType, @manufacturer, @model, @serial, @managementIp, @status,
+       @startU, @heightU, @face, @tags, @notes, @lastSeen, @placement, @parentDeviceId, @cpuCores, @memoryGb, @storageGb, @specs)
+  `)
   const insertPort = db.prepare('INSERT INTO ports VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @vlanId, @description, @face)')
   const insertVlan = db.prepare('INSERT INTO vlans VALUES (@id, @labId, @vlanId, @name, @description, @color)')
   const insertVlanRange = db.prepare('INSERT INTO vlanRanges VALUES (@id, @labId, @name, @startVlan, @endVlan, @purpose, @color)')
@@ -231,7 +251,18 @@ export function seedIfEmpty() {
     for (const v of vlans) insertVlan.run(v)
     for (const vr of vlanRanges) insertVlanRange.run(vr)
 
-    for (const d of devices) insertDevice.run(d)
+    for (const d of devices) {
+      const capacity = deviceCapacityById[d.id] ?? {}
+      insertDevice.run({
+        ...d,
+        placement: d.placement ?? (d.rackId ? 'rack' : d.deviceType === 'vm' ? 'virtual' : d.deviceType === 'ap' ? 'wireless' : 'room'),
+        parentDeviceId: d.parentDeviceId ?? null,
+        cpuCores: d.cpuCores ?? capacity.cpuCores ?? null,
+        memoryGb: d.memoryGb ?? capacity.memoryGb ?? null,
+        storageGb: d.storageGb ?? capacity.storageGb ?? null,
+        specs: d.specs ?? capacity.specs ?? null,
+      })
+    }
     for (const p of ports) insertPort.run(p)
     for (const l of portLinks) insertPortLink.run(l)
 

@@ -1,4 +1,5 @@
 import type {
+  AlertSettings,
   AppUser,
   AuditEntry,
   AuthSession,
@@ -252,6 +253,23 @@ export const api = {
     return request<{ restored: boolean; requiresLogin: boolean; counts: Record<string, number> }>('/admin/restore', {
       method: 'POST',
       body: JSON.stringify(body),
+    })
+  },
+
+  getAlertSettings() {
+    return request<AlertSettings>('/admin/alert-settings')
+  },
+
+  updateAlertSettings(body: AlertSettings) {
+    return request<AlertSettings>('/admin/alert-settings', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+  },
+
+  sendAlertSettingsTest() {
+    return request<{ delivered: boolean; channels: Array<{ channel: string; delivered: boolean }> }>('/admin/alert-settings/test', {
+      method: 'POST',
     })
   },
 

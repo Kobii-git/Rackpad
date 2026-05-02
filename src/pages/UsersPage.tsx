@@ -4,6 +4,7 @@ import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
+import { api } from '@/lib/api'
 import {
   createUserAccount,
   deleteUserAccount,
@@ -13,9 +14,9 @@ import {
   updateUserAccount,
   useStore,
 } from '@/lib/store'
-import type { AppUser, UserRole } from '@/lib/types'
+import type { AlertSettings, AppUser, UserRole } from '@/lib/types'
 import { APP_VERSION_TAG } from '@/lib/version'
-import { Download, Plus, Save, Shield, Trash2, Upload, UserRound } from 'lucide-react'
+import { Download, Plus, Save, Shield, Trash2, Upload, UserRound, BellRing } from 'lucide-react'
 
 type FormState = {
   username: string
@@ -33,6 +34,14 @@ const EMPTY_FORM: FormState = {
   password: '',
 }
 
+const DEFAULT_ALERT_SETTINGS: AlertSettings = {
+  enabled: false,
+  notifyOnRecovery: true,
+  discordWebhookUrl: null,
+  telegramBotToken: null,
+  telegramChatId: null,
+}
+
 export default function UsersPage() {
   const currentUser = useStore((s) => s.currentUser)
   const users = useStore((s) => s.users)
@@ -47,6 +56,12 @@ export default function UsersPage() {
   const [exportSuccess, setExportSuccess] = useState('')
   const [restoreError, setRestoreError] = useState('')
   const [restoreFile, setRestoreFile] = useState<File | null>(null)
+  const [alertSettings, setAlertSettings] = useState<AlertSettings>(DEFAULT_ALERT_SETTINGS)
+  const [alertsLoading, setAlertsLoading] = useState(true)
+  const [alertSaving, setAlertSaving] = useState(false)
+  const [alertTesting, setAlertTesting] = useState(false)
+  const [alertError, setAlertError] = useState('')
+  const [alertSuccess, setAlertSuccess] = useState('')
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   useEffect(() => {
@@ -82,6 +97,39 @@ export default function UsersPage() {
       setError('')
     }
   }, [creating, selectedUser])
+
+  useEffect(() => {
+    if (!isAdmin(currentUser)) {
+      setAlertsLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadAlertSettings() {
+      setAlertsLoading(true)
+      setAlertError('')
+      try {
+        const settings = await api.getAlertSettings()
+        if (!cancelled) {
+          setAlertSettings(settings)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAlertError(err instanceof Error ? err.message : 'Failed to load notification settings.')
+        }
+      } finally {
+        if (!cancelled) {
+          setAlertsLoading(false)
+        }
+      }
+    }
+
+    void loadAlertSettings()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser])
 
   if (!isAdmin(currentUser)) {
     return (
@@ -190,6 +238,35 @@ export default function UsersPage() {
       setRestoreError(err instanceof Error ? err.message : 'Failed to restore backup.')
     } finally {
       setRestoring(false)
+    }
+  }
+
+  async function handleSaveAlerts() {
+    setAlertSaving(true)
+    setAlertError('')
+    setAlertSuccess('')
+    try {
+      const saved = await api.updateAlertSettings(alertSettings)
+      setAlertSettings(saved)
+      setAlertSuccess('Notification settings saved.')
+    } catch (err) {
+      setAlertError(err instanceof Error ? err.message : 'Failed to save notification settings.')
+    } finally {
+      setAlertSaving(false)
+    }
+  }
+
+  async function handleTestAlert() {
+    setAlertTesting(true)
+    setAlertError('')
+    setAlertSuccess('')
+    try {
+      const result = await api.sendAlertSettingsTest()
+      setAlertSuccess(`Test alert delivered via ${result.channels.map((channel) => channel.channel).join(', ')}.`)
+    } catch (err) {
+      setAlertError(err instanceof Error ? err.message : 'Failed to send test alert.')
+    } finally {
+      setAlertTesting(false)
     }
   }
 
@@ -441,6 +518,100 @@ export default function UsersPage() {
                     <Download className="size-3.5" />
                     {exporting ? 'Preparing...' : 'Download backup'}
                   </Button>
+                </div>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>Alerting</CardLabel>
+                  <CardHeading>Monitor notifications</CardHeading>
+                </CardTitle>
+                <Badge tone="info">
+                  <BellRing className="size-3" />
+                  Discord / Telegram
+                </Badge>
+              </CardHeader>
+              <CardBody className="space-y-4">
+                <div className="text-sm text-[var(--color-fg-subtle)]">
+                  Rackpad can alert when device monitors transition to offline and optionally when they recover.
+                </div>
+
+                <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                  <input
+                    type="checkbox"
+                    checked={alertSettings.enabled}
+                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, enabled: event.target.checked }))}
+                    disabled={alertsLoading}
+                  />
+                  Enable notifications
+                </label>
+
+                <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                  <input
+                    type="checkbox"
+                    checked={alertSettings.notifyOnRecovery}
+                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, notifyOnRecovery: event.target.checked }))}
+                    disabled={alertsLoading}
+                  />
+                  Notify again when a device recovers
+                </label>
+
+                <Field label="Discord webhook URL">
+                  <Input
+                    value={alertSettings.discordWebhookUrl ?? ''}
+                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, discordWebhookUrl: event.target.value || null }))}
+                    placeholder="https://discord.com/api/webhooks/..."
+                    disabled={alertsLoading}
+                  />
+                </Field>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field label="Telegram bot token">
+                    <Input
+                      value={alertSettings.telegramBotToken ?? ''}
+                      onChange={(event) => setAlertSettings((prev) => ({ ...prev, telegramBotToken: event.target.value || null }))}
+                      placeholder="123456:ABCDEF..."
+                      disabled={alertsLoading}
+                    />
+                  </Field>
+                  <Field label="Telegram chat ID">
+                    <Input
+                      value={alertSettings.telegramChatId ?? ''}
+                      onChange={(event) => setAlertSettings((prev) => ({ ...prev, telegramChatId: event.target.value || null }))}
+                      placeholder="-1001234567890"
+                      disabled={alertsLoading}
+                    />
+                  </Field>
+                </div>
+
+                {alertError && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                    {alertError}
+                  </div>
+                )}
+
+                {alertSuccess && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-ok)]/30 bg-[var(--color-ok)]/10 px-3 py-2 text-sm text-[var(--color-ok)]">
+                    {alertSuccess}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xs text-[var(--color-fg-subtle)]">
+                    Configure at least one channel, then save before sending a test alert.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void handleTestAlert()} disabled={alertsLoading || alertTesting}>
+                      <BellRing className="size-3.5" />
+                      {alertTesting ? 'Sending...' : 'Send test'}
+                    </Button>
+                    <Button size="sm" onClick={() => void handleSaveAlerts()} disabled={alertsLoading || alertSaving}>
+                      <Save className="size-3.5" />
+                      {alertSaving ? 'Saving...' : 'Save notifications'}
+                    </Button>
+                  </div>
                 </div>
               </CardBody>
             </Card>

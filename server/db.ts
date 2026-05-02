@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 4
+const CURRENT_SCHEMA_VERSION = 5
 
 export const db = new Database(DB_PATH)
 
@@ -285,6 +285,24 @@ const SCHEMA_MIGRATIONS = [
 
       CREATE INDEX IF NOT EXISTS idx_discovered_devices_lab_status
         ON discoveredDevices (labId, status);
+    `,
+  },
+  {
+    version: 5,
+    sql: `
+      ALTER TABLE devices ADD COLUMN cpuCores INTEGER;
+      ALTER TABLE devices ADD COLUMN memoryGb REAL;
+      ALTER TABLE devices ADD COLUMN storageGb REAL;
+      ALTER TABLE devices ADD COLUMN specs TEXT;
+
+      ALTER TABLE discoveredDevices ADD COLUMN macAddress TEXT;
+      ALTER TABLE discoveredDevices ADD COLUMN vendor TEXT;
+
+      CREATE TABLE IF NOT EXISTS appSettings (
+        key       TEXT PRIMARY KEY,
+        value     TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
     `,
   },
 ] as const

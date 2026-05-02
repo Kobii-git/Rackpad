@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { TopBar } from '@/components/layout/TopBar'
 import { Card, CardHeader, CardTitle, CardLabel, CardHeading, CardBody } from '@/components/ui/Card'
 import { Mono } from '@/components/shared/Mono'
+import { ColorInput } from '@/components/shared/ColorInput'
 import { Badge } from '@/components/ui/Badge'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { canEditInventory, createCable, deleteCable, updateCable, useStore } from '@/lib/store'
 import type { Device, Port, PortLink } from '@/lib/types'
+import { normalizeColorToCss } from '@/lib/utils'
 import { ArrowRight, Cable as CableIcon, Filter, Plus, Save, Trash2 } from 'lucide-react'
 
 interface CableFormState {
@@ -264,10 +266,10 @@ export default function CableView() {
                   />
                 </Field>
                 <Field label="Color">
-                  <Input
+                  <ColorInput
                     value={createForm.color}
-                    onChange={(e) => setCreateForm((prev) => ({ ...prev, color: e.target.value }))}
-                    placeholder="blue, yellow..."
+                    onChange={(value) => setCreateForm((prev) => ({ ...prev, color: value }))}
+                    placeholder="#4a78c4 or blue"
                   />
                 </Field>
               </div>
@@ -334,10 +336,10 @@ export default function CableView() {
                       />
                     </Field>
                     <Field label="Color">
-                      <Input
+                      <ColorInput
                         value={editForm.color}
-                        onChange={(e) => setEditForm((prev) => ({ ...prev, color: e.target.value }))}
-                        placeholder="blue, yellow..."
+                        onChange={(value) => setEditForm((prev) => ({ ...prev, color: value }))}
+                        placeholder="#4a78c4 or blue"
                       />
                     </Field>
                   </div>
@@ -480,7 +482,7 @@ export default function CableView() {
                             <span className="inline-flex items-center gap-1.5">
                               <span
                                 className="size-2.5 rounded-[1px] border border-[var(--color-line-strong)]"
-                                style={{ backgroundColor: cableColorMap(link.color) }}
+                                style={{ backgroundColor: normalizeColorToCss(link.color) ?? '#7a7a7a' }}
                               />
                               <span className="font-mono text-[11px] capitalize text-[var(--color-fg-muted)]">
                                 {link.color}
@@ -576,21 +578,6 @@ function CableEndpoints({
       <Mono className="text-[var(--color-cyan)]">{toPort?.name ?? 'Unknown port'}</Mono>
     </div>
   )
-}
-
-function cableColorMap(color: string): string {
-  const map: Record<string, string> = {
-    blue: '#4a78c4',
-    red: '#c4504a',
-    green: '#5aa05a',
-    yellow: '#d4c43c',
-    black: '#2a2a2a',
-    gray: '#7a7a7a',
-    aqua: '#4cc8d4',
-    orange: '#d4844a',
-    white: '#e8e8e8',
-  }
-  return map[color.toLowerCase()] ?? '#7a7a7a'
 }
 
 function portOptionLabel(port: Port, deviceById: Record<string, Device>) {

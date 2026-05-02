@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { VlanRangeBar } from '@/components/vlan/VlanRangeBar'
 import { IpZoneBar } from '@/components/vlan/IpZoneBar'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
+import { ColorInput } from '@/components/shared/ColorInput'
 import {
   canEditInventory,
   createSubnetRecord,
@@ -329,10 +330,10 @@ export default function VlansView() {
                       />
                     </Field>
                     <Field label="Color">
-                      <Input
+                      <ColorInput
                         value={rangeForm.color}
-                        onChange={(event) => setRangeForm((prev) => ({ ...prev, color: event.target.value }))}
-                        placeholder="#4f8cff"
+                        onChange={(value) => setRangeForm((prev) => ({ ...prev, color: value }))}
+                        placeholder="#4f8cff or blue"
                       />
                     </Field>
                   </div>

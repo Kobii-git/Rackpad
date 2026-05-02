@@ -2,14 +2,14 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.8.0`
+Current release: `v0.9.0`
 
 It is a full-stack app:
 - React + Vite frontend
 - Fastify API
 - SQLite persistence through `better-sqlite3`
 - session-based authentication with admin/editor/viewer roles
-- per-device health checks with TCP and HTTP/HTTPS monitor support
+- per-device health checks with ICMP, TCP, HTTP, and HTTPS monitor support
 - Docker support for a single-container test deployment
 
 ## What works
@@ -20,6 +20,7 @@ It is a full-stack app:
 - Device placement modes for rack, room, wireless, and virtual inventory
 - Parent-child device relationships for hosted VMs and AP-linked wireless clients
 - Compute workspace for virtualization hosts and VMs
+- Capacity tracking for hosts and VMs with CPU, memory, storage, and specs fields
 - Port templates for new devices
 - Manual port create, edit, and delete
 - Create, edit, and delete cables
@@ -28,12 +29,13 @@ It is a full-stack app:
 - IPAM subnet, DHCP scope, and IP zone CRUD
 - WiFi workspace for access points and wireless clients
 - Discovery inbox with subnet scan, duplicate awareness, review, and import into inventory
+- Discovery enrichment with MAC/vendor capture and direct linking to existing inventory
 - Management IP synchronization between device records and IPAM
 - Next-free IP allocation and IP release
 - Audit log writes for the main workflows
 - User bootstrap, login, logout, and user management
 - Admin-only JSON backup export from the users screen
-- Device health-check configuration and on-demand monitor runs
+- Device health-check configuration, alert destinations, and on-demand monitor runs
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
 

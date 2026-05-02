@@ -42,6 +42,7 @@ export default function DiscoveryView() {
   const [scanning, setScanning] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [linkingId, setLinkingId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [filter, setFilter] = useState<DiscoveryFilter>('all')
@@ -119,6 +120,7 @@ export default function DiscoveryView() {
       hostname: selected.hostname ?? selected.displayName ?? selected.ipAddress.replaceAll('.', '-'),
       displayName: selected.displayName ?? '',
       deviceType: selected.deviceType ?? 'endpoint',
+      manufacturer: selected.vendor ?? '',
       managementIp: selected.ipAddress,
       placement: selected.placement ?? 'room',
       notes: selected.notes ?? '',
@@ -203,6 +205,22 @@ export default function DiscoveryView() {
       setError(err instanceof Error ? err.message : 'Failed to delete discovered device.')
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function handleLinkExisting(deviceId: string) {
+    if (!selected) return
+    setLinkingId(deviceId)
+    setError('')
+    try {
+      await updateDiscoveredDeviceRecord(selected.id, {
+        status: 'imported',
+        importedDeviceId: deviceId,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to link discovered device.')
+    } finally {
+      setLinkingId(null)
     }
   }
 
@@ -291,6 +309,7 @@ export default function DiscoveryView() {
                       <Th>Hostname</Th>
                       <Th>Type</Th>
                       <Th>Placement</Th>
+                      <Th>Vendor / MAC</Th>
                       <Th>Match</Th>
                       <Th>Status</Th>
                       <Th>Last seen</Th>
@@ -316,6 +335,7 @@ export default function DiscoveryView() {
                             </span>
                           </Td>
                           <Td className="capitalize text-[var(--color-fg-muted)]">{device.placement ?? 'room'}</Td>
+                          <Td className="text-[11px] text-[var(--color-fg-subtle)]">{device.vendor ?? device.macAddress ?? '-'}</Td>
                           <Td>
                             {matches.length > 0 ? (
                               <Badge tone="warn">
@@ -373,14 +393,29 @@ export default function DiscoveryView() {
                             </div>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {selectedMatches.map((match) => (
-                                <Link
+                                <div
                                   key={match.id}
-                                  to={`/devices/${match.id}`}
-                                  className="inline-flex items-center gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-xs text-[var(--color-fg)] hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface)]"
+                                  className="inline-flex items-center gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 py-1 text-xs text-[var(--color-fg)]"
                                 >
-                                  <DeviceTypeIcon type={match.deviceType} className="size-3.5 text-[var(--color-accent)]" />
-                                  {match.hostname}
-                                </Link>
+                                  <Link
+                                    to={`/devices/${match.id}`}
+                                    className="inline-flex items-center gap-2 hover:text-[var(--color-accent)]"
+                                  >
+                                    <DeviceTypeIcon type={match.deviceType} className="size-3.5 text-[var(--color-accent)]" />
+                                    {match.hostname}
+                                  </Link>
+                                  {canEdit && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2 text-[10px]"
+                                      disabled={linkingId === match.id}
+                                      onClick={() => void handleLinkExisting(match.id)}
+                                    >
+                                      {linkingId === match.id ? 'Linking...' : 'Link existing'}
+                                    </Button>
+                                  )}
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -400,6 +435,14 @@ export default function DiscoveryView() {
                         onChange={(event) => setDraft((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))}
                       />
                     </Field>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="MAC address">
+                        <Input value={selected.macAddress ?? ''} disabled />
+                      </Field>
+                      <Field label="Vendor">
+                        <Input value={selected.vendor ?? ''} disabled />
+                      </Field>
+                    </div>
                     <div className="grid gap-4 md:grid-cols-2">
                       <Field label="Device type">
                         <Select

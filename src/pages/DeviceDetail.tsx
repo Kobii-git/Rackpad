@@ -132,6 +132,11 @@ export default function DeviceDetail() {
   const deviceIps = device?.id ? ipAssignments.filter((assignment) => assignment.deviceId === device.id) : []
   const parentDevice = device?.parentDeviceId ? deviceById[device.parentDeviceId] : undefined
   const childDevices = device ? devices.filter((entry) => entry.parentDeviceId === device.id) : []
+  const childCapacity = useMemo(() => ({
+    cpu: childDevices.reduce((sum, entry) => sum + (entry.cpuCores ?? 0), 0),
+    memory: childDevices.reduce((sum, entry) => sum + (entry.memoryGb ?? 0), 0),
+    storage: childDevices.reduce((sum, entry) => sum + (entry.storageGb ?? 0), 0),
+  }), [childDevices])
   const selectedPort = selectedPortId ? devicePorts.find((port) => port.id === selectedPortId) : undefined
   const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
   const peerPortId = selectedPort && selectedLink
@@ -144,6 +149,7 @@ export default function DeviceDetail() {
     device?.deviceType === 'switch' ||
     device?.deviceType === 'patch_panel' ||
     device?.deviceType === 'router'
+  const hardwareMeta = [device?.manufacturer, device?.model].filter(Boolean).join(' ')
 
   useEffect(() => {
     if (!devicePorts.length) {
@@ -299,9 +305,11 @@ export default function DeviceDetail() {
                 {statusLabel[device.status]}
               </span>
             </span>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
-              | {device.manufacturer} {device.model}
-            </span>
+            {hardwareMeta && (
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+                | {hardwareMeta}
+              </span>
+            )}
           </>
         }
         actions={
@@ -394,7 +402,15 @@ export default function DeviceDetail() {
                     <Row label="Model" value={device.model} mono />
                     <Row label="Serial" value={device.serial} mono />
                     <Row label="Type" value={device.deviceType.replace('_', ' ')} />
+                    <Row label="CPU cores" value={formatCapacityValue(device.cpuCores)} mono />
+                    <Row label="Memory" value={formatCapacityUnit(device.memoryGb, 'GB')} mono />
+                    <Row label="Storage" value={formatCapacityUnit(device.storageGb, 'GB')} mono />
                   </dl>
+                  {device.specs && (
+                    <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-fg-subtle)]">
+                      {device.specs}
+                    </div>
+                  )}
                 </CardBody>
               </Card>
               <Card className="col-span-12 md:col-span-6">
@@ -436,6 +452,13 @@ export default function DeviceDetail() {
                     </CardTitle>
                   </CardHeader>
                   <CardBody>
+                    {(device.cpuCores || device.memoryGb || device.storageGb) && (
+                      <div className="mb-3 grid gap-2 md:grid-cols-3">
+                        <SummaryPill label="CPU" value={`${formatCapacityValue(childCapacity.cpu)} / ${formatCapacityValue(device.cpuCores)}`} />
+                        <SummaryPill label="Memory" value={`${formatCapacityValue(childCapacity.memory)} / ${formatCapacityValue(device.memoryGb)} GB`} />
+                        <SummaryPill label="Storage" value={`${formatCapacityValue(childCapacity.storage)} / ${formatCapacityValue(device.storageGb)} GB`} />
+                      </div>
+                    )}
                     <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
                       {childDevices
                         .sort((a, b) => a.hostname.localeCompare(b.hostname))
@@ -955,6 +978,17 @@ function Stat({ label, value, mono }: { label: string; value?: string; mono?: bo
   )
 }
 
+function SummaryPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </div>
+      <div className="mt-1 text-sm text-[var(--color-fg)]">{value}</div>
+    </div>
+  )
+}
+
 function describeMonitorType(type: MonitorForm['type']) {
   switch (type) {
     case 'icmp':
@@ -996,4 +1030,15 @@ function formatPlacement(placement?: Device['placement']) {
     default:
       return 'Loose / room'
   }
+}
+
+function formatCapacityValue(value?: number) {
+  if (value == null) return '-'
+  if (Number.isInteger(value)) return String(value)
+  return value.toFixed(1).replace(/\.0$/, '')
+}
+
+function formatCapacityUnit(value: number | undefined, unit: string) {
+  const formatted = formatCapacityValue(value)
+  return formatted === '-' ? undefined : `${formatted} ${unit}`
 }

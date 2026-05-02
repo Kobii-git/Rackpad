@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import net from 'node:net'
 import { db } from '../db.js'
+import { sendMonitorTransitionAlert } from './alerts.js'
 
 export const MONITOR_TYPES = ['none', 'icmp', 'tcp', 'http', 'https'] as const
 export type MonitorType = (typeof MONITOR_TYPES)[number]
@@ -80,7 +81,7 @@ export async function runDeviceCheck(deviceId: string) {
   const checkedAt = new Date().toISOString()
 
   if (!monitor.enabled || monitor.type === 'none') {
-    persistMonitorResult(monitor, {
+    await persistMonitorResult(monitor, {
       checkedAt,
       result: 'unknown',
       message: 'Health checks disabled.',
@@ -89,11 +90,11 @@ export async function runDeviceCheck(deviceId: string) {
   }
 
   const result = await executeCheck(monitor)
-  persistMonitorResult(monitor, { checkedAt, ...result })
+  await persistMonitorResult(monitor, { checkedAt, ...result })
   return parseMonitor(db.prepare('SELECT * FROM deviceMonitors WHERE deviceId = ?').get(deviceId) as Record<string, unknown>)
 }
 
-function persistMonitorResult(
+async function persistMonitorResult(
   monitor: DeviceMonitor,
   payload: { checkedAt: string; result: 'online' | 'offline' | 'unknown'; message: string },
 ) {
@@ -103,7 +104,13 @@ function persistMonitorResult(
     WHERE deviceId = ?
   `).run(payload.checkedAt, payload.result, payload.message, monitor.deviceId)
 
-  const currentDevice = db.prepare('SELECT status FROM devices WHERE id = ?').get(monitor.deviceId) as { status?: string } | undefined
+  const currentDevice = db.prepare(`
+    SELECT hostname, displayName, managementIp, deviceType, status
+    FROM devices
+    WHERE id = ?
+  `).get(monitor.deviceId) as
+    | { hostname?: string; displayName?: string | null; managementIp?: string | null; deviceType?: string | null; status?: string }
+    | undefined
   if (!currentDevice) return
 
   if (currentDevice.status === 'maintenance') {
@@ -121,6 +128,22 @@ function persistMonitorResult(
   if (payload.result === 'offline') {
     db.prepare('UPDATE devices SET status = ? WHERE id = ?').run('offline', monitor.deviceId)
   }
+
+  if (!monitor.lastResult || monitor.lastResult === payload.result) {
+    return
+  }
+
+  await sendMonitorTransitionAlert(monitor.lastResult, {
+    hostname: currentDevice.hostname ?? monitor.deviceId,
+    displayName: currentDevice.displayName ?? null,
+    deviceType: currentDevice.deviceType ?? null,
+    managementIp: currentDevice.managementIp ?? monitor.target ?? null,
+    monitorType: monitor.type,
+    target: monitor.target ?? null,
+    result: payload.result,
+    message: payload.message,
+    checkedAt: payload.checkedAt,
+  })
 }
 
 async function executeCheck(monitor: DeviceMonitor) {

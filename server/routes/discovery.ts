@@ -1,4 +1,7 @@
+import { execFile } from 'node:child_process'
 import { reverse } from 'node:dns/promises'
+import { readFile } from 'node:fs/promises'
+import { promisify } from 'node:util'
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
 import { createId } from '../lib/ids.js'
@@ -30,6 +33,25 @@ const DEVICE_TYPES = [
 
 const DEVICE_PLACEMENTS = ['rack', 'room', 'wireless', 'virtual'] as const
 const DISCOVERY_STATUSES = ['new', 'imported', 'dismissed'] as const
+const execFileAsync = promisify(execFile)
+const OUI_VENDOR_MAP: Record<string, string> = {
+  '24:a4:3c': 'Ubiquiti',
+  '74:83:c2': 'Ubiquiti',
+  'f4:92:bf': 'Ubiquiti',
+  '00:1b:54': 'Cisco',
+  '00:25:45': 'Cisco',
+  '3c:ce:73': 'Cisco',
+  'b8:27:eb': 'Raspberry Pi',
+  'dc:a6:32': 'Raspberry Pi',
+  'e4:5f:01': 'Raspberry Pi',
+  '3c:fd:fe': 'Intel',
+  'b0:08:75': 'Intel',
+  'f0:18:98': 'Apple',
+  '3c:22:fb': 'Apple',
+  'd8:3a:dd': 'TP-Link',
+  'f4:f2:6d': 'Aruba',
+  '00:30:48': 'Supermicro',
+}
 
 function parseDiscoveredDevice(row: Record<string, unknown>) {
   return {
@@ -40,6 +62,8 @@ function parseDiscoveredDevice(row: Record<string, unknown>) {
     displayName: row.displayName ? String(row.displayName) : null,
     deviceType: row.deviceType ? String(row.deviceType) : null,
     placement: row.placement ? String(row.placement) : null,
+    macAddress: row.macAddress ? String(row.macAddress) : null,
+    vendor: row.vendor ? String(row.vendor) : null,
     source: String(row.source),
     status: String(row.status),
     notes: row.notes ? String(row.notes) : null,
@@ -103,11 +127,68 @@ async function reverseLookup(ipAddress: string) {
   }
 }
 
+function normalizeMacAddress(value: string | null | undefined) {
+  if (!value) return null
+  const normalized = value.trim().replaceAll('-', ':').toLowerCase()
+  if (!/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/.test(normalized)) return null
+  if (normalized === '00:00:00:00:00:00') return null
+  return normalized
+}
+
+function vendorFromMac(macAddress: string | null) {
+  if (!macAddress) return null
+  return OUI_VENDOR_MAP[macAddress.slice(0, 8)] ?? null
+}
+
+async function lookupMacAddress(ipAddress: string) {
+  const fromProc = await lookupMacFromProc(ipAddress)
+  if (fromProc) return fromProc
+
+  try {
+    const { stdout } = await execFileAsync('arp', ['-a'], { timeout: 4000 })
+    return parseArpOutput(String(stdout), ipAddress)
+  } catch {
+    return null
+  }
+}
+
+async function lookupMacFromProc(ipAddress: string) {
+  try {
+    const raw = await readFile('/proc/net/arp', 'utf8')
+    const match = raw
+      .split(/\r?\n/)
+      .slice(1)
+      .map((line) => line.trim().split(/\s+/))
+      .find((columns) => columns[0] === ipAddress)
+    return normalizeMacAddress(match?.[3])
+  } catch {
+    return null
+  }
+}
+
+function parseArpOutput(output: string, ipAddress: string) {
+  const lines = output.split(/\r?\n/)
+  for (const line of lines) {
+    if (!line.includes(ipAddress)) continue
+
+    const windowsMatch = line.match(/((?:[0-9a-f]{2}-){5}[0-9a-f]{2})/i)
+    if (windowsMatch) {
+      return normalizeMacAddress(windowsMatch[1])
+    }
+
+    const unixMatch = line.match(/((?:[0-9a-f]{2}:){5}[0-9a-f]{2})/i)
+    if (unixMatch) {
+      return normalizeMacAddress(unixMatch[1])
+    }
+  }
+  return null
+}
+
 async function scanHost(ipAddress: string) {
   const result = await runIcmpProbe(ipAddress)
   if (result.result !== 'online') return null
 
-  const hostname = await reverseLookup(ipAddress)
+  const [hostname, macAddress] = await Promise.all([reverseLookup(ipAddress), lookupMacAddress(ipAddress)])
   const deviceType = inferDeviceType(hostname)
   const displayName = hostname ? hostname.split('.')[0] : null
 
@@ -117,6 +198,8 @@ async function scanHost(ipAddress: string) {
     displayName,
     deviceType,
     placement: inferPlacement(deviceType),
+    macAddress,
+    vendor: vendorFromMac(macAddress),
     source: 'icmp-scan',
     lastSeen: new Date().toISOString(),
   }
@@ -185,13 +268,15 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
 
     const upsert = db.prepare(`
       INSERT INTO discoveredDevices
-        (id, labId, ipAddress, hostname, displayName, deviceType, placement, source, status, notes, importedDeviceId, lastSeen, lastScannedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (id, labId, ipAddress, hostname, displayName, deviceType, placement, macAddress, vendor, source, status, notes, importedDeviceId, lastSeen, lastScannedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(labId, ipAddress) DO UPDATE SET
         hostname = COALESCE(excluded.hostname, discoveredDevices.hostname),
         displayName = COALESCE(discoveredDevices.displayName, excluded.displayName),
         deviceType = COALESCE(discoveredDevices.deviceType, excluded.deviceType),
         placement = COALESCE(discoveredDevices.placement, excluded.placement),
+        macAddress = COALESCE(discoveredDevices.macAddress, excluded.macAddress),
+        vendor = COALESCE(discoveredDevices.vendor, excluded.vendor),
         source = excluded.source,
         lastSeen = excluded.lastSeen,
         lastScannedAt = excluded.lastScannedAt
@@ -208,6 +293,8 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
           record.displayName,
           record.deviceType,
           record.placement,
+          record.macAddress,
+          record.vendor,
           record.source,
           'new',
           null,

@@ -348,6 +348,10 @@ function normalizeDeviceChanges(changes: Partial<Omit<Device, 'id' | 'labId'>>):
     'managementIp',
     'placement',
     'parentDeviceId',
+    'cpuCores',
+    'memoryGb',
+    'storageGb',
+    'specs',
     'startU',
     'heightU',
     'face',
@@ -1297,6 +1301,10 @@ export interface CreateDeviceInput {
   status?: Device['status']
   placement?: Device['placement']
   parentDeviceId?: string
+  cpuCores?: number
+  memoryGb?: number
+  storageGb?: number
+  specs?: string
   rackId?: string
   startU?: number
   heightU?: number
@@ -1324,6 +1332,10 @@ export async function createDevice(input: CreateDeviceInput): Promise<Device> {
     status: input.status ?? 'unknown',
     placement: input.placement,
     parentDeviceId: input.parentDeviceId,
+    cpuCores: input.cpuCores,
+    memoryGb: input.memoryGb,
+    storageGb: input.storageGb,
+    specs: input.specs,
     rackId: input.rackId,
     startU: input.startU,
     heightU: input.heightU ?? 1,

@@ -15,6 +15,47 @@ import {
 import { createId } from '../lib/ids.js'
 import { asObject, optionalBoolean, optionalString, requiredString, ValidationError } from '../lib/validation.js'
 
+const LOGIN_WINDOW_MS = 15 * 60 * 1000
+const MAX_LOGIN_ATTEMPTS = 8
+const loginAttempts = new Map<string, { count: number; windowStartedAt: number; blockedUntil: number | null }>()
+
+function getAuthRateLimitKey(ipAddress: string) {
+  return ipAddress || 'unknown'
+}
+
+function getBlockedUntil(key: string) {
+  const entry = loginAttempts.get(key)
+  if (!entry) return null
+  if (entry.blockedUntil && entry.blockedUntil > Date.now()) {
+    return entry.blockedUntil
+  }
+  if (entry.blockedUntil && entry.blockedUntil <= Date.now()) {
+    loginAttempts.delete(key)
+  }
+  return null
+}
+
+function recordFailedAttempt(key: string) {
+  const now = Date.now()
+  const current = loginAttempts.get(key)
+  if (!current || now - current.windowStartedAt > LOGIN_WINDOW_MS) {
+    loginAttempts.set(key, { count: 1, windowStartedAt: now, blockedUntil: null })
+    return
+  }
+
+  const nextCount = current.count + 1
+  const blockedUntil = nextCount >= MAX_LOGIN_ATTEMPTS ? now + LOGIN_WINDOW_MS : null
+  loginAttempts.set(key, {
+    count: nextCount,
+    windowStartedAt: current.windowStartedAt,
+    blockedUntil,
+  })
+}
+
+function clearFailedAttempts(key: string) {
+  loginAttempts.delete(key)
+}
+
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.get('/status', async () => {
     return {
@@ -23,6 +64,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/bootstrap', async (req, reply) => {
+    const rateLimitKey = getAuthRateLimitKey(req.ip)
+    const blockedUntil = getBlockedUntil(rateLimitKey)
+    if (blockedUntil) {
+      return reply.status(429).send({ error: `Too many setup attempts. Try again after ${new Date(blockedUntil).toLocaleTimeString()}.` })
+    }
+
     if (!needsBootstrap()) {
       return reply.status(409).send({ error: 'Initial account has already been created.' })
     }
@@ -34,6 +81,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const loadDemoData = optionalBoolean(body, 'loadDemoData') ?? false
 
     if (password.length < 10) {
+      recordFailedAttempt(rateLimitKey)
       throw new ValidationError('Password must be at least 10 characters long.')
     }
 
@@ -53,6 +101,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     const session = createSession(userId)
     const user = getPublicUserById(userId)
+    clearFailedAttempts(rateLimitKey)
 
     return reply.status(201).send({
       token: session.token,
@@ -62,6 +111,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/login', async (req, reply) => {
+    const rateLimitKey = getAuthRateLimitKey(req.ip)
+    const blockedUntil = getBlockedUntil(rateLimitKey)
+    if (blockedUntil) {
+      return reply.status(429).send({ error: `Too many login attempts. Try again after ${new Date(blockedUntil).toLocaleTimeString()}.` })
+    }
+
     const body = asObject(req.body)
     const username = requiredString(body, 'username', { maxLength: 40 }).toLowerCase()
     const password = requiredString(body, 'password', { maxLength: 200 })
@@ -73,6 +128,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     `).get(username) as (Record<string, unknown> & { passwordHash: string }) | undefined
 
     if (!row || Number(row.disabled ?? 0) === 1 || !verifyPassword(password, row.passwordHash)) {
+      recordFailedAttempt(rateLimitKey)
       return reply.status(401).send({ error: 'Invalid username or password.' })
     }
 
@@ -81,6 +137,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     const session = createSession(String(row.id))
     const user = parsePublicUser({ ...row, lastLoginAt: now })
+    clearFailedAttempts(rateLimitKey)
 
     return {
       token: session.token,

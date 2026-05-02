@@ -9,6 +9,7 @@ import {
   ensureIsoDate,
   optionalEnum,
   optionalInteger,
+  optionalNumber,
   optionalString,
   optionalStringArray,
   requiredEnum,
@@ -143,6 +144,10 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     const status = optionalEnum(body, 'status', DEVICE_STATUSES) ?? 'unknown'
     const placement = optionalEnum(body, 'placement', DEVICE_PLACEMENTS)
     const parentDeviceId = optionalString(body, 'parentDeviceId', { maxLength: 80 })
+    const cpuCores = optionalInteger(body, 'cpuCores', { min: 1, max: 4096 })
+    const memoryGb = optionalNumber(body, 'memoryGb', { min: 0.1, max: 1024 * 1024 })
+    const storageGb = optionalNumber(body, 'storageGb', { min: 0, max: 1024 * 1024 * 10 })
+    const specs = optionalString(body, 'specs', { maxLength: 4000 })
     const rackId = optionalString(body, 'rackId', { maxLength: 80 })
     const startU = optionalInteger(body, 'startU', { min: 1, max: 100 })
     const heightU = optionalInteger(body, 'heightU', { min: 1, max: 20 })
@@ -174,8 +179,9 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     const insertDevice = db.prepare(`
       INSERT INTO devices
         (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model,
-         serial, managementIp, status, placement, parentDeviceId, startU, heightU, face, tags, notes, lastSeen)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         serial, managementIp, status, placement, parentDeviceId, cpuCores, memoryGb, storageGb, specs,
+         startU, heightU, face, tags, notes, lastSeen)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `)
     const insertPort = db.prepare(`
       INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face)
@@ -197,6 +203,10 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         status,
         normalizedPlacement.placement,
         normalizedParentDeviceId,
+        cpuCores ?? null,
+        memoryGb ?? null,
+        storageGb ?? null,
+        specs ?? null,
         normalizedPlacement.startU,
         normalizedPlacement.heightU,
         normalizedPlacement.face,
@@ -280,6 +290,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       ['model', 120],
       ['serial', 120],
       ['managementIp', 60],
+      ['specs', 4000],
       ['notes', 2000],
       ['lastSeen', 80],
     ] as const
@@ -302,6 +313,24 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     if ('status' in body) {
       updates.push('status = ?')
       values.push(requiredEnum(body, 'status', DEVICE_STATUSES))
+    }
+
+    const cpuCores = optionalInteger(body, 'cpuCores', { min: 1, max: 4096 })
+    if (cpuCores !== undefined) {
+      updates.push('cpuCores = ?')
+      values.push(cpuCores)
+    }
+
+    const memoryGb = optionalNumber(body, 'memoryGb', { min: 0.1, max: 1024 * 1024 })
+    if (memoryGb !== undefined) {
+      updates.push('memoryGb = ?')
+      values.push(memoryGb)
+    }
+
+    const storageGb = optionalNumber(body, 'storageGb', { min: 0, max: 1024 * 1024 * 10 })
+    if (storageGb !== undefined) {
+      updates.push('storageGb = ?')
+      values.push(storageGb)
     }
 
     const tags = optionalStringArray(body, 'tags', { maxItems: 30 })

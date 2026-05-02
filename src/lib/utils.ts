@@ -6,6 +6,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const COLOR_PRESETS = [
+  { label: 'Blue', value: 'blue', hex: '#4a78c4' },
+  { label: 'Cyan', value: 'cyan', hex: '#4cc8d4' },
+  { label: 'Green', value: 'green', hex: '#5aa05a' },
+  { label: 'Yellow', value: 'yellow', hex: '#d4c43c' },
+  { label: 'Orange', value: 'orange', hex: '#d28a3f' },
+  { label: 'Red', value: 'red', hex: '#c4504a' },
+  { label: 'Purple', value: 'purple', hex: '#8c63d9' },
+  { label: 'Aqua', value: 'aqua', hex: '#59b7c5' },
+  { label: 'Gray', value: 'gray', hex: '#7a7a7a' },
+  { label: 'Black', value: 'black', hex: '#2a2a2a' },
+] as const
+
 // ---------- Status color tokens ----------
 
 export const statusColor: Record<DeviceStatus, string> = {
@@ -147,6 +160,17 @@ export function formatPortSpeedLabel(speed?: string | null): string | null {
   const mbps = parsePortSpeedMbps(speed)
   if (mbps == null) return null
   return formatBandwidthMbps(mbps)
+}
+
+export function normalizeColorToCss(color?: string | null): string | null {
+  if (!color) return null
+  const value = color.trim()
+  if (!value) return null
+  if (/^#(?:[0-9a-fA-F]{3}){1,2}$/.test(value)) {
+    return value
+  }
+  const preset = COLOR_PRESETS.find((entry) => entry.value === value.toLowerCase())
+  return preset?.hex ?? value
 }
 
 // ---------- IP allocation ----------

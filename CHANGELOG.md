@@ -4,6 +4,43 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.0] - 2026-05-02
+
+### Added
+
+- Optional structured device capacity fields for CPU cores, memory, storage, and freeform specs so hosts, servers, and VMs can be documented more realistically.
+- Compute workspace capacity meters that compare documented host capacity to the total assigned VM capacity per host.
+- Admin-configurable monitor notifications with Discord webhook and Telegram delivery, including a built-in test action.
+- Discovery enrichment with MAC-address capture, basic vendor lookup, and a direct `Link existing` action for duplicate matches instead of forcing a duplicate import.
+- A shared color picker with preset dropdowns and manual hex entry for cable and VLAN-range colors.
+
+### Changed
+
+- Device detail pages now surface capacity/spec fields directly and show child-allocation summaries for hosts with linked guests.
+- Discovery rows and inspectors now expose vendor and MAC details when Rackpad can resolve them from ARP data on the server or container.
+- The UI shell is softer and less blocky, with rounder radii, smoother button treatment, richer background atmosphere, and gentler elevation.
+- Backup export and restore now include admin app settings so alert configuration survives rebuilds and test resets.
+
+### Security
+
+- Added login/bootstrap rate limiting to reduce password and bootstrap brute-force attempts.
+- Added baseline production response hardening headers such as `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and `Permissions-Policy`.
+- Hardened the Compose deployment slightly with `init: true` and `no-new-privileges`.
+
+### Schema
+
+- Added `cpuCores`, `memoryGb`, `storageGb`, and `specs` columns to `devices`.
+- Added `macAddress` and `vendor` columns to `discoveredDevices`.
+- Added an `appSettings` table for persisted admin-level app configuration such as alert destinations.
+- Bumped the SQLite schema version to `5`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- Multi-IP monitoring per device is still deferred beyond `0.9.0`; the current release keeps one monitor target per device to avoid destabilizing the existing health-check model right before the `1.0` push.
+- Linux/Docker runtime soak testing is still the next real validation step for this release because this Windows machine is not the final `better-sqlite3` runtime target.
+
 ## [0.8.0] - 2026-05-02
 
 ### Added

@@ -135,6 +135,7 @@ export default function ComputeView() {
                     <div className="grid gap-4 xl:grid-cols-2">
                       {activeHosts.map((host) => {
                         const guests = (guestsByHostId[host.id] ?? []).sort((a, b) => a.hostname.localeCompare(b.hostname))
+                        const capacity = summarizeHostCapacity(host, guests)
                         return (
                           <Card key={host.id}>
                             <CardHeader>
@@ -153,6 +154,14 @@ export default function ComputeView() {
                                 <span>{statusLabel[host.status]}</span>
                                 {host.managementIp && <span className="font-mono text-[11px]">{host.managementIp}</span>}
                               </div>
+
+                              {(capacity.cpu.total || capacity.memory.total || capacity.storage.total) ? (
+                                <div className="grid gap-2 md:grid-cols-3">
+                                  <CapacityMeter label="CPU" unit="cores" {...capacity.cpu} />
+                                  <CapacityMeter label="Memory" unit="GB" {...capacity.memory} />
+                                  <CapacityMeter label="Storage" unit="GB" {...capacity.storage} />
+                                </div>
+                              ) : null}
 
                               <div className="grid gap-2">
                                 {guests.map((guest) => (
@@ -286,4 +295,65 @@ function ComputeStat({ label, value, hint }: { label: string; value: string; hin
       <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{hint}</div>
     </div>
   )
+}
+
+function summarizeHostCapacity(host: Device, guests: Device[]) {
+  return {
+    cpu: summarizeCapacity(host.cpuCores, guests.map((guest) => guest.cpuCores)),
+    memory: summarizeCapacity(host.memoryGb, guests.map((guest) => guest.memoryGb)),
+    storage: summarizeCapacity(host.storageGb, guests.map((guest) => guest.storageGb)),
+  }
+}
+
+function summarizeCapacity(total: number | undefined, values: Array<number | undefined>) {
+  const allocated = values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
+  const safeTotal = total ?? 0
+  const ratio = safeTotal > 0 ? Math.min(100, Math.round((allocated / safeTotal) * 100)) : 0
+  const overcommit = safeTotal > 0 && allocated > safeTotal
+  return {
+    total: safeTotal,
+    allocated,
+    ratio,
+    overcommit,
+  }
+}
+
+function CapacityMeter({
+  label,
+  unit,
+  total,
+  allocated,
+  ratio,
+  overcommit,
+}: {
+  label: string
+  unit: string
+  total: number
+  allocated: number
+  ratio: number
+  overcommit: boolean
+}) {
+  return (
+    <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+          {label}
+        </div>
+        <div className={`text-[11px] ${overcommit ? 'text-[var(--color-err)]' : 'text-[var(--color-fg-subtle)]'}`}>
+          {formatCapacity(allocated)} / {total > 0 ? formatCapacity(total) : '—'} {unit}
+        </div>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-bg-3)]">
+        <div
+          className={`h-full rounded-full ${overcommit ? 'bg-[var(--color-err)]' : 'bg-[var(--color-accent)]'}`}
+          style={{ width: `${Math.min(100, ratio)}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function formatCapacity(value: number) {
+  if (Number.isInteger(value)) return String(value)
+  return value.toFixed(1).replace(/\.0$/, '')
 }

@@ -6,7 +6,7 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
     <div
       ref={ref}
       className={cn(
-        'rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-bg-2)]',
+        'overflow-hidden rounded-[var(--radius-lg)] border border-[var(--color-line)] bg-[var(--color-bg-2)]',
         '[box-shadow:var(--shadow-card)]',
         className,
       )}
@@ -20,7 +20,7 @@ export const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex items-start justify-between gap-2 border-b border-[var(--color-line)] px-4 py-3', className)}
+      className={cn('flex items-start justify-between gap-2 border-b border-[var(--color-line)] bg-[var(--color-bg-2)]/80 px-4 py-3', className)}
       {...props}
     />
   ),

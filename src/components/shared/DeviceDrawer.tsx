@@ -38,6 +38,10 @@ interface FormState {
   status: DeviceStatus
   placement: NonNullable<Device['placement']>
   parentDeviceId: string
+  cpuCores: string
+  memoryGb: string
+  storageGb: string
+  specs: string
   rackId: string
   startU: string
   heightU: string
@@ -59,6 +63,10 @@ function blankForm(defaults?: Partial<FormState>): FormState {
     status: 'unknown',
     placement: defaults?.rackId ? 'rack' : 'room',
     parentDeviceId: '',
+    cpuCores: '',
+    memoryGb: '',
+    storageGb: '',
+    specs: '',
     rackId: '',
     startU: '',
     heightU: '1',
@@ -82,6 +90,10 @@ function deviceToForm(device: Device): FormState {
     status: device.status,
     placement: device.placement ?? (device.rackId ? 'rack' : 'room'),
     parentDeviceId: device.parentDeviceId ?? '',
+    cpuCores: device.cpuCores != null ? String(device.cpuCores) : '',
+    memoryGb: device.memoryGb != null ? String(device.memoryGb) : '',
+    storageGb: device.storageGb != null ? String(device.storageGb) : '',
+    specs: device.specs ?? '',
     rackId: device.rackId ?? '',
     startU: device.startU != null ? String(device.startU) : '',
     heightU: device.heightU != null ? String(device.heightU) : '1',
@@ -199,6 +211,10 @@ export function DeviceDrawer({ device, defaultRackId, defaults, open, onClose, o
         status: form.status,
         placement: form.placement,
         parentDeviceId: showParentSelector && form.parentDeviceId ? form.parentDeviceId : undefined,
+        cpuCores: form.cpuCores.trim() ? Number.parseInt(form.cpuCores, 10) : undefined,
+        memoryGb: form.memoryGb.trim() ? Number.parseFloat(form.memoryGb) : undefined,
+        storageGb: form.storageGb.trim() ? Number.parseFloat(form.storageGb) : undefined,
+        specs: form.specs.trim() || undefined,
         rackId: hasRackPlacement ? form.rackId : undefined,
         startU: hasRackPlacement && form.startU ? Number.parseInt(form.startU, 10) : undefined,
         heightU: hasRackPlacement ? (form.heightU ? Number.parseInt(form.heightU, 10) : 1) : undefined,
@@ -341,6 +357,55 @@ export function DeviceDrawer({ device, defaultRackId, defaults, open, onClose, o
                       value={form.managementIp}
                       onChange={(event) => set('managementIp', event.target.value)}
                       placeholder="e.g. 10.0.10.12"
+                    />
+                  </Field>
+                </Section>
+
+                <Separator />
+
+                <Section label="Capacity & specs">
+                  <div className="grid grid-cols-3 gap-3">
+                    <Field label="CPU cores">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={form.cpuCores}
+                        onChange={(event) => set('cpuCores', event.target.value)}
+                        placeholder="e.g. 8"
+                      />
+                    </Field>
+                    <Field label="Memory (GB)">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.5"
+                        value={form.memoryGb}
+                        onChange={(event) => set('memoryGb', event.target.value)}
+                        placeholder="64"
+                      />
+                    </Field>
+                    <Field label="Storage (GB)">
+                      <Input
+                        type="number"
+                        min={0}
+                        step="1"
+                        value={form.storageGb}
+                        onChange={(event) => set('storageGb', event.target.value)}
+                        placeholder="2000"
+                      />
+                    </Field>
+                  </div>
+                  <Field label="Specs">
+                    <textarea
+                      value={form.specs}
+                      onChange={(event) => set('specs', event.target.value)}
+                      placeholder="CPU generation, RAID layout, GPU, NIC details, or VM sizing notes..."
+                      rows={3}
+                      className={cn(
+                        'w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm font-sans',
+                        'text-[var(--color-fg)] placeholder:text-[var(--color-fg-faint)]',
+                        'focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]',
+                      )}
                     />
                   </Field>
                 </Section>

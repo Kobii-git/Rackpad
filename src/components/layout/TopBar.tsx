@@ -20,7 +20,7 @@ export function TopBar({ title, subtitle, meta, actions }: TopBarProps) {
     <header
       className={cn(
         'relative flex h-14 shrink-0 items-center justify-between gap-4 px-6',
-        'border-b border-[var(--color-line)] bg-[var(--color-bg-2)]',
+        'border-b border-[var(--color-line)] bg-[var(--color-bg-2)]/90 shadow-[0_12px_28px_rgb(0_0_0_/_0.16)] backdrop-blur-md',
       )}
     >
       <div className="min-w-0">

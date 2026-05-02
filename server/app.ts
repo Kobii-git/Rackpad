@@ -44,6 +44,20 @@ export async function createApp() {
       : ['http://localhost:5173', 'http://127.0.0.1:5173'],
   })
 
+  app.addHook('onSend', async (req, reply, payload) => {
+    reply.header('X-Frame-Options', 'DENY')
+    reply.header('X-Content-Type-Options', 'nosniff')
+    reply.header('Referrer-Policy', 'no-referrer')
+    reply.header('Cross-Origin-Opener-Policy', 'same-origin')
+    reply.header('Cross-Origin-Resource-Policy', 'same-origin')
+    reply.header('X-DNS-Prefetch-Control', 'off')
+    reply.header('Permissions-Policy', 'camera=(), geolocation=(), microphone=()')
+    if ((req.headers['x-forwarded-proto'] ?? '').toString().includes('https')) {
+      reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
+    }
+    return payload
+  })
+
   app.setErrorHandler((error, _req, reply) => {
     if (error instanceof ValidationError) {
       reply.status(error.statusCode).send({ error: error.message })

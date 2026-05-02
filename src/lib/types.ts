@@ -41,6 +41,14 @@ export type UserRole = 'admin' | 'editor' | 'viewer'
 export type MonitorType = 'none' | 'icmp' | 'tcp' | 'http' | 'https'
 export type DiscoveryStatus = 'new' | 'imported' | 'dismissed'
 
+export interface AlertSettings {
+  enabled: boolean
+  notifyOnRecovery: boolean
+  discordWebhookUrl: string | null
+  telegramBotToken: string | null
+  telegramChatId: string | null
+}
+
 export interface Lab {
   id: ID
   name: string
@@ -72,6 +80,10 @@ export interface Device {
   status: DeviceStatus
   placement?: DevicePlacement
   parentDeviceId?: ID
+  cpuCores?: number
+  memoryGb?: number
+  storageGb?: number
+  specs?: string
   startU?: number
   heightU?: number
   face?: RackFace
@@ -212,6 +224,8 @@ export interface DiscoveredDevice {
   displayName?: string | null
   deviceType?: DeviceType | null
   placement?: DevicePlacement | null
+  macAddress?: string | null
+  vendor?: string | null
   source: string
   status: DiscoveryStatus
   notes?: string | null

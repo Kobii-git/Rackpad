@@ -61,14 +61,14 @@
   --u-height: 30px;
 
   /* Radii — sharp, technical, NOT rounded-app blob */
-  --radius-xs: 2px;
-  --radius-sm: 3px;
-  --radius-md: 4px;
-  --radius-lg: 6px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 
   /* Shadows */
-  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.02) inset, 0 1px 3px rgb(0 0 0 / 0.4);
-  --shadow-elev: 0 1px 0 0 rgb(255 255 255 / 0.02) inset, 0 8px 24px rgb(0 0 0 / 0.5);
+  --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.03) inset, 0 10px 24px rgb(0 0 0 / 0.26);
+  --shadow-elev: 0 1px 0 0 rgb(255 255 255 / 0.05) inset, 0 18px 48px rgb(0 0 0 / 0.42);
 }
 
 /* Light mode — provided but dark is the default. Most homelab folks live in dark. */
@@ -128,8 +128,8 @@
     --color-port-usb: #3a8c39;
 
     /* Shadows — softer in light */
-    --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.8) inset, 0 1px 3px rgb(0 0 0 / 0.08);
-    --shadow-elev: 0 1px 0 0 rgb(255 255 255 / 0.8) inset, 0 8px 24px rgb(0 0 0 / 0.12);
+    --shadow-card: 0 1px 0 0 rgb(255 255 255 / 0.85) inset, 0 10px 24px rgb(0 0 0 / 0.08);
+    --shadow-elev: 0 1px 0 0 rgb(255 255 255 / 0.85) inset, 0 18px 48px rgb(0 0 0 / 0.12);
   }
 
   * {
@@ -144,6 +144,10 @@
 
   body {
     background-color: var(--color-bg);
+    background-image:
+      radial-gradient(circle at top left, rgb(76 200 212 / 0.08), transparent 28%),
+      radial-gradient(circle at top right, rgb(232 155 60 / 0.07), transparent 24%),
+      linear-gradient(180deg, rgb(255 255 255 / 0.01), transparent 22%);
     color: var(--color-fg);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv11", "tnum";
@@ -181,7 +185,7 @@
   }
   ::-webkit-scrollbar-thumb {
     background: var(--color-surface-2);
-    border-radius: 0;
+    border-radius: 999px;
     border: 2px solid var(--color-bg);
   }
   ::-webkit-scrollbar-thumb:hover {

@@ -75,6 +75,17 @@ export function optionalInteger(
   return boundedInteger(value, key, options)
 }
 
+export function optionalNumber(
+  body: Record<string, unknown>,
+  key: string,
+  options: { min?: number; max?: number } = {},
+) {
+  if (!(key in body)) return undefined
+  if (body[key] == null) return null
+  const value = parseNumber(body[key], key)
+  return boundedNumber(value, key, options)
+}
+
 export function requiredEnum<T extends readonly string[]>(
   body: Record<string, unknown>,
   key: string,
@@ -174,7 +185,26 @@ function parseInteger(value: unknown, key: string) {
   throw new ValidationError(`${label(key)} must be an integer.`)
 }
 
+function parseNumber(value: unknown, key: string) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseFloat(value.trim())
+    if (Number.isFinite(parsed)) return parsed
+  }
+  throw new ValidationError(`${label(key)} must be a number.`)
+}
+
 function boundedInteger(value: number, key: string, options: { min?: number; max?: number }) {
+  if (options.min != null && value < options.min) {
+    throw new ValidationError(`${label(key)} must be at least ${options.min}.`)
+  }
+  if (options.max != null && value > options.max) {
+    throw new ValidationError(`${label(key)} must be at most ${options.max}.`)
+  }
+  return value
+}
+
+function boundedNumber(value: number, key: string, options: { min?: number; max?: number }) {
   if (options.min != null && value < options.min) {
     throw new ValidationError(`${label(key)} must be at least ${options.min}.`)
   }
