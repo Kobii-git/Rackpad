@@ -34,7 +34,7 @@ export type IpAssignmentType =
   | 'infrastructure'
 export type IpZoneKind = 'static' | 'dhcp' | 'reserved' | 'infrastructure'
 export type UserRole = 'admin' | 'editor' | 'viewer'
-export type MonitorType = 'none' | 'tcp' | 'http' | 'https'
+export type MonitorType = 'none' | 'icmp' | 'tcp' | 'http' | 'https'
 
 export interface Lab {
   id: ID

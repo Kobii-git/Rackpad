@@ -26,7 +26,10 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 ENV DATABASE_PATH=/data/rackpad.db
 
-RUN groupadd --system rackpad \
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends iputils-ping \
+  && rm -rf /var/lib/apt/lists/* \
+  && groupadd --system rackpad \
   && useradd --system --gid rackpad --uid 10001 --create-home rackpad \
   && mkdir -p /data
 

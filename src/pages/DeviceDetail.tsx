@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DeviceDrawer } from '@/components/shared/DeviceDrawer'
 import { TopBar } from '@/components/layout/TopBar'
@@ -61,6 +61,7 @@ export default function DeviceDetail() {
   const [refreshing, setRefreshing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [releasingId, setReleasingId] = useState<string | null>(null)
+  const [selectedPortId, setSelectedPortId] = useState<string | undefined>()
   const [monitorForm, setMonitorForm] = useState<MonitorForm>(EMPTY_MONITOR_FORM)
   const [monitorSaving, setMonitorSaving] = useState(false)
   const [monitorRunning, setMonitorRunning] = useState(false)
@@ -108,9 +109,8 @@ export default function DeviceDetail() {
     if (!monitor) {
       setMonitorForm({
         ...EMPTY_MONITOR_FORM,
-        type: device.managementIp ? 'tcp' : 'none',
+        type: device.managementIp ? 'icmp' : 'none',
         target: device.managementIp ?? '',
-        port: device.managementIp ? '22' : '',
       })
       setMonitorError('')
       return
@@ -126,6 +126,32 @@ export default function DeviceDetail() {
     })
     setMonitorError('')
   }, [device, monitor])
+
+  const devicePorts = device?.id ? portsByDeviceId[device.id] ?? [] : []
+  const rack = device?.rackId ? racks.find((entry) => entry.id === device.rackId) : undefined
+  const deviceIps = device?.id ? ipAssignments.filter((assignment) => assignment.deviceId === device.id) : []
+  const selectedPort = selectedPortId ? devicePorts.find((port) => port.id === selectedPortId) : undefined
+  const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
+  const peerPortId = selectedPort && selectedLink
+    ? (selectedLink.fromPortId === selectedPort.id ? selectedLink.toPortId : selectedLink.fromPortId)
+    : undefined
+  const peerPort = peerPortId ? portById[peerPortId] : undefined
+  const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined
+  const linkedCount = devicePorts.filter((port) => port.linkState === 'up').length
+  const isVisualGrid =
+    device?.deviceType === 'switch' ||
+    device?.deviceType === 'patch_panel' ||
+    device?.deviceType === 'router'
+
+  useEffect(() => {
+    if (!devicePorts.length) {
+      setSelectedPortId(undefined)
+      return
+    }
+    if (!selectedPortId || !devicePorts.some((port) => port.id === selectedPortId)) {
+      setSelectedPortId(devicePorts[0].id)
+    }
+  }, [devicePorts, selectedPortId])
 
   if (!device) {
     return (
@@ -145,16 +171,6 @@ export default function DeviceDetail() {
       </>
     )
   }
-
-  const devicePorts = portsByDeviceId[device.id] ?? []
-  const linkedCount = devicePorts.filter((port) => port.linkState === 'up').length
-  const rack = device.rackId ? racks.find((entry) => entry.id === device.rackId) : undefined
-  const deviceIps = ipAssignments.filter((assignment) => assignment.deviceId === device.id)
-  const isVisualGrid =
-    device.deviceType === 'switch' ||
-    device.deviceType === 'patch_panel' ||
-    device.deviceType === 'router'
-  const deviceAudit = auditLog.filter((entry) => entry.entityId === device.id)
 
   useEffect(() => {
     if (!device) {
@@ -207,12 +223,15 @@ export default function DeviceDetail() {
     setMonitorSaving(true)
     setMonitorError('')
     try {
+      const usesPort =
+        monitorForm.type === 'tcp' || monitorForm.type === 'http' || monitorForm.type === 'https'
+      const usesPath = monitorForm.type === 'http' || monitorForm.type === 'https'
       await saveDeviceMonitorConfig(device.id, {
         enabled: monitorForm.enabled,
         type: monitorForm.enabled ? monitorForm.type : 'none',
         target: monitorForm.target.trim() || null,
-        port: monitorForm.port.trim() ? Number.parseInt(monitorForm.port, 10) : null,
-        path: monitorForm.path.trim() || null,
+        port: usesPort && monitorForm.port.trim() ? Number.parseInt(monitorForm.port, 10) : null,
+        path: usesPath ? monitorForm.path.trim() || null : null,
         intervalMs: Math.max(1, Number.parseInt(monitorForm.intervalMinutes, 10) || 5) * 60 * 1000,
       })
       if (monitorForm.enabled && monitorForm.type !== 'none') {
@@ -253,6 +272,11 @@ export default function DeviceDetail() {
       setActivityLoading(false)
     }
   }
+
+  const showMonitorPortField =
+    monitorForm.type === 'tcp' || monitorForm.type === 'http' || monitorForm.type === 'https'
+  const showMonitorPathField = monitorForm.type === 'http' || monitorForm.type === 'https'
+  const monitorTypeDescription = describeMonitorType(monitorForm.type)
 
   return (
     <>
@@ -349,6 +373,7 @@ export default function DeviceDetail() {
             <TabsTrigger value="ports">Ports | {devicePorts.length}</TabsTrigger>
             <TabsTrigger value="network">Network | {deviceIps.length}</TabsTrigger>
             <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
+            <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
           </TabsList>
 
@@ -414,32 +439,63 @@ export default function DeviceDetail() {
           </TabsContent>
 
           <TabsContent value="ports" className="pt-4">
-            {isVisualGrid ? (
-              <PortGrid
-                device={device}
-                ports={devicePorts}
-                links={linkByPortId}
-                portsById={portById}
-                devicesById={deviceById}
-              />
-            ) : (
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    <CardLabel>Interfaces</CardLabel>
-                    <CardHeading>{devicePorts.length} ports</CardHeading>
-                  </CardTitle>
-                </CardHeader>
-                <CardBody className="p-0">
-                  <PortList
+            <div className="grid grid-cols-12 gap-4">
+              <div className="col-span-12 xl:col-span-8">
+                {devicePorts.length === 0 ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        <CardLabel>Interfaces</CardLabel>
+                        <CardHeading>No ports documented</CardHeading>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardBody>
+                      <div className="text-sm text-[var(--color-fg-subtle)]">
+                        Add or template ports for this device to inspect cabling, VLANs, and interface notes here.
+                      </div>
+                    </CardBody>
+                  </Card>
+                ) : isVisualGrid ? (
+                  <PortGrid
+                    device={device}
                     ports={devicePorts}
                     links={linkByPortId}
                     portsById={portById}
                     devicesById={deviceById}
+                    onSelectPort={setSelectedPortId}
+                    selectedPortId={selectedPortId}
                   />
-                </CardBody>
-              </Card>
-            )}
+                ) : (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>
+                        <CardLabel>Interfaces</CardLabel>
+                        <CardHeading>{devicePorts.length} ports</CardHeading>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardBody className="p-0">
+                      <PortList
+                        ports={devicePorts}
+                        links={linkByPortId}
+                        portsById={portById}
+                        devicesById={deviceById}
+                        onSelectPort={setSelectedPortId}
+                        selectedPortId={selectedPortId}
+                      />
+                    </CardBody>
+                  </Card>
+                )}
+              </div>
+
+              <div className="col-span-12 xl:col-span-4">
+                <PortInspectorCard
+                  port={selectedPort}
+                  peerPort={peerPort}
+                  peerDevice={peerDevice}
+                  link={selectedLink}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="network" className="pt-4">
@@ -514,6 +570,10 @@ export default function DeviceDetail() {
                   until a monitor is enabled and at least one check has run.
                 </div>
 
+                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg-subtle)]">
+                  {monitorTypeDescription}
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-4">
                   <Field label="Type">
                     <Select
@@ -522,6 +582,7 @@ export default function DeviceDetail() {
                       disabled={!canEdit}
                     >
                       <option value="none">none</option>
+                      <option value="icmp">icmp</option>
                       <option value="tcp">tcp</option>
                       <option value="http">http</option>
                       <option value="https">https</option>
@@ -535,14 +596,16 @@ export default function DeviceDetail() {
                       placeholder="10.0.10.12 or host.example"
                     />
                   </Field>
-                  <Field label="Port">
-                    <Input
-                      value={monitorForm.port}
-                      disabled={!canEdit}
-                      onChange={(event) => setMonitorForm((prev) => ({ ...prev, port: event.target.value }))}
-                      placeholder="22, 80, 443"
-                    />
-                  </Field>
+                  {showMonitorPortField && (
+                    <Field label="Port">
+                      <Input
+                        value={monitorForm.port}
+                        disabled={!canEdit}
+                        onChange={(event) => setMonitorForm((prev) => ({ ...prev, port: event.target.value }))}
+                        placeholder={monitorForm.type === 'tcp' ? '22, 443, 8006' : monitorForm.type === 'https' ? '443' : '80'}
+                      />
+                    </Field>
+                  )}
                   <Field label="Every (minutes)">
                     <Input
                       value={monitorForm.intervalMinutes}
@@ -553,7 +616,7 @@ export default function DeviceDetail() {
                   </Field>
                 </div>
 
-                {(monitorForm.type === 'http' || monitorForm.type === 'https') && (
+                {showMonitorPathField && (
                   <Field label="HTTP path">
                     <Input
                       value={monitorForm.path}
@@ -588,6 +651,34 @@ export default function DeviceDetail() {
                     </Button>
                   )}
                 </div>
+              </CardBody>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notes" className="pt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>Documentation</CardLabel>
+                  <CardHeading>Device notes</CardHeading>
+                </CardTitle>
+                {canEdit && (
+                  <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+                    <Pencil className="size-3.5" />
+                    Edit notes
+                  </Button>
+                )}
+              </CardHeader>
+              <CardBody>
+                {device.notes?.trim() ? (
+                  <div className="whitespace-pre-wrap text-sm leading-6 text-[var(--color-fg)]">
+                    {device.notes}
+                  </div>
+                ) : (
+                  <div className="text-sm text-[var(--color-fg-subtle)]">
+                    No notes documented for this device yet.
+                  </div>
+                )}
               </CardBody>
             </Card>
           </TabsContent>
@@ -645,7 +736,114 @@ export default function DeviceDetail() {
   )
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function PortInspectorCard({
+  port,
+  peerPort,
+  peerDevice,
+  link,
+}: {
+  port?: Port
+  peerPort?: Port
+  peerDevice?: Device
+  link?: PortLink
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>Inspector</CardLabel>
+          <CardHeading>{port ? port.name : 'Select a port'}</CardHeading>
+        </CardTitle>
+        {port ? <Badge tone="cyan">{port.kind.replace('_', ' ')}</Badge> : null}
+      </CardHeader>
+      <CardBody className="space-y-4">
+        {!port ? (
+          <div className="text-sm text-[var(--color-fg-subtle)]">
+            Click a port to inspect its speed, VLAN, description, and cable peer.
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-1">
+              <InspectorRow label="State">
+                <span className="inline-flex items-center gap-2 text-sm text-[var(--color-fg)]">
+                  <StatusDot link={port.linkState} />
+                  {formatLinkState(port.linkState)}
+                </span>
+              </InspectorRow>
+              <InspectorRow label="Speed" value={port.speed ?? 'Not set'} mono />
+              <InspectorRow label="Face" value={port.face ?? 'front'} />
+              <InspectorRow label="Position" value={String(port.position)} mono />
+              <InspectorRow label="VLAN" value={port.vlanId ?? 'Unassigned'} mono />
+              <InspectorRow label="Type" value={port.kind.replace('_', ' ')} />
+            </div>
+
+            <div className="space-y-1">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                Description
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                {port.description?.trim() || 'No description documented.'}
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                Link peer
+              </div>
+              <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2">
+                {peerDevice && peerPort ? (
+                  <div className="space-y-1 text-sm">
+                    <div className="text-[var(--color-fg)]">
+                      {peerDevice.hostname}
+                      <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
+                      <Mono className="text-[var(--color-cyan)]">{peerPort.name}</Mono>
+                    </div>
+                    <div className="text-[11px] text-[var(--color-fg-subtle)]">
+                      {link?.cableType ?? 'Cable'} | {link?.cableLength ?? 'length n/a'}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-[var(--color-fg-subtle)]">No linked cable.</div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/ports">Open in ports workspace</Link>
+              </Button>
+            </div>
+          </>
+        )}
+      </CardBody>
+    </Card>
+  )
+}
+
+function InspectorRow({
+  label,
+  value,
+  mono,
+  children,
+}: {
+  label: string
+  value?: string
+  mono?: boolean
+  children?: ReactNode
+}) {
+  return (
+    <div>
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </div>
+      {children ?? (
+        <div className={`mt-1 text-sm text-[var(--color-fg)] ${mono ? 'font-mono' : ''}`}>{value ?? '-'}</div>
+      )}
+    </div>
+  )
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
@@ -665,7 +863,7 @@ function Select({
   value: string
   onChange: (value: string) => void
   disabled?: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <select
@@ -715,4 +913,32 @@ function Stat({ label, value, mono }: { label: string; value?: string; mono?: bo
       </dd>
     </div>
   )
+}
+
+function describeMonitorType(type: MonitorForm['type']) {
+  switch (type) {
+    case 'icmp':
+      return 'ICMP is best for simple reachability. It answers "can the Rackpad server or container reach this host on the network?"'
+    case 'tcp':
+      return 'TCP checks a specific service port from the Rackpad server. Port 22 only shows online when SSH itself is reachable from the server or container.'
+    case 'http':
+      return 'HTTP checks fetch a URL from the Rackpad server and expect a successful response.'
+    case 'https':
+      return 'HTTPS checks fetch a secure URL from the Rackpad server and expect a successful response.'
+    default:
+      return 'Choose a monitor type to enable automated health checks for this device.'
+  }
+}
+
+function formatLinkState(state: Port['linkState']) {
+  switch (state) {
+    case 'up':
+      return 'Up'
+    case 'down':
+      return 'Down'
+    case 'disabled':
+      return 'Disabled'
+    default:
+      return 'Unknown'
+  }
 }

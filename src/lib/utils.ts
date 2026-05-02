@@ -104,6 +104,51 @@ export function utilization(used: number, total: number): number {
   return Math.min(100, Math.round((used / total) * 100))
 }
 
+const SPEED_MULTIPLIERS_MBPS: Record<string, number> = {
+  k: 0.001,
+  m: 1,
+  g: 1000,
+  t: 1000 * 1000,
+}
+
+function trimTrailingZeros(value: number) {
+  return value.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
+}
+
+export function parsePortSpeedMbps(speed?: string | null): number | null {
+  if (!speed) return null
+
+  const normalized = speed
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/(?:b(?:it)?(?:\/s)?|bps|be)$/g, '')
+
+  const match = normalized.match(/^(\d+(?:\.\d+)?)([kmgt])?$/)
+  if (!match) return null
+
+  const value = Number.parseFloat(match[1])
+  if (!Number.isFinite(value) || value <= 0) return null
+
+  const unit = match[2] ?? 'm'
+  const multiplier = SPEED_MULTIPLIERS_MBPS[unit]
+  return multiplier ? value * multiplier : null
+}
+
+export function formatBandwidthMbps(mbps: number): string {
+  if (!Number.isFinite(mbps) || mbps <= 0) return '0 Mbps'
+  if (mbps >= 1000 * 1000) return `${trimTrailingZeros(mbps / (1000 * 1000))} Tbps`
+  if (mbps >= 1000) return `${trimTrailingZeros(mbps / 1000)} Gbps`
+  if (mbps < 1) return `${trimTrailingZeros(mbps * 1000)} Kbps`
+  return `${trimTrailingZeros(mbps)} Mbps`
+}
+
+export function formatPortSpeedLabel(speed?: string | null): string | null {
+  const mbps = parsePortSpeedMbps(speed)
+  if (mbps == null) return null
+  return formatBandwidthMbps(mbps)
+}
+
 // ---------- IP allocation ----------
 
 // Returns the lowest unused IP that is:

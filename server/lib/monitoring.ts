@@ -1,8 +1,10 @@
+import { spawn } from 'node:child_process'
 import net from 'node:net'
 import { db } from '../db.js'
 
-export const MONITOR_TYPES = ['none', 'tcp', 'http', 'https'] as const
+export const MONITOR_TYPES = ['none', 'icmp', 'tcp', 'http', 'https'] as const
 export type MonitorType = (typeof MONITOR_TYPES)[number]
+type MonitorResult = { result: 'online' | 'offline' | 'unknown'; message: string }
 
 export interface DeviceMonitor {
   id: string
@@ -127,6 +129,10 @@ async function executeCheck(monitor: DeviceMonitor) {
       return { result: 'unknown' as const, message: 'No target configured.' }
     }
 
+    if (monitor.type === 'icmp') {
+      return icmpCheck(monitor.target)
+    }
+
     if (monitor.type === 'tcp') {
       const port = monitor.port ?? 22
       return tcpCheck(monitor.target, port)
@@ -150,6 +156,68 @@ async function executeCheck(monitor: DeviceMonitor) {
       message: error instanceof Error ? error.message : 'Health check failed.',
     }
   }
+}
+
+function icmpCheck(host: string): Promise<MonitorResult> {
+  const { command, args } = getPingCommand(host)
+
+  return new Promise((resolve) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+    let settled = false
+
+    const finish = (result: MonitorResult) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      resolve(result)
+    }
+
+    const timeout = setTimeout(() => {
+      child.kill()
+      finish({
+        result: 'offline',
+        message: `ICMP ${host} timed out from the Rackpad server.`,
+      })
+    }, 6000)
+
+    child.stdout.on('data', (chunk: Buffer | string) => {
+      stdout += chunk.toString()
+    })
+    child.stderr.on('data', (chunk: Buffer | string) => {
+      stderr += chunk.toString()
+    })
+
+    child.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'ENOENT') {
+        finish({
+          result: 'unknown',
+          message: 'ICMP ping is unavailable in the Rackpad runtime. Install ping support or use TCP/HTTP checks instead.',
+        })
+        return
+      }
+      finish({
+        result: 'offline',
+        message: error.message,
+      })
+    })
+
+    child.once('close', (code) => {
+      if (code === 0) {
+        finish({
+          result: 'online',
+          message: `ICMP ${host} reachable.`,
+        })
+        return
+      }
+
+      finish({
+        result: 'offline',
+        message: summarizePingFailure(host, stdout, stderr),
+      })
+    })
+  })
 }
 
 function tcpCheck(host: string, port: number) {
@@ -192,4 +260,26 @@ function tcpCheck(host: string, port: number) {
       reject(error)
     })
   })
+}
+
+function getPingCommand(host: string) {
+  if (process.platform === 'win32') {
+    return { command: 'ping', args: ['-n', '1', '-w', '5000', host] }
+  }
+
+  return { command: 'ping', args: ['-c', '1', '-W', '5', host] }
+}
+
+function summarizePingFailure(host: string, stdout: string, stderr: string) {
+  const lines = `${stdout}\n${stderr}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.toLowerCase().startsWith('ping '))
+
+  const excerpt = lines.at(-1) ?? lines[0]
+  if (!excerpt) {
+    return `ICMP ${host} is unreachable from the Rackpad server.`
+  }
+  return `ICMP ${host} failed: ${excerpt}`
 }

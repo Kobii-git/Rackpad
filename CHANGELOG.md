@@ -4,6 +4,32 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.6.3] - 2026-05-02
+
+### Added
+
+- ICMP device monitoring so Rackpad can test plain host reachability without depending on a specific application port being open.
+- A clickable port inspector on the device detail page, including port state, speed, face, VLAN, description, and linked cable peer details.
+- A dedicated Notes tab on the device detail page so device documentation is easier to read without reopening the edit drawer.
+
+### Changed
+
+- The dashboard now shows aggregate network capacity derived from documented port speeds and link states, instead of a fake traffic chart that looked like live telemetry.
+- New monitor setups now default to ICMP when a device has a management IP, which is a better default for homelab reachability checks than assuming TCP port 22.
+- The monitoring UI now explains the difference between ICMP reachability, TCP service checks, and HTTP/HTTPS health probes.
+- The runtime Docker image now installs `iputils-ping` so ICMP checks work inside the Linux container.
+
+### Fixed
+
+- Device-detail ports are no longer a dead end; clicking a port now surfaces its configuration instead of forcing a context switch to the main ports workspace.
+- The app no longer implies that aggregate throughput is measured traffic when Rackpad does not yet collect real telemetry.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- TCP checks still test a specific service from the Rackpad server or container; use ICMP when you only want to know whether the host itself is reachable.
+
 ## [0.6.2] - 2026-05-02
 
 ### Fixed

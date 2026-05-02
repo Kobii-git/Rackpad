@@ -1,13 +1,4 @@
 import { motion } from 'motion/react'
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip as ReTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { TopBar } from '@/components/layout/TopBar'
 import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { StatCard } from '@/components/shared/StatCard'
@@ -16,14 +7,8 @@ import { Mono } from '@/components/shared/Mono'
 import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
 import { AllocatePanel } from '@/components/shared/AllocatePanel'
 import { canEditInventory, useStore } from '@/lib/store'
-import { relativeTime, statusLabel } from '@/lib/utils'
+import { formatBandwidthMbps, parsePortSpeedMbps, relativeTime, statusLabel } from '@/lib/utils'
 import { Activity, ChevronRight } from 'lucide-react'
-
-const trafficData = Array.from({ length: 24 }, (_, index) => ({
-  hour: `${String(index).padStart(2, '0')}:00`,
-  ingress: Math.round(40 + Math.sin(index / 3) * 20 + Math.random() * 12),
-  egress: Math.round(28 + Math.cos(index / 4) * 14 + Math.random() * 9),
-}))
 
 export default function Dashboard() {
   const currentUser = useStore((s) => s.currentUser)
@@ -42,6 +27,29 @@ export default function Dashboard() {
   const warningCount = devices.filter((device) => device.status === 'warning').length
   const linkedPortCount = ports.filter((port) => port.linkState === 'up').length
   const totalPorts = ports.length
+  const portsWithSpeed = ports.filter((port) => parsePortSpeedMbps(port.speed) != null)
+  const configuredCapacityMbps = ports.reduce((sum, port) => sum + (parsePortSpeedMbps(port.speed) ?? 0), 0)
+  const linkedCapacityMbps = ports.reduce(
+    (sum, port) => sum + (port.linkState === 'up' ? parsePortSpeedMbps(port.speed) ?? 0 : 0),
+    0,
+  )
+  const capacityBuckets = Array.from(
+    ports.reduce(
+      (acc, port) => {
+        const speedMbps = parsePortSpeedMbps(port.speed)
+        if (speedMbps == null) return acc
+        const key = formatBandwidthMbps(speedMbps)
+        const current = acc.get(key) ?? { label: key, total: 0, linked: 0, capacityMbps: 0 }
+        current.total += 1
+        current.capacityMbps += speedMbps
+        if (port.linkState === 'up') current.linked += 1
+        acc.set(key, current)
+        return acc
+      },
+      new Map<string, { label: string; total: number; linked: number; capacityMbps: number }>(),
+    ).values(),
+  ).sort((a, b) => b.capacityMbps - a.capacityMbps || b.total - a.total)
+  const documentedSpeedPct = totalPorts === 0 ? 0 : Math.round((portsWithSpeed.length / totalPorts) * 100)
 
   return (
     <>
@@ -144,61 +152,70 @@ export default function Dashboard() {
           <Card className="col-span-12 lg:col-span-8">
             <CardHeader>
               <CardTitle>
-                <CardLabel>Network | 24h</CardLabel>
-                <CardHeading>Aggregate throughput</CardHeading>
+                <CardLabel>Network | inventory derived</CardLabel>
+                <CardHeading>Aggregate capacity</CardHeading>
               </CardTitle>
-              <div className="flex items-center gap-3 font-mono text-[11px] text-[var(--color-fg-subtle)]">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2 rounded-[1px] bg-[var(--color-accent)]" />
-                  ingress
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2 rounded-[1px] bg-[var(--color-cyan)]" />
-                  egress
-                </span>
+              <div className="max-w-xl text-right text-[11px] text-[var(--color-fg-subtle)]">
+                Estimated from saved port speeds and link states. This is not live traffic telemetry yet.
               </div>
             </CardHeader>
-            <CardBody className="p-0">
-              <div className="h-44 px-3 pt-3">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trafficData} margin={{ top: 6, right: 6, left: -28, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="ingress" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.4} />
-                        <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0} />
-                      </linearGradient>
-                      <linearGradient id="egress" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--color-cyan)" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="var(--color-cyan)" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid stroke="var(--color-line)" strokeDasharray="2 4" vertical={false} />
-                    <XAxis
-                      dataKey="hour"
-                      tick={{ fontSize: 10, fill: 'var(--color-fg-subtle)', fontFamily: 'IBM Plex Mono' }}
-                      tickLine={false}
-                      axisLine={false}
-                      interval={3}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 10, fill: 'var(--color-fg-subtle)', fontFamily: 'IBM Plex Mono' }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <ReTooltip
-                      contentStyle={{
-                        backgroundColor: 'var(--color-surface-3)',
-                        border: '1px solid var(--color-line-strong)',
-                        borderRadius: 'var(--radius-xs)',
-                        fontSize: 11,
-                        fontFamily: 'IBM Plex Mono',
-                      }}
-                      labelStyle={{ color: 'var(--color-fg)' }}
-                    />
-                    <Area type="monotone" dataKey="ingress" stroke="var(--color-accent)" strokeWidth={1.5} fill="url(#ingress)" />
-                    <Area type="monotone" dataKey="egress" stroke="var(--color-cyan)" strokeWidth={1.5} fill="url(#egress)" />
-                  </AreaChart>
-                </ResponsiveContainer>
+            <CardBody>
+              <div className="grid gap-3 md:grid-cols-3">
+                <CapacityStat
+                  label="Configured"
+                  value={formatBandwidthMbps(configuredCapacityMbps)}
+                  hint={`${portsWithSpeed.length}/${totalPorts} ports have documented speeds`}
+                />
+                <CapacityStat
+                  label="Linked"
+                  value={formatBandwidthMbps(linkedCapacityMbps)}
+                  hint={`${linkedPortCount} live links documented`}
+                />
+                <CapacityStat
+                  label="Coverage"
+                  value={`${documentedSpeedPct}%`}
+                  hint="of ports can contribute to capacity estimates"
+                />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {capacityBuckets.length === 0 ? (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-4 text-sm text-[var(--color-fg-subtle)]">
+                    Add port speeds such as <span className="font-mono text-[var(--color-fg)]">1G</span>,
+                    <span className="mx-1 font-mono text-[var(--color-fg)]">2.5G</span>, or
+                    <span className="ml-1 font-mono text-[var(--color-fg)]">10G</span> to turn this into a useful capacity view.
+                  </div>
+                ) : (
+                  capacityBuckets.map((bucket) => {
+                    const ratio = Math.round((bucket.linked / Math.max(1, bucket.total)) * 100)
+                    return (
+                      <div key={bucket.label} className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                              {bucket.label} ports
+                            </div>
+                            <div className="text-sm text-[var(--color-fg)]">
+                              {bucket.linked}/{bucket.total} linked
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-mono text-[11px] text-[var(--color-fg)]">
+                              {formatBandwidthMbps(bucket.capacityMbps)}
+                            </div>
+                            <div className="text-[11px] text-[var(--color-fg-subtle)]">documented capacity</div>
+                          </div>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-[1px] bg-[var(--color-surface)]">
+                          <div
+                            className="h-full rounded-[1px] bg-[var(--color-cyan)]"
+                            style={{ width: `${ratio}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             </CardBody>
           </Card>
@@ -272,5 +289,17 @@ export default function Dashboard() {
         </div>
       </div>
     </>
+  )
+}
+
+function CapacityStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+  return (
+    <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
+      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </div>
+      <div className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-fg)]">{value}</div>
+      <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{hint}</div>
+    </div>
   )
 }
