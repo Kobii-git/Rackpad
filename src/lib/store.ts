@@ -1343,11 +1343,13 @@ export async function deleteRackRecord(id: string): Promise<void> {
 export async function createVirtualSwitchRecord(input: {
   hostDeviceId: string;
   name: string;
+  kind: VirtualSwitch["kind"];
   notes?: string | null;
 }): Promise<VirtualSwitch> {
   const created = await api.createVirtualSwitch({
     hostDeviceId: input.hostDeviceId,
     name: input.name,
+    kind: input.kind,
     notes: input.notes ?? null,
   });
 

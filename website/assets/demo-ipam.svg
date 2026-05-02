@@ -1,0 +1,280 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1600 900"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Rackpad demo IPAM and monitoring view</title>
+  <desc id="desc">
+    A dark Rackpad preview combining VLAN-aware IPAM, subnets, DHCP scopes, and
+    the monitoring workspace.
+  </desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#091018" />
+      <stop offset="100%" stop-color="#111c28" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)" />
+  <rect
+    x="56"
+    y="44"
+    width="1488"
+    height="812"
+    rx="30"
+    fill="#101823"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="106"
+    y="112"
+    font-family="Consolas, monospace"
+    font-size="16"
+    letter-spacing="4"
+    fill="#8f9bab"
+  >
+    IPAM / MONITORING
+  </text>
+  <text
+    x="106"
+    y="164"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="44"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    Subnets, scopes, zones, and one monitoring workspace
+  </text>
+  <text
+    x="106"
+    y="204"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="18"
+    fill="#b9c3d1"
+  >
+    Track where addresses live and whether the services that use them are
+    actually reachable.
+  </text>
+
+  <rect
+    x="106"
+    y="250"
+    width="704"
+    height="548"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="138"
+    y="292"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    SUBNETS
+  </text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect
+      x="138"
+      y="322"
+      width="640"
+      height="124"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="166" y="358" font-size="28" font-weight="700" fill="#ecf2f8">
+      10.0.31.0/24 · Server VLAN 31
+    </text>
+    <text x="166" y="388" font-size="16" fill="#b9c3d1">
+      linked VLAN 31 · management and services
+    </text>
+    <rect
+      x="166"
+      y="410"
+      width="540"
+      height="14"
+      rx="7"
+      fill="rgba(255,255,255,0.08)"
+    />
+    <rect x="166" y="410" width="248" height="14" rx="7" fill="#f29d38" />
+    <text x="718" y="421" font-size="14" fill="#ecf2f8">92 / 254 used</text>
+
+    <rect
+      x="138"
+      y="470"
+      width="640"
+      height="124"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="166" y="506" font-size="28" font-weight="700" fill="#ecf2f8">
+      10.0.14.0/24 · Guest VLAN 14
+    </text>
+    <text x="166" y="536" font-size="16" fill="#b9c3d1">
+      DHCP scope 10.0.14.50-10.0.14.220 · isolated clients
+    </text>
+    <rect
+      x="166"
+      y="558"
+      width="540"
+      height="14"
+      rx="7"
+      fill="rgba(255,255,255,0.08)"
+    />
+    <rect x="166" y="558" width="116" height="14" rx="7" fill="#4dc8d7" />
+    <text x="718" y="569" font-size="14" fill="#ecf2f8">41 / 254 used</text>
+
+    <rect
+      x="138"
+      y="618"
+      width="640"
+      height="148"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="166" y="654" font-size="24" font-weight="700" fill="#ecf2f8">
+      Zones and scopes
+    </text>
+    <text x="166" y="686" font-size="16" fill="#b9c3d1">
+      • static: 10.0.31.10-10.0.31.49
+    </text>
+    <text x="166" y="714" font-size="16" fill="#b9c3d1">
+      • infrastructure: 10.0.31.1-10.0.31.9
+    </text>
+    <text x="166" y="742" font-size="16" fill="#b9c3d1">
+      • DHCP: 10.0.14.50-10.0.14.220
+    </text>
+  </g>
+
+  <rect
+    x="846"
+    y="250"
+    width="592"
+    height="548"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="878"
+    y="292"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    MONITORING WORKSPACE
+  </text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect
+      x="878"
+      y="322"
+      width="528"
+      height="76"
+      rx="16"
+      fill="rgba(89,195,106,0.08)"
+      stroke="rgba(89,195,106,0.22)"
+    />
+    <text x="906" y="354" font-size="24" font-weight="700" fill="#ecf2f8">
+      fw-01 · Management ICMP
+    </text>
+    <text x="906" y="380" font-size="16" fill="#b9c3d1">
+      10.0.10.1 · last check 43s ago
+    </text>
+    <rect
+      x="1288"
+      y="340"
+      width="90"
+      height="28"
+      rx="14"
+      fill="rgba(89,195,106,0.14)"
+      stroke="rgba(89,195,106,0.28)"
+    />
+    <text x="1314" y="359" font-size="14" font-weight="700" fill="#59c36a">
+      online
+    </text>
+
+    <rect
+      x="878"
+      y="414"
+      width="528"
+      height="76"
+      rx="16"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="906" y="446" font-size="24" font-weight="700" fill="#ecf2f8">
+      pve-01 · vSwitch-Servers uplink TCP
+    </text>
+    <text x="906" y="472" font-size="16" fill="#b9c3d1">
+      10.0.10.11:22 · last check 44s ago
+    </text>
+    <rect
+      x="1288"
+      y="432"
+      width="90"
+      height="28"
+      rx="14"
+      fill="rgba(89,195,106,0.14)"
+      stroke="rgba(89,195,106,0.28)"
+    />
+    <text x="1314" y="451" font-size="14" font-weight="700" fill="#59c36a">
+      online
+    </text>
+
+    <rect
+      x="878"
+      y="506"
+      width="528"
+      height="76"
+      rx="16"
+      fill="rgba(222,102,102,0.08)"
+      stroke="rgba(222,102,102,0.22)"
+    />
+    <text x="906" y="538" font-size="24" font-weight="700" fill="#ecf2f8">
+      backup-01 · Management ICMP
+    </text>
+    <text x="906" y="564" font-size="16" fill="#b9c3d1">
+      10.0.10.21 · alert sent via Discord, Telegram, SMTP
+    </text>
+    <rect
+      x="1284"
+      y="524"
+      width="94"
+      height="28"
+      rx="14"
+      fill="rgba(222,102,102,0.14)"
+      stroke="rgba(222,102,102,0.28)"
+    />
+    <text x="1310" y="543" font-size="14" font-weight="700" fill="#de6666">
+      offline
+    </text>
+
+    <rect
+      x="878"
+      y="622"
+      width="528"
+      height="144"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="906" y="658" font-size="24" font-weight="700" fill="#ecf2f8">
+      Why operators like this view
+    </text>
+    <text x="906" y="690" font-size="16" fill="#b9c3d1">
+      • one place to see all enabled checks
+    </text>
+    <text x="906" y="718" font-size="16" fill="#b9c3d1">
+      • per-target status instead of a single device flag
+    </text>
+    <text x="906" y="746" font-size="16" fill="#b9c3d1">
+      • ties directly back to inventory, VLANs, and IPAM
+    </text>
+  </g>
+</svg>

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 10
+const CURRENT_SCHEMA_VERSION = 11
 
 export const db = new Database(DB_PATH)
 
@@ -490,6 +490,12 @@ const SCHEMA_MIGRATIONS = [
 
       CREATE INDEX IF NOT EXISTS idx_ports_virtual_switch_id
         ON ports (virtualSwitchId);
+    `,
+  },
+  {
+    version: 11,
+    sql: `
+      ALTER TABLE virtualSwitches ADD COLUMN kind TEXT NOT NULL DEFAULT 'external';
     `,
   },
 ] as const

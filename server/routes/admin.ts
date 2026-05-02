@@ -164,8 +164,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertVirtualSwitch = db.prepare(`
-    INSERT INTO virtualSwitches (id, hostDeviceId, name, notes)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO virtualSwitches (id, hostDeviceId, name, kind, notes)
+    VALUES (?, ?, ?, ?, ?)
   `)
   const insertPort = db.prepare(`
     INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId)
@@ -279,6 +279,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.id,
       row.hostDeviceId,
       row.name,
+      row.kind ?? 'external',
       row.notes ?? null,
     )
   }

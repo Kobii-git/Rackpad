@@ -1,7 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
 import { createId } from '../lib/ids.js'
-import { asObject, optionalString, requiredString, ValidationError } from '../lib/validation.js'
+import { asObject, optionalEnum, optionalString, requiredString, ValidationError } from '../lib/validation.js'
+
+const VIRTUAL_SWITCH_KINDS = ['external', 'internal', 'private'] as const
 
 type DeviceContext = {
   id: string
@@ -16,6 +18,7 @@ function parseVirtualSwitch(row: Record<string, unknown>) {
     id: String(row.id),
     hostDeviceId: String(row.hostDeviceId),
     name: String(row.name),
+    kind: row.kind ? String(row.kind) : 'external',
     notes: row.notes ? String(row.notes) : null,
   }
 }
@@ -100,14 +103,15 @@ export const virtualSwitchesRoutes: FastifyPluginAsync = async (app) => {
     const id = optionalString(body, 'id', { maxLength: 80 }) ?? createId('vsw')
     const hostDeviceId = requiredString(body, 'hostDeviceId', { maxLength: 80 })
     const name = requiredString(body, 'name', { maxLength: 120 })
+    const kind = optionalEnum(body, 'kind', VIRTUAL_SWITCH_KINDS) ?? 'external'
     const notes = optionalString(body, 'notes', { maxLength: 2000 })
 
     requireHostDevice(hostDeviceId)
 
     db.prepare(`
-      INSERT INTO virtualSwitches (id, hostDeviceId, name, notes)
-      VALUES (?, ?, ?, ?)
-    `).run(id, hostDeviceId, name, notes ?? null)
+      INSERT INTO virtualSwitches (id, hostDeviceId, name, kind, notes)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, hostDeviceId, name, kind, notes ?? null)
 
     return reply.status(201).send(parseVirtualSwitch(getVirtualSwitchRow(id)!))
   })
@@ -123,6 +127,7 @@ export const virtualSwitchesRoutes: FastifyPluginAsync = async (app) => {
     const values: unknown[] = []
 
     const name = optionalString(body, 'name', { maxLength: 120 })
+    const kind = optionalEnum(body, 'kind', VIRTUAL_SWITCH_KINDS)
     const notes = optionalString(body, 'notes', { maxLength: 2000 })
 
     if (name !== undefined) {
@@ -131,6 +136,11 @@ export const virtualSwitchesRoutes: FastifyPluginAsync = async (app) => {
       }
       updates.push('name = ?')
       values.push(name)
+    }
+
+    if (kind !== undefined) {
+      updates.push('kind = ?')
+      values.push(kind ?? 'external')
     }
 
     if (notes !== undefined) {

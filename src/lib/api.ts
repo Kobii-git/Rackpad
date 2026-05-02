@@ -54,7 +54,9 @@ export type IpAssignmentPatch = Nullable<Omit<IpAssignment, "id">>;
 export type VlanPatch = Nullable<Omit<Vlan, "id" | "labId">>;
 export type VlanRangePatch = Nullable<Omit<VlanRange, "id" | "labId">>;
 export type PortPatch = Nullable<Omit<Port, "id" | "deviceId" | "position">>;
-export type VirtualSwitchPatch = Nullable<Pick<VirtualSwitch, "name" | "notes">>;
+export type VirtualSwitchPatch = Nullable<
+  Pick<VirtualSwitch, "name" | "kind" | "notes">
+>;
 export type PortLinkPatch = Nullable<
   Omit<PortLink, "id" | "fromPortId" | "toPortId">
 >;

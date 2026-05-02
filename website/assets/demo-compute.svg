@@ -1,0 +1,351 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1600 900"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Rackpad demo compute view</title>
+  <desc id="desc">
+    A dark Rackpad compute preview showing host capacity, guest mappings, and
+    virtual switch memberships.
+  </desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0a1017" />
+      <stop offset="100%" stop-color="#111b27" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)" />
+  <rect
+    x="54"
+    y="42"
+    width="1492"
+    height="816"
+    rx="30"
+    fill="#101823"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="104"
+    y="112"
+    font-family="Consolas, monospace"
+    font-size="16"
+    letter-spacing="4"
+    fill="#8f9bab"
+  >
+    COMPUTE
+  </text>
+  <text
+    x="104"
+    y="164"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="44"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    Compute hosts, guests, bridges, and documented capacity
+  </text>
+  <text
+    x="104"
+    y="204"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="18"
+    fill="#b9c3d1"
+  >
+    Track how guest VMs land on hosts and how their NICs join shared external,
+    internal, or private virtual switching fabrics.
+  </text>
+
+  <g transform="translate(104 248)">
+    <g>
+      <rect
+        width="328"
+        height="106"
+        rx="20"
+        fill="#141d2a"
+        stroke="rgba(255,255,255,0.08)"
+      />
+      <text
+        x="26"
+        y="34"
+        font-family="Consolas, monospace"
+        font-size="14"
+        letter-spacing="2"
+        fill="#8f9bab"
+      >
+        HOSTS
+      </text>
+      <text
+        x="26"
+        y="84"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="40"
+        font-weight="700"
+        fill="#ecf2f8"
+      >
+        4
+      </text>
+    </g>
+    <g transform="translate(354 0)">
+      <rect
+        width="328"
+        height="106"
+        rx="20"
+        fill="#141d2a"
+        stroke="rgba(255,255,255,0.08)"
+      />
+      <text
+        x="26"
+        y="34"
+        font-family="Consolas, monospace"
+        font-size="14"
+        letter-spacing="2"
+        fill="#8f9bab"
+      >
+        ACTIVE HOSTS
+      </text>
+      <text
+        x="26"
+        y="84"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="40"
+        font-weight="700"
+        fill="#ecf2f8"
+      >
+        2
+      </text>
+    </g>
+    <g transform="translate(708 0)">
+      <rect
+        width="328"
+        height="106"
+        rx="20"
+        fill="#141d2a"
+        stroke="rgba(255,255,255,0.08)"
+      />
+      <text
+        x="26"
+        y="34"
+        font-family="Consolas, monospace"
+        font-size="14"
+        letter-spacing="2"
+        fill="#8f9bab"
+      >
+        VMS
+      </text>
+      <text
+        x="26"
+        y="84"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="40"
+        font-weight="700"
+        fill="#ecf2f8"
+      >
+        9
+      </text>
+    </g>
+    <g transform="translate(1062 0)">
+      <rect
+        width="328"
+        height="106"
+        rx="20"
+        fill="#141d2a"
+        stroke="rgba(255,255,255,0.08)"
+      />
+      <text
+        x="26"
+        y="34"
+        font-family="Consolas, monospace"
+        font-size="14"
+        letter-spacing="2"
+        fill="#8f9bab"
+      >
+        UNASSIGNED VMS
+      </text>
+      <text
+        x="26"
+        y="84"
+        font-family="Segoe UI, Arial, sans-serif"
+        font-size="40"
+        font-weight="700"
+        fill="#ecf2f8"
+      >
+        0
+      </text>
+    </g>
+  </g>
+
+  <rect
+    x="104"
+    y="386"
+    width="912"
+    height="388"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="136"
+    y="428"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    HOST · pve-01
+  </text>
+  <text
+    x="136"
+    y="470"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="34"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    Primary hypervisor
+  </text>
+  <text
+    x="136"
+    y="500"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="16"
+    fill="#b9c3d1"
+  >
+    10.0.10.11 · online · 8 VMs · virtual bridges: vSwitch-Servers, vSwitch-Lab,
+    vSwitch-Private
+  </text>
+
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <text x="136" y="552" font-size="15" fill="#8f9bab">CPU</text>
+    <rect
+      x="136"
+      y="566"
+      width="246"
+      height="12"
+      rx="6"
+      fill="rgba(255,255,255,0.08)"
+    />
+    <rect x="136" y="566" width="180" height="12" rx="6" fill="#f29d38" />
+    <text x="392" y="577" font-size="15" fill="#ecf2f8">24 / 32 cores</text>
+
+    <text x="136" y="620" font-size="15" fill="#8f9bab">Memory</text>
+    <rect
+      x="136"
+      y="634"
+      width="246"
+      height="12"
+      rx="6"
+      fill="rgba(255,255,255,0.08)"
+    />
+    <rect x="136" y="634" width="158" height="12" rx="6" fill="#4dc8d7" />
+    <text x="392" y="645" font-size="15" fill="#ecf2f8">192 / 384 GB</text>
+
+    <text x="136" y="688" font-size="15" fill="#8f9bab">Storage</text>
+    <rect
+      x="136"
+      y="702"
+      width="246"
+      height="12"
+      rx="6"
+      fill="rgba(255,255,255,0.08)"
+    />
+    <rect x="136" y="702" width="132" height="12" rx="6" fill="#59c36a" />
+    <text x="392" y="713" font-size="15" fill="#ecf2f8">14 / 28 TB</text>
+  </g>
+
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect
+      x="468"
+      y="542"
+      width="516"
+      height="196"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="498" y="578" font-size="24" font-weight="700" fill="#ecf2f8">
+      Guest mappings
+    </text>
+    <text x="498" y="612" font-size="17" fill="#b9c3d1">
+      vm-opnsense-01 → vSwitch-Servers + vSwitch-Private
+    </text>
+    <text x="498" y="642" font-size="17" fill="#b9c3d1">
+      vm-gitea-01 → vSwitch-Servers
+    </text>
+    <text x="498" y="672" font-size="17" fill="#b9c3d1">
+      vm-homeassistant-01 → vSwitch-Lab
+    </text>
+    <text x="498" y="702" font-size="17" fill="#b9c3d1">
+      vm-media-01 → vSwitch-Servers
+    </text>
+  </g>
+
+  <rect
+    x="1050"
+    y="386"
+    width="392"
+    height="388"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="1082"
+    y="428"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    VIRTUAL SWITCHES
+  </text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect
+      x="1082"
+      y="456"
+      width="328"
+      height="74"
+      rx="16"
+      fill="rgba(242,157,56,0.14)"
+      stroke="rgba(242,157,56,0.28)"
+    />
+    <text x="1108" y="486" font-size="24" font-weight="700" fill="#ecf2f8">
+      vSwitch-Servers
+    </text>
+    <text x="1108" y="512" font-size="15" fill="#8f9bab">
+      external · 1 host uplink · 4 guest NICs
+    </text>
+
+    <rect
+      x="1082"
+      y="552"
+      width="328"
+      height="74"
+      rx="16"
+      fill="rgba(77,200,215,0.14)"
+      stroke="rgba(77,200,215,0.28)"
+    />
+    <text x="1108" y="582" font-size="24" font-weight="700" fill="#ecf2f8">
+      vSwitch-Lab
+    </text>
+    <text x="1108" y="608" font-size="15" fill="#8f9bab">
+      internal · 0 host uplinks · 2 guest NICs
+    </text>
+
+    <rect
+      x="1082"
+      y="648"
+      width="328"
+      height="74"
+      rx="16"
+      fill="rgba(255,255,255,0.05)"
+      stroke="rgba(255,255,255,0.1)"
+    />
+    <text x="1108" y="678" font-size="24" font-weight="700" fill="#ecf2f8">
+      vSwitch-Private
+    </text>
+    <text x="1108" y="704" font-size="15" fill="#8f9bab">
+      private · 0 host uplinks · 1 guest NIC
+    </text>
+  </g>
+</svg>

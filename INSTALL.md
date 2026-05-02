@@ -7,13 +7,25 @@ This guide gives you two ways to install Rackpad:
 
 Docker is the recommended path for first testing because it handles the Node runtime and keeps the SQLite database in a persistent volume.
 
-Current version in this guide: `v0.9.6`
+Current version in this guide: `v0.9.7`
 
 ## Before you start
 
 - Use a Linux server or VM.
 - Make sure port `3000` is open on your firewall if you want to reach Rackpad from another machine.
 - Rackpad now requires authentication, but you should still keep it on a private LAN or behind a VPN for early testing.
+
+## System requirements
+
+Practical starting point for a first deployment:
+
+- 64-bit Linux host or VM
+- `2 vCPU / 4 GB RAM` minimum for testing
+- `4 vCPU / 8 GB RAM` recommended once discovery, monitoring, backups, and a fuller inventory are active
+- `10 GB` free disk minimum, `20+ GB` preferred
+- Docker Engine with the Compose plugin, or Node `22 LTS` with `npm`
+
+For a companion static project site on IIS, see [website/README.md](./website/README.md).
 
 ## Option 1: Docker install
 
@@ -27,6 +39,11 @@ sudo apt-get install -y docker.io docker-compose-plugin
 sudo systemctl enable --now docker
 ```
 
+For longer-lived deployments, prefer Docker Engine from the official Docker
+repository and verify the current steps in Docker Docs:
+
+- [Install Docker Engine on Ubuntu](https://docs.docker.com/installation/ubuntulinux/)
+
 Optional: allow your user to run Docker without `sudo`.
 
 ```bash
@@ -38,7 +55,7 @@ newgrp docker
 
 ```bash
 cd /opt
-git clone --branch v0.9.6 --depth 1 https://github.com/Kobii-git/Rackpad.git
+git clone --branch v0.9.7 --depth 1 https://github.com/Kobii-git/Rackpad.git
 cd Rackpad
 ```
 
@@ -120,11 +137,11 @@ Update it after new code changes:
 
 ```bash
 git fetch --tags
-git checkout v0.9.6
+git checkout v0.9.7
 docker compose up --build -d
 ```
 
-When a newer release exists, replace `v0.9.6` with the newer version tag.
+When a newer release exists, replace `v0.9.7` with the newer version tag.
 
 Remove the app and database completely:
 
@@ -165,7 +182,7 @@ This matches the included `rackpad.service`, which starts Rackpad with `/usr/bin
 
 ```bash
 cd /opt
-git clone --branch v0.9.6 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
+git clone --branch v0.9.7 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
 cd /opt/rackpad
 ```
 

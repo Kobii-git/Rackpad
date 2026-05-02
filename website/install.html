@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>
+      Install Rackpad | Linux, Docker, requirements, and deployment guide
+    </title>
+    <meta
+      name="description"
+      content="Install Rackpad from scratch with Linux, Docker, Node, system requirements, first-run steps, upgrades, backups, and reverse proxy guidance."
+    />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="container site-header-inner">
+          <a class="brand" href="index.html" aria-label="Rackpad home">
+            <img class="brand-mark" src="assets/favicon.svg" alt="" />
+            <span class="brand-copy">
+              <strong>Rackpad</strong>
+              <span>Infrastructure inventory and operations</span>
+            </span>
+          </a>
+
+          <button
+            class="button button-secondary nav-toggle"
+            type="button"
+            data-nav-toggle
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            Menu
+          </button>
+
+          <nav class="nav-menu" data-nav-menu data-open="false">
+            <a class="nav-link" href="index.html">Home</a>
+            <a class="nav-link" href="#requirements">Requirements</a>
+            <a class="nav-link" href="#docker">Docker</a>
+            <a class="nav-link" href="#native">Native</a>
+            <a class="nav-link" href="#upgrade">Upgrade</a>
+            <a class="nav-link" href="legal.html">Legal</a>
+          </nav>
+
+          <div class="header-actions">
+            <a
+              class="button button-secondary"
+              href="https://github.com/Kobii-git/Rackpad"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+            <a class="button button-primary" href="index.html#install"
+              >Quick start</a
+            >
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="page-hero">
+          <div class="container">
+            <div class="kicker">Installation guide</div>
+            <h1>Deploy Rackpad from scratch.</h1>
+            <p>
+              This page is designed for self-hosted operators who want the
+              entire path in one place: requirements, Docker setup, GitHub
+              clone, first-run bootstrapping, backups, upgrades, and the
+              reverse-proxy posture to use before calling the app
+              production-ish.
+            </p>
+            <div class="page-nav">
+              <a href="#requirements">System requirements</a>
+              <a href="#docker">Docker on Linux</a>
+              <a href="#native">Native Node path</a>
+              <a href="#iissite">Hosting this website on IIS</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-tight" id="requirements">
+          <div class="container">
+            <div class="section-header">
+              <div class="kicker">Requirements</div>
+              <h2>
+                Use practical operator requirements, not theoretical minimums.
+              </h2>
+              <p>
+                Rackpad is light compared with large DCIM suites, but it still
+                benefits from a stable Linux host, persistent storage, and a
+                runtime that can support SQLite, monitoring checks, and regular
+                backups.
+              </p>
+            </div>
+
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Recommended starting point</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Host OS</strong></td>
+                  <td>64-bit Linux VM or server</td>
+                  <td>
+                    Ubuntu or Debian-class hosts are the easiest path for Docker
+                    and Node-based testing.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>CPU and RAM</strong></td>
+                  <td>2 vCPU / 4 GB RAM minimum, 4 vCPU / 8 GB recommended</td>
+                  <td>
+                    Enough for the app, SQLite, monitoring, and a moderate lab
+                    inventory without contention.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Disk</strong></td>
+                  <td>10 GB free minimum, 20+ GB SSD preferred</td>
+                  <td>
+                    Allows room for images, rebuilds, backup exports, and growth
+                    in audit and discovery data.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Networking</strong></td>
+                  <td>Port 3000 reachable from the admin network</td>
+                  <td>
+                    Use a reverse proxy and TLS if the app leaves a private LAN
+                    or VPN-only environment.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Operational reach</strong></td>
+                  <td>
+                    ICMP and TCP reachability from the Rackpad host or container
+                  </td>
+                  <td>
+                    Discovery, monitoring, and some WiFi or bridge workflows are
+                    only useful if Rackpad can actually reach the subnets,
+                    controllers, and host uplinks you want it to observe.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Alert egress</strong></td>
+                  <td>
+                    Outbound SMTP, Discord webhook, or Telegram API access if
+                    notifications are enabled
+                  </td>
+                  <td>
+                    Optional, but needed for alert delivery beyond the in-app
+                    monitoring workspace.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Runtime</strong></td>
+                  <td>Docker Engine + Compose plugin, or Node 22 LTS + npm</td>
+                  <td>
+                    Docker is the recommended test path. Native Node is best for
+                    custom service deployments.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" id="docker">
+          <div class="container">
+            <div class="section-header">
+              <div class="kicker">Recommended path</div>
+              <h2>Option 1: Docker on a Linux host</h2>
+              <p>
+                Docker is the fastest and most forgiving deployment path for
+                Rackpad because it keeps the app runtime consistent, handles the
+                bundled frontend/API container, and stores SQLite data in a
+                persistent volume. The official Docker install guidance for
+                Ubuntu is available from Docker Docs.
+              </p>
+            </div>
+
+            <div class="steps">
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">1</span>Install Docker Engine and
+                  Compose</strong
+                >
+                <p>
+                  On Ubuntu or Debian, install Docker Engine from the official
+                  Docker repository, then confirm both the engine and compose
+                  plugin are available.
+                </p>
+                <ul>
+                  <li>Install the Docker repository prerequisites and key.</li>
+                  <li>Add the Docker apt repository for your Linux release.</li>
+                  <li>
+                    Install Docker Engine, CLI, container runtime, buildx, and
+                    the Compose plugin.
+                  </li>
+                  <li>
+                    Enable the Docker service and confirm it starts cleanly.
+                  </li>
+                </ul>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">2</span>Clone the Rackpad
+                  repository</strong
+                >
+                <p>
+                  Clone Rackpad from GitHub into a working directory such as
+                  <span class="mono">/opt/Rackpad</span> or your home folder.
+                </p>
+                <div class="code-card stack-gap-top">
+                  <div class="code-card-header">
+                    <div>
+                      <strong>Clone from GitHub</strong>
+                      <span>private or public repository path</span>
+                    </div>
+                    <button class="copy-button" data-copy-target="#clone-code">
+                      Copy
+                    </button>
+                  </div>
+                  <pre
+                    id="clone-code"
+                  ><code>git clone https://github.com/Kobii-git/Rackpad.git
+cd Rackpad</code></pre>
+                </div>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">3</span>Create your environment
+                  file</strong
+                >
+                <p>
+                  Start with the bundled example file and set the port you want
+                  Rackpad to expose.
+                </p>
+                <div class="code-card stack-gap-top">
+                  <div class="code-card-header">
+                    <div>
+                      <strong>Basic environment setup</strong>
+                      <span>minimum Docker path</span>
+                    </div>
+                    <button class="copy-button" data-copy-target="#env-code">
+                      Copy
+                    </button>
+                  </div>
+                  <pre id="env-code"><code>cp .env.example .env
+
+# at minimum:
+RACKPAD_PORT=3000
+
+# if deploying behind a reverse proxy:
+TRUST_PROXY=1
+TRUSTED_HOSTS=rackpad.example.com
+TRUSTED_ORIGINS=https://rackpad.example.com</code></pre>
+                </div>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">4</span>Build and start
+                  Rackpad</strong
+                >
+                <p>
+                  Compose builds the production image and starts the stack. The
+                  app will be reachable on the configured port once the
+                  container reports healthy.
+                </p>
+                <div class="code-card stack-gap-top">
+                  <div class="code-card-header">
+                    <div>
+                      <strong>Build and run</strong>
+                      <span>one-container full app stack</span>
+                    </div>
+                    <button class="copy-button" data-copy-target="#docker-code">
+                      Copy
+                    </button>
+                  </div>
+                  <pre id="docker-code"><code>docker compose up --build -d
+docker compose ps
+docker compose logs -f --tail=100</code></pre>
+                </div>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">5</span>Complete the first-run
+                  flow</strong
+                >
+                <p>
+                  Open <span class="mono">http://SERVER_IP:3000</span>, create
+                  the initial admin account, sign in, and choose whether to
+                  start empty or preload the demo environment.
+                </p>
+                <ul>
+                  <li>
+                    The demo path now includes racks, shelves or trays, brush
+                    and blanking panels, multi-target monitors, controller-aware
+                    WiFi, virtual switches, discovery entries, and compute guest
+                    mappings.
+                  </li>
+                  <li>
+                    Use the demo first if you want a quick screenshot-ready
+                    walkthrough before documenting your real lab.
+                  </li>
+                </ul>
+              </article>
+            </div>
+
+            <div class="callout">
+              <strong>Official Docker references</strong>
+              <p>
+                For the current Docker Engine install flow on Ubuntu and
+                supported distributions, verify the latest repository steps in
+                Docker's documentation before rolling out broadly:
+                <a
+                  class="button-link"
+                  href="https://docs.docker.com/installation/ubuntulinux/"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  docs.docker.com/installation/ubuntulinux
+                </a>
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="native">
+          <div class="container">
+            <div class="section-header">
+              <div class="kicker">Alternative path</div>
+              <h2>Option 2: Native Node.js install</h2>
+              <p>
+                Use the native path if you want Rackpad to run directly as a
+                Linux service instead of inside Docker. This path expects Node
+                22 LTS and the ability to install the app dependencies locally.
+              </p>
+            </div>
+
+            <div class="steps">
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">1</span>Install Node 22 and build
+                  prerequisites</strong
+                >
+                <p>
+                  Prepare the host with Node 22 LTS, npm, compiler tools, and
+                  Python so the SQLite dependency can install cleanly if a
+                  prebuilt binary is not available.
+                </p>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">2</span>Install app dependencies
+                  and build</strong
+                >
+                <div class="code-card stack-gap-top">
+                  <div class="code-card-header">
+                    <div>
+                      <strong>Build for native service use</strong>
+                      <span>Node 22 expected</span>
+                    </div>
+                    <button class="copy-button" data-copy-target="#native-code">
+                      Copy
+                    </button>
+                  </div>
+                  <pre id="native-code"><code>npm install
+npm run build
+
+HOST=0.0.0.0 PORT=3000 DATABASE_PATH=./rackpad.db npm start</code></pre>
+                </div>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">3</span>Optionally install as
+                  systemd service</strong
+                >
+                <p>
+                  Rackpad includes a sample
+                  <span class="mono">rackpad.service</span> file you can adapt
+                  for a native Linux service deployment. This is the better fit
+                  if you want Rackpad to reach monitoring or discovery targets
+                  directly from the host network instead of from a container.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-tight" id="upgrade">
+          <div class="container overview-grid">
+            <article class="overview-card">
+              <div class="kicker">Upgrade and backup</div>
+              <h3>Plan for updates before you need them.</h3>
+              <div class="overview-list">
+                <div class="simple-row">
+                  <div>
+                    <strong>Before updating</strong>
+                    <span
+                      >download a JSON backup from the Users or admin area</span
+                    >
+                  </div>
+                  <span class="pill pill-accent">Backup</span>
+                </div>
+                <div class="simple-row">
+                  <div>
+                    <strong>Update path</strong>
+                    <span
+                      ><span class="mono">git pull origin main</span> or
+                      checkout a release tag, then rebuild compose</span
+                    >
+                  </div>
+                  <span class="pill pill-neutral">Deploy</span>
+                </div>
+                <div class="simple-row">
+                  <div>
+                    <strong>Demo-first testing</strong>
+                    <span
+                      >validate racks, shelves, bridges, WiFi, discovery,
+                      monitoring, and restore before loading a real lab</span
+                    >
+                  </div>
+                  <span class="pill pill-accent">Validate</span>
+                </div>
+                <div class="simple-row">
+                  <div>
+                    <strong>Volume safety</strong>
+                    <span
+                      >do not use
+                      <span class="mono">docker compose down -v</span> unless
+                      you intentionally want to remove the database volume</span
+                    >
+                  </div>
+                  <span class="pill pill-info">Persistence</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="overview-card" id="iissite">
+              <div class="kicker">Website hosting</div>
+              <h3>Hosting the Rackpad product site on IIS</h3>
+              <p>
+                The marketing and documentation site in the
+                <span class="mono">website/</span> folder is a separate static
+                bundle from the Rackpad app. It can be copied directly to an IIS
+                site root such as <span class="mono">rackpad.co.za</span>.
+              </p>
+              <ul>
+                <li>
+                  Copy the contents of <span class="mono">website/</span> to the
+                  IIS site root.
+                </li>
+                <li>
+                  Keep the bundled <span class="mono">web.config</span> in
+                  place.
+                </li>
+                <li>
+                  Enable the IIS <span class="mono">Static Content</span> and
+                  <span class="mono">Default Document</span> features.
+                </li>
+                <li>Bind the site to HTTPS with your certificate.</li>
+                <li>
+                  Keep the app itself on Linux or Docker; IIS is only for the
+                  Rackpad product and documentation site.
+                </li>
+              </ul>
+              <div class="callout">
+                <strong>Official IIS reference</strong>
+                <p>
+                  Microsoft's static-site guidance for IIS is here:
+                  <a
+                    class="button-link"
+                    href="https://learn.microsoft.com/en-us/iis/manage/creating-websites/scenario-build-a-static-website-on-iis"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    learn.microsoft.com static IIS setup
+                  </a>
+                </p>
+              </div>
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container footer-grid">
+          <div class="footer-brand">
+            <div class="brand">
+              <img class="brand-mark" src="assets/favicon.svg" alt="" />
+              <span class="brand-copy">
+                <strong>Rackpad</strong>
+                <span>rackpad.co.za</span>
+              </span>
+            </div>
+            <p>
+              Detailed deployment notes for the self-hosted app and the
+              companion product website.
+            </p>
+          </div>
+          <div class="footer-links">
+            <strong>Pages</strong>
+            <a href="index.html">Overview</a>
+            <a href="legal.html">Legal and support</a>
+            <a
+              href="https://github.com/Kobii-git/Rackpad"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub repository
+            </a>
+          </div>
+          <div class="footer-meta">
+            <strong>Ops note</strong>
+            <p>Docker is the recommended first deployment path.</p>
+            <p>
+              Put Rackpad behind HTTPS and a reverse proxy before broader
+              exposure.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

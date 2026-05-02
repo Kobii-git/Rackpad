@@ -56,6 +56,7 @@ export type UserRole = "admin" | "editor" | "viewer";
 export type MonitorType = "none" | "icmp" | "tcp" | "http" | "https";
 export type DiscoveryStatus = "new" | "imported" | "dismissed";
 export type WifiBand = "2.4ghz" | "5ghz" | "6ghz";
+export type VirtualSwitchKind = "external" | "internal" | "private";
 
 export interface AlertSettings {
   enabled: boolean;
@@ -138,6 +139,7 @@ export interface VirtualSwitch {
   id: ID;
   hostDeviceId: ID;
   name: string;
+  kind: VirtualSwitchKind;
   notes?: string | null;
 }
 

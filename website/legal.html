@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Rackpad legal, license, copyright, and security information</title>
+    <meta
+      name="description"
+      content="Rackpad licensing, copyright, project notice, security reporting, and support guidance."
+    />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="container site-header-inner">
+          <a class="brand" href="index.html" aria-label="Rackpad home">
+            <img class="brand-mark" src="assets/favicon.svg" alt="" />
+            <span class="brand-copy">
+              <strong>Rackpad</strong>
+              <span>Infrastructure inventory and operations</span>
+            </span>
+          </a>
+
+          <button
+            class="button button-secondary nav-toggle"
+            type="button"
+            data-nav-toggle
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            Menu
+          </button>
+
+          <nav class="nav-menu" data-nav-menu data-open="false">
+            <a class="nav-link" href="index.html">Home</a>
+            <a class="nav-link" href="install.html">Install</a>
+            <a class="nav-link" href="#license">License</a>
+            <a class="nav-link" href="#security">Security</a>
+            <a class="nav-link" href="#support">Support</a>
+          </nav>
+
+          <div class="header-actions">
+            <a
+              class="button button-secondary"
+              href="https://github.com/Kobii-git/Rackpad"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+            <a class="button button-primary" href="install.html"
+              >Install guide</a
+            >
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="page-hero">
+          <div class="container">
+            <div class="kicker">Legal and release readiness</div>
+            <h1>
+              License, copyright, security, and support basics for Rackpad.
+            </h1>
+            <p>
+              These notes are meant to make the project easier to publish,
+              clone, deploy, and maintain before the V1 release. They do not
+              replace professional legal advice, but they do give the repository
+              the standard project files operators expect when evaluating a
+              self-hosted tool.
+            </p>
+            <div class="page-nav">
+              <a href="#license">License</a>
+              <a href="#notice">Project notice</a>
+              <a href="#security">Security reporting</a>
+              <a href="#support">Support scope</a>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-tight">
+          <div class="container legal-grid">
+            <aside class="legal-sidebar">
+              <article class="legal-card">
+                <div class="kicker">Repository files</div>
+                <h3>Included in the V1 prep pack</h3>
+                <ul class="legal-list">
+                  <li><span class="mono">LICENSE</span></li>
+                  <li><span class="mono">NOTICE.md</span></li>
+                  <li><span class="mono">SECURITY.md</span></li>
+                  <li><span class="mono">SUPPORT.md</span></li>
+                  <li>
+                    <span class="mono">website/</span> IIS-ready static site
+                  </li>
+                </ul>
+              </article>
+              <article class="legal-card">
+                <div class="kicker">Maintainer-facing note</div>
+                <h3>Current assumption</h3>
+                <p>
+                  For this release-prep pass, the repository license has been
+                  staged as MIT because there was no contrary preference
+                  supplied during implementation. If you want a different
+                  licensing model before V1, change the root license file before
+                  announcing the public release.
+                </p>
+              </article>
+            </aside>
+
+            <div class="stack">
+              <article class="legal-card" id="license">
+                <div class="kicker">License</div>
+                <h3>MIT for the repository source and docs</h3>
+                <p>
+                  Rackpad is currently set up with an MIT license at the repo
+                  root. That gives future users a straightforward cloning and
+                  reuse story while keeping the standard copyright notice
+                  intact.
+                </p>
+                <ul>
+                  <li>
+                    Source, docs, and website files are covered by the repo root
+                    license unless stated otherwise.
+                  </li>
+                  <li>Third-party packages remain under their own licenses.</li>
+                  <li>
+                    Redistributors should keep the Rackpad notice and
+                    third-party obligations intact.
+                  </li>
+                </ul>
+              </article>
+
+              <article class="legal-card" id="notice">
+                <div class="kicker">Copyright and notice</div>
+                <h3>Project identity and attribution</h3>
+                <p>
+                  The project notice explains that Rackpad is a self-hosted
+                  inventory and operations tool and clarifies that the Rackpad
+                  name and visual identity can be used to refer to the project
+                  itself but should not be used to imply maintainer endorsement.
+                </p>
+                <ul>
+                  <li>Copyright notice added at the repository root.</li>
+                  <li>
+                    Website footer includes the same project identity language.
+                  </li>
+                  <li>
+                    Third-party dependency references point back to
+                    <span class="mono">package.json</span> and
+                    <span class="mono">package-lock.json</span>.
+                  </li>
+                </ul>
+              </article>
+
+              <article class="legal-card" id="security">
+                <div class="kicker">Security</div>
+                <h3>Private reporting path before public disclosure</h3>
+                <p>
+                  Rackpad now includes a basic security policy so there is a
+                  private path for sensitive reports and a clear note that older
+                  releases may not receive backported fixes.
+                </p>
+                <ul>
+                  <li>
+                    Prefer GitHub Security Advisories or private maintainer
+                    contact.
+                  </li>
+                  <li>Do not open sensitive issues publicly first.</li>
+                  <li>
+                    Deploy behind TLS and a reverse proxy before broader
+                    exposure.
+                  </li>
+                </ul>
+              </article>
+
+              <article class="legal-card" id="support">
+                <div class="kicker">Support</div>
+                <h3>Clear expectations for a self-hosted operator tool</h3>
+                <p>
+                  Rackpad is framed as a maintained self-hosted project, not a
+                  commercial managed service. The support note asks bug reports
+                  to include deployment method, version, browser context, and
+                  whether the issue reproduces against demo or restored data.
+                </p>
+                <ul>
+                  <li>No implied SLA.</li>
+                  <li>
+                    Best fit: homelabs, workshops, small offices, private infra
+                    inventories.
+                  </li>
+                  <li>
+                    Release notes, install docs, and security guidance are
+                    linked from the repo root.
+                  </li>
+                </ul>
+              </article>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container footer-grid">
+          <div class="footer-brand">
+            <div class="brand">
+              <img class="brand-mark" src="assets/favicon.svg" alt="" />
+              <span class="brand-copy">
+                <strong>Rackpad</strong>
+                <span>rackpad.co.za</span>
+              </span>
+            </div>
+            <p>
+              Repository release-readiness notes for licensing, security, and
+              support.
+            </p>
+          </div>
+          <div class="footer-links">
+            <strong>Repository docs</strong>
+            <a
+              href="https://github.com/Kobii-git/Rackpad"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub repository
+            </a>
+            <a href="install.html">Installation guide</a>
+            <a href="index.html">Overview site</a>
+          </div>
+          <div class="footer-meta">
+            <strong>Legal note</strong>
+            <p>
+              This page summarizes the included project docs and assumptions.
+            </p>
+            <p>
+              Review the repo root files before public V1 release if your
+              licensing posture changes.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

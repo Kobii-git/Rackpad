@@ -1,0 +1,456 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1600 900"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Rackpad demo racks view</title>
+  <desc id="desc">
+    A rack-oriented Rackpad preview showing physical devices, shelf-mounted
+    gear, brush panels, and blanking panels.
+  </desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0b1118" />
+      <stop offset="100%" stop-color="#111a26" />
+    </linearGradient>
+    <linearGradient id="rack" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#162131" />
+      <stop offset="100%" stop-color="#121a26" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)" />
+  <rect
+    x="60"
+    y="50"
+    width="1480"
+    height="800"
+    rx="30"
+    fill="#101823"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="110"
+    y="118"
+    font-family="Consolas, monospace"
+    font-size="16"
+    letter-spacing="4"
+    fill="#8f9bab"
+  >
+    RACKS / NET-01
+  </text>
+  <text
+    x="110"
+    y="172"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="46"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    Cabinet elevation with shelf gear and filler panels
+  </text>
+  <text
+    x="110"
+    y="212"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="18"
+    fill="#b9c3d1"
+  >
+    Document mounted infrastructure, tray devices, and cleanup hardware without
+    breaking physical placement.
+  </text>
+
+  <rect
+    x="110"
+    y="262"
+    width="1120"
+    height="510"
+    rx="26"
+    fill="url(#rack)"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <rect
+    x="124"
+    y="278"
+    width="1092"
+    height="478"
+    rx="22"
+    fill="#0d141d"
+    stroke="rgba(255,255,255,0.06)"
+  />
+  <g font-family="Consolas, monospace" font-size="13" fill="#8f9bab">
+    <text x="148" y="328">42</text>
+    <text x="148" y="372">41</text>
+    <text x="148" y="416">40</text>
+    <text x="148" y="460">39</text>
+    <text x="148" y="504">38</text>
+    <text x="148" y="548">37</text>
+    <text x="148" y="592">36</text>
+    <text x="148" y="636">35</text>
+    <text x="148" y="680">34</text>
+    <text x="148" y="724">33</text>
+  </g>
+  <g>
+    <rect
+      x="204"
+      y="296"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(255,255,255,0.05)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text
+      x="232"
+      y="318"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      Brush Panel A
+    </text>
+    <text
+      x="1040"
+      y="318"
+      font-family="Consolas, monospace"
+      font-size="15"
+      fill="#b9c3d1"
+    >
+      U42 · front
+    </text>
+
+    <rect
+      x="204"
+      y="340"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(77,200,215,0.14)"
+      stroke="rgba(77,200,215,0.24)"
+    />
+    <text
+      x="232"
+      y="362"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      sw-tor-01 · 48-port access + SFP uplinks
+    </text>
+    <circle cx="1128" cy="356" r="7" fill="#59c36a" />
+
+    <rect
+      x="204"
+      y="384"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(255,255,255,0.08)"
+      stroke="rgba(255,255,255,0.12)"
+    />
+    <text
+      x="232"
+      y="406"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      Patch Panel A
+    </text>
+
+    <rect
+      x="204"
+      y="428"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(242,157,56,0.14)"
+      stroke="rgba(242,157,56,0.24)"
+    />
+    <text
+      x="232"
+      y="450"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      fw-01 · Edge firewall
+    </text>
+    <text
+      x="1014"
+      y="450"
+      font-family="Consolas, monospace"
+      font-size="15"
+      fill="#ecf2f8"
+    >
+      10.0.10.1
+    </text>
+
+    <rect
+      x="204"
+      y="472"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(242,157,56,0.14)"
+      stroke="rgba(242,157,56,0.24)"
+    />
+    <text
+      x="232"
+      y="494"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      pve-01 · Hypervisor host
+    </text>
+    <text
+      x="1014"
+      y="494"
+      font-family="Consolas, monospace"
+      font-size="15"
+      fill="#ecf2f8"
+    >
+      2U
+    </text>
+
+    <rect
+      x="204"
+      y="516"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(89,195,106,0.12)"
+      stroke="rgba(89,195,106,0.22)"
+    />
+    <text
+      x="232"
+      y="538"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      truenas-01 · Storage
+    </text>
+    <circle cx="1128" cy="532" r="7" fill="#59c36a" />
+
+    <rect
+      x="204"
+      y="560"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(255,255,255,0.04)"
+      stroke="rgba(255,255,255,0.09)"
+    />
+    <text
+      x="232"
+      y="582"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      Rack Shelf · U36 tray
+    </text>
+    <text
+      x="1014"
+      y="582"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="15"
+      fill="#b9c3d1"
+    >
+      3 child devices
+    </text>
+
+    <rect
+      x="226"
+      y="604"
+      width="220"
+      height="64"
+      rx="14"
+      fill="rgba(255,255,255,0.06)"
+      stroke="rgba(255,255,255,0.1)"
+    />
+    <text
+      x="248"
+      y="634"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="19"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      rpi-edge-01
+    </text>
+    <text
+      x="248"
+      y="656"
+      font-family="Consolas, monospace"
+      font-size="14"
+      fill="#8f9bab"
+    >
+      10.0.31.21
+    </text>
+
+    <rect
+      x="474"
+      y="604"
+      width="220"
+      height="64"
+      rx="14"
+      fill="rgba(255,255,255,0.06)"
+      stroke="rgba(255,255,255,0.1)"
+    />
+    <text
+      x="496"
+      y="634"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="19"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      mini-pc-lab
+    </text>
+    <text
+      x="496"
+      y="656"
+      font-family="Consolas, monospace"
+      font-size="14"
+      fill="#8f9bab"
+    >
+      vm host tools
+    </text>
+
+    <rect
+      x="722"
+      y="604"
+      width="220"
+      height="64"
+      rx="14"
+      fill="rgba(77,200,215,0.12)"
+      stroke="rgba(77,200,215,0.22)"
+    />
+    <text
+      x="744"
+      y="634"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="19"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      switch-mini-01
+    </text>
+    <text
+      x="744"
+      y="656"
+      font-family="Consolas, monospace"
+      font-size="14"
+      fill="#8f9bab"
+    >
+      8-port room edge
+    </text>
+
+    <rect
+      x="204"
+      y="692"
+      width="964"
+      height="32"
+      rx="10"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text
+      x="232"
+      y="714"
+      font-family="Segoe UI, Arial, sans-serif"
+      font-size="18"
+      font-weight="700"
+      fill="#ecf2f8"
+    >
+      Blanking Panel Set
+    </text>
+  </g>
+
+  <rect
+    x="1260"
+    y="262"
+    width="222"
+    height="510"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="1292"
+    y="306"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    INSPECTOR
+  </text>
+  <text
+    x="1292"
+    y="350"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="28"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    Rack Shelf
+  </text>
+  <text
+    x="1292"
+    y="382"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="16"
+    fill="#b9c3d1"
+  >
+    Placement mode that lets multiple small devices share one U space cleanly.
+  </text>
+  <rect
+    x="1292"
+    y="430"
+    width="154"
+    height="34"
+    rx="16"
+    fill="rgba(242,157,56,0.14)"
+    stroke="rgba(242,157,56,0.28)"
+  />
+  <text
+    x="1328"
+    y="452"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="15"
+    font-weight="700"
+    fill="#f29d38"
+  >
+    U36 front
+  </text>
+  <rect
+    x="1292"
+    y="492"
+    width="158"
+    height="34"
+    rx="16"
+    fill="rgba(255,255,255,0.06)"
+    stroke="rgba(255,255,255,0.1)"
+  />
+  <text
+    x="1319"
+    y="514"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="15"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    3 shelf children
+  </text>
+</svg>

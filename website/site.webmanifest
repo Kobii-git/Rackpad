@@ -1,0 +1,15 @@
+{
+  "name": "Rackpad",
+  "short_name": "Rackpad",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090e14",
+  "theme_color": "#f29d38",
+  "icons": [
+    {
+      "src": "assets/favicon.svg",
+      "sizes": "32x32",
+      "type": "image/svg+xml"
+    }
+  ]
+}

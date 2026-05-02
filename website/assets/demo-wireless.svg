@@ -1,0 +1,345 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 1600 900"
+  role="img"
+  aria-labelledby="title desc"
+>
+  <title id="title">Rackpad demo WiFi and discovery view</title>
+  <desc id="desc">
+    A dark Rackpad WiFi preview with controllers, SSIDs, radios, clients, and
+    discovery staging.
+  </desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#091018" />
+      <stop offset="100%" stop-color="#121d29" />
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)" />
+  <rect
+    x="56"
+    y="44"
+    width="1488"
+    height="812"
+    rx="30"
+    fill="#101823"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="104"
+    y="112"
+    font-family="Consolas, monospace"
+    font-size="16"
+    letter-spacing="4"
+    fill="#8f9bab"
+  >
+    WIFI / DISCOVERY
+  </text>
+  <text
+    x="104"
+    y="164"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="44"
+    font-weight="700"
+    fill="#ecf2f8"
+  >
+    Controller-aware wireless plus staged discovery
+  </text>
+  <text
+    x="104"
+    y="204"
+    font-family="Segoe UI, Arial, sans-serif"
+    font-size="18"
+    fill="#b9c3d1"
+  >
+    Rackpad can document the wireless stack and still stage new hosts before
+    they become real inventory.
+  </text>
+
+  <rect
+    x="104"
+    y="250"
+    width="436"
+    height="560"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="136"
+    y="292"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    WIRELESS
+  </text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect
+      x="132"
+      y="324"
+      width="380"
+      height="98"
+      rx="18"
+      fill="rgba(77,200,215,0.08)"
+      stroke="rgba(77,200,215,0.22)"
+    />
+    <text x="160" y="360" font-size="28" font-weight="700" fill="#ecf2f8">
+      Omada1
+    </text>
+    <text x="160" y="390" font-size="17" fill="#b9c3d1">
+      TP-Link controller · 2 APs · 4 SSIDs
+    </text>
+    <rect
+      x="380"
+      y="342"
+      width="104"
+      height="28"
+      rx="14"
+      fill="rgba(89,195,106,0.14)"
+      stroke="rgba(89,195,106,0.28)"
+    />
+    <text x="408" y="361" font-size="14" font-weight="700" fill="#59c36a">
+      healthy
+    </text>
+
+    <rect
+      x="132"
+      y="448"
+      width="380"
+      height="116"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="160" y="482" font-size="24" font-weight="700" fill="#ecf2f8">
+      Home-Main
+    </text>
+    <text x="160" y="508" font-size="16" fill="#8f9bab">
+      WPA2/WPA3 · VLAN 12 · main family devices
+    </text>
+    <text x="160" y="538" font-size="16" fill="#b9c3d1">
+      Radios: lounge-ap · upstairs-ap · 5 GHz / 6 GHz
+    </text>
+    <rect
+      x="388"
+      y="468"
+      width="96"
+      height="28"
+      rx="14"
+      fill="rgba(77,200,215,0.14)"
+      stroke="rgba(77,200,215,0.28)"
+    />
+    <text x="416" y="487" font-size="14" font-weight="700" fill="#4dc8d7">
+      SSID
+    </text>
+
+    <rect
+      x="132"
+      y="590"
+      width="380"
+      height="154"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="160" y="624" font-size="24" font-weight="700" fill="#ecf2f8">
+      kobus-phone
+    </text>
+    <text x="160" y="650" font-size="16" fill="#8f9bab">
+      client → lounge-ap → Home-Main
+    </text>
+    <text x="160" y="680" font-size="16" fill="#b9c3d1">
+      Band 5 GHz · channel 44 · signal -52 dBm
+    </text>
+    <text x="160" y="710" font-size="16" fill="#b9c3d1">
+      Last roam 12 minutes ago
+    </text>
+    <rect
+      x="376"
+      y="610"
+      width="108"
+      height="28"
+      rx="14"
+      fill="rgba(242,157,56,0.14)"
+      stroke="rgba(242,157,56,0.28)"
+    />
+    <text x="399" y="629" font-size="14" font-weight="700" fill="#f29d38">
+      client
+    </text>
+  </g>
+
+  <rect
+    x="574"
+    y="250"
+    width="912"
+    height="560"
+    rx="24"
+    fill="#141d2a"
+    stroke="rgba(255,255,255,0.08)"
+  />
+  <text
+    x="606"
+    y="292"
+    font-family="Consolas, monospace"
+    font-size="14"
+    letter-spacing="2"
+    fill="#8f9bab"
+  >
+    DISCOVERY STAGING
+  </text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect
+      x="606"
+      y="324"
+      width="848"
+      height="64"
+      rx="14"
+      fill="rgba(255,255,255,0.03)"
+    />
+    <text x="636" y="363" font-size="21" font-weight="700" fill="#ecf2f8">
+      laser-cutter-probe
+    </text>
+    <text
+      x="940"
+      y="363"
+      font-family="Consolas, monospace"
+      font-size="16"
+      fill="#b9c3d1"
+    >
+      10.42.20.50
+    </text>
+    <text x="1114" y="363" font-size="16" fill="#8f9bab">
+      88:53:2e:91:a4:c2 · Espressif
+    </text>
+    <rect
+      x="1322"
+      y="340"
+      width="104"
+      height="28"
+      rx="14"
+      fill="rgba(215,176,76,0.14)"
+      stroke="rgba(215,176,76,0.28)"
+    />
+    <text x="1349" y="359" font-size="14" font-weight="700" fill="#d7b04c">
+      staged
+    </text>
+
+    <rect
+      x="606"
+      y="404"
+      width="848"
+      height="64"
+      rx="14"
+      fill="rgba(255,255,255,0.03)"
+    />
+    <text x="636" y="443" font-size="21" font-weight="700" fill="#ecf2f8">
+      studio-printer
+    </text>
+    <text
+      x="940"
+      y="443"
+      font-family="Consolas, monospace"
+      font-size="16"
+      fill="#b9c3d1"
+    >
+      10.42.20.31
+    </text>
+    <text x="1114" y="443" font-size="16" fill="#8f9bab">
+      d0:14:11:22:80:44 · HP
+    </text>
+    <rect
+      x="1308"
+      y="420"
+      width="118"
+      height="28"
+      rx="14"
+      fill="rgba(77,200,215,0.14)"
+      stroke="rgba(77,200,215,0.28)"
+    />
+    <text x="1330" y="439" font-size="14" font-weight="700" fill="#4dc8d7">
+      link existing
+    </text>
+
+    <rect
+      x="606"
+      y="484"
+      width="848"
+      height="64"
+      rx="14"
+      fill="rgba(255,255,255,0.03)"
+    />
+    <text x="636" y="523" font-size="21" font-weight="700" fill="#ecf2f8">
+      cam-yard-02
+    </text>
+    <text
+      x="940"
+      y="523"
+      font-family="Consolas, monospace"
+      font-size="16"
+      fill="#b9c3d1"
+    >
+      10.42.40.12
+    </text>
+    <text x="1114" y="523" font-size="16" fill="#8f9bab">
+      34:ea:34:ca:11:88 · Reolink
+    </text>
+    <rect
+      x="1336"
+      y="500"
+      width="90"
+      height="28"
+      rx="14"
+      fill="rgba(89,195,106,0.14)"
+      stroke="rgba(89,195,106,0.28)"
+    />
+    <text x="1359" y="519" font-size="14" font-weight="700" fill="#59c36a">
+      imported
+    </text>
+
+    <rect
+      x="606"
+      y="584"
+      width="400"
+      height="184"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="636" y="620" font-size="24" font-weight="700" fill="#ecf2f8">
+      What gets enriched
+    </text>
+    <text x="636" y="654" font-size="16" fill="#b9c3d1">
+      • reverse DNS and hostname hints
+    </text>
+    <text x="636" y="684" font-size="16" fill="#b9c3d1">
+      • MAC address and vendor lookup
+    </text>
+    <text x="636" y="714" font-size="16" fill="#b9c3d1">
+      • link-existing or import decisions
+    </text>
+
+    <rect
+      x="1030"
+      y="584"
+      width="424"
+      height="184"
+      rx="18"
+      fill="rgba(255,255,255,0.03)"
+      stroke="rgba(255,255,255,0.08)"
+    />
+    <text x="1060" y="620" font-size="24" font-weight="700" fill="#ecf2f8">
+      Why it matters
+    </text>
+    <text x="1060" y="654" font-size="16" fill="#b9c3d1">
+      Stage new hosts without polluting your inventory.
+    </text>
+    <text x="1060" y="684" font-size="16" fill="#b9c3d1">
+      Map wireless and wired findings back to real devices.
+    </text>
+    <text x="1060" y="714" font-size="16" fill="#b9c3d1">
+      Use the same app for discovery, documentation, and ops review.
+    </text>
+  </g>
+</svg>

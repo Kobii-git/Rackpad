@@ -4,6 +4,30 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.7] - 2026-05-02
+
+### Added
+
+- A standalone IIS-friendly project website bundle under `website/` with product overview, install guide, legal page, IIS configuration, and demo-based showcase visuals for `rackpad.co.za`.
+- Root project governance files: `LICENSE`, `NOTICE.md`, `SECURITY.md`, and `SUPPORT.md`.
+- A richer compute bridge workflow so virtualization hosts can model `external`, `internal`, and `private` virtual switches directly from the Compute workspace.
+
+### Changed
+
+- External virtual switches can now claim one or more host uplink ports directly from the Compute page instead of forcing that workflow through the Ports workspace.
+- Compute bridge cards now summarize bridge kind, host uplinks, guest member NICs, and bridge notes in one place for Hyper-V, Proxmox bridge, and similar host-switch layouts.
+- README and installation docs now include the project website/legal bundle and more explicit system requirement guidance for early production-style deployments.
+
+### Schema
+
+- Added `kind` to `virtualSwitches`.
+- Bumped the SQLite schema version to `11`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.9.6] - 2026-05-02
 
 ### Added

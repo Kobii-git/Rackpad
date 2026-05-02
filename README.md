@@ -2,9 +2,10 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.9.6`
+Current release: `v0.9.7`
 
 It is a full-stack app:
+
 - React + Vite frontend
 - Fastify API
 - SQLite persistence through `better-sqlite3`
@@ -54,6 +55,16 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 Every shipped change should update the version and add a matching changelog entry describing what changed.
 
+## Project website and legal files
+
+The repository now also includes:
+
+- a static IIS-friendly project website bundle in [website/](./website/)
+- the project [LICENSE](./LICENSE)
+- copyright and project notices in [NOTICE.md](./NOTICE.md)
+- a basic disclosure policy in [SECURITY.md](./SECURITY.md)
+- maintainer/support expectations in [SUPPORT.md](./SUPPORT.md)
+
 ## Requirements
 
 - Node 22 LTS
@@ -80,6 +91,7 @@ npm run dev:all
 ```
 
 This starts:
+
 - frontend on `http://localhost:5173`
 - API on `http://localhost:3000`
 
@@ -131,6 +143,7 @@ docker compose up --build -d
 ```
 
 The compose stack:
+
 - exposes Rackpad on `${RACKPAD_PORT:-3000}`
 - stores SQLite data in the named volume `rackpad_data`
 - serves the compiled frontend and API from the same container
@@ -198,6 +211,7 @@ So the main deployment job is to terminate TLS, forward the correct `X-Forwarded
 On this Windows machine, the app builds and lints cleanly, but the local runtime is still blocked under Node 24 because `better-sqlite3` does not have a matching native binding installed.
 
 The intended local fix is:
+
 - switch to Node 22
 - rerun `npm install`
 

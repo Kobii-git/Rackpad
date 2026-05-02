@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>
+      Rackpad | Self-hosted infrastructure inventory and operations for homelabs
+    </title>
+    <meta
+      name="description"
+      content="Rackpad is a self-hosted lab and datacenter-style inventory and operations app for racks, devices, ports, cables, VLANs, IPAM, WiFi, discovery, compute, and monitoring."
+    />
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="site.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="container site-header-inner">
+          <a class="brand" href="index.html" aria-label="Rackpad home">
+            <img class="brand-mark" src="assets/favicon.svg" alt="" />
+            <span class="brand-copy">
+              <strong>Rackpad</strong>
+              <span>Infrastructure inventory and operations</span>
+            </span>
+          </a>
+
+          <button
+            class="button button-secondary nav-toggle"
+            type="button"
+            data-nav-toggle
+            aria-expanded="false"
+            aria-label="Toggle navigation"
+          >
+            Menu
+          </button>
+
+          <nav class="nav-menu" data-nav-menu data-open="false">
+            <a class="nav-link" href="#features">Features</a>
+            <a class="nav-link" href="#screenshots">Screenshots</a>
+            <a class="nav-link" href="#install">Install</a>
+            <a class="nav-link" href="install.html">Full guide</a>
+            <a class="nav-link" href="legal.html">Legal</a>
+          </nav>
+
+          <div class="header-actions">
+            <a
+              class="button button-secondary"
+              href="https://github.com/Kobii-git/Rackpad"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+            <a class="button button-primary" href="install.html"
+              >Install Rackpad</a
+            >
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero">
+          <div class="container hero-grid">
+            <div class="hero-copy">
+              <div class="kicker">
+                rackpad.co.za | Self-hosted infra control
+              </div>
+              <h1>
+                Track racks, networks, WiFi, compute, and monitoring in one
+                place.
+              </h1>
+              <p>
+                Rackpad is a dark, operator-first inventory and operations app
+                for homelabs, studios, workshops, and small datacenter-style
+                environments. It handles physical racks, room tech, virtual
+                guests, wireless clients, VLANs, IPAM, discovery, alerts, and
+                backups without needing a large external platform.
+              </p>
+              <div class="hero-actions">
+                <a class="button button-primary" href="install.html">
+                  Get installation steps
+                </a>
+                <a
+                  class="button button-secondary"
+                  href="https://github.com/Kobii-git/Rackpad"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Clone from GitHub
+                </a>
+              </div>
+              <div class="hero-notes">
+                <span class="hero-note"
+                  ><span class="dot"></span>Docker-first deployment</span
+                >
+                <span class="hero-note"
+                  ><span class="dot"></span>SQLite-backed persistence</span
+                >
+                <span class="hero-note"
+                  ><span class="dot"></span>Multi-target monitoring +
+                  alerts</span
+                >
+                <span class="hero-note"
+                  ><span class="dot"></span>Virtual switches, rack shelves,
+                  brush and blanking panels</span
+                >
+              </div>
+            </div>
+
+            <div
+              class="app-frame"
+              aria-label="Rackpad preview based on demo data"
+            >
+              <div class="app-bar">
+                <div class="app-dots" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+                <span class="mono muted">Home Lab | Overview</span>
+                <span class="status-badge status-ok">Healthy</span>
+              </div>
+              <div class="app-window">
+                <aside class="app-sidebar">
+                  <h3>Rackpad</h3>
+                  <p>Two labs | One operator view</p>
+                  <div class="app-nav">
+                    <div class="app-nav-item active">Dashboard</div>
+                    <div class="app-nav-item">Racks</div>
+                    <div class="app-nav-item">Devices</div>
+                    <div class="app-nav-item">Compute</div>
+                    <div class="app-nav-item">WiFi</div>
+                    <div class="app-nav-item">Discovery</div>
+                    <div class="app-nav-item">Monitoring</div>
+                  </div>
+                </aside>
+
+                <div class="app-main">
+                  <div class="preview-stats">
+                    <div class="preview-card">
+                      <small>Devices</small>
+                      <strong>31</strong>
+                      <span>room, rack, wireless, and virtual</span>
+                    </div>
+                    <div class="preview-card">
+                      <small>Racks</small>
+                      <strong>3</strong>
+                      <span>NET-01, CMP-01, STU-01</span>
+                    </div>
+                    <div class="preview-card">
+                      <small>Ports linked</small>
+                      <strong>64</strong>
+                      <span>switch, host, and patch-panel links</span>
+                    </div>
+                    <div class="preview-card">
+                      <small>Monitors</small>
+                      <strong>16</strong>
+                      <span>ICMP, TCP, HTTP, HTTPS and alert targets</span>
+                    </div>
+                  </div>
+
+                  <div class="preview-columns">
+                    <section class="surface-card">
+                      <div class="kicker">Recent activity</div>
+                      <h4>Operational changes stay visible</h4>
+                      <div class="activity-list">
+                        <div class="activity-item">
+                          <div>
+                            <strong
+                              >Linked truenas-01:ix1 to sw-tor-01:31</strong
+                            >
+                            <span>port.link | 47 minutes ago</span>
+                          </div>
+                          <span class="pill pill-info">Network</span>
+                        </div>
+                        <div class="activity-item">
+                          <div>
+                            <strong
+                              >Rackpad alert sent for backup-01 / Management
+                              ICMP</strong
+                            >
+                            <span>alert.down | 7 minutes ago</span>
+                          </div>
+                          <span class="status-badge status-danger">Down</span>
+                        </div>
+                        <div class="activity-item">
+                          <div>
+                            <strong
+                              >Mapped vm-ha-01, vm-gitea-01, and vm-opnsense-01
+                              onto vSwitch-Servers</strong
+                            >
+                            <span>virtual-switch.update | 95 minutes ago</span>
+                          </div>
+                          <span class="pill pill-accent">Compute</span>
+                        </div>
+                      </div>
+                    </section>
+
+                    <section class="surface-card">
+                      <div class="kicker">Live contexts</div>
+                      <h4>One tool for physical and virtual inventory</h4>
+                      <div class="simple-list">
+                        <div class="simple-row">
+                          <div>
+                            <strong>pve-01</strong>
+                            <span class="mono">10.0.10.11 | compute host</span>
+                          </div>
+                          <span class="status-badge status-ok">Online</span>
+                        </div>
+                        <div class="simple-row">
+                          <div>
+                            <strong>Home-Main SSID</strong>
+                            <span
+                              >controller-aware WiFi with radios and
+                              clients</span
+                            >
+                          </div>
+                          <span class="pill pill-info">WiFi</span>
+                        </div>
+                        <div class="simple-row">
+                          <div>
+                            <strong>vSwitch-Servers</strong>
+                            <span class="mono"
+                              >host uplink + VM trunk members</span
+                            >
+                          </div>
+                          <span class="pill pill-neutral">Bridge</span>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="section-tight">
+          <div class="container facts-grid">
+            <article class="fact-card">
+              <div class="kicker">Inventory</div>
+              <strong
+                >Racks, room tech, shelf gear, VMs, and WiFi clients</strong
+              >
+              <p>
+                Document gear where it actually lives: in cabinets, on desks, in
+                the ceiling, on rack shelves or trays, on the network edge, or
+                nested under compute hosts and access points.
+              </p>
+            </article>
+            <article class="fact-card">
+              <div class="kicker">Network context</div>
+              <strong>Ports, cables, VLANs, and IPAM stay linked</strong>
+              <p>
+                Track trunk and access ports, native and tagged VLANs, shared
+                virtual bridges, DHCP scopes, IP ranges, and linked devices
+                without splitting your records across separate spreadsheets.
+              </p>
+            </article>
+            <article class="fact-card">
+              <div class="kicker">Operations</div>
+              <strong>Monitoring, discovery, alerts, and backups</strong>
+              <p>
+                Run multi-target ICMP, TCP, HTTP, and HTTPS checks, stage
+                discovered hosts with hostname, MAC, and vendor hints, send
+                notifications, and export or restore the app state from the
+                admin area.
+              </p>
+            </article>
+            <article class="fact-card">
+              <div class="kicker">Deploy</div>
+              <strong>Single-container Docker path for fast testing</strong>
+              <p>
+                Rackpad ships as a full-stack app with a React frontend, Fastify
+                API, SQLite persistence, and a Docker packaging path designed
+                for homelab-friendly deployment.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section class="section" id="features">
+          <div class="container">
+            <div class="section-header">
+              <div class="kicker">Core capability map</div>
+              <h2>
+                Built for operators who need real infra context, not a generic
+                asset list.
+              </h2>
+              <p>
+                Rackpad covers the day-to-day modeling work of a modern lab:
+                physical rack placement, switch and patch panel ports, WiFi
+                topology, discovery staging, VLAN-aware IPAM, virtual guest
+                capacity, user roles, and monitoring with alert delivery.
+              </p>
+            </div>
+
+            <div class="feature-grid">
+              <article class="feature-card">
+                <div class="kicker">Racks and devices</div>
+                <h3>
+                  Physical placement with room, shelf, wireless, and virtual
+                  spillover
+                </h3>
+                <p>
+                  Track named racks like <span class="mono">NET-01</span> and
+                  <span class="mono">CMP-01</span>, but also loose room tech,
+                  rack shelves and trays, blanking panels, brush panels, hosted
+                  VMs, and wireless clients without losing relationships.
+                </p>
+              </article>
+              <article class="feature-card">
+                <div class="kicker">Ports and cabling</div>
+                <h3>
+                  Structured ports with access, trunk, bridge, and VM context
+                </h3>
+                <p>
+                  Model RJ45 and SFP ports, access/native/tagged VLAN behavior,
+                  patch cables, peer links, reusable port templates, and
+                  hypervisor-side virtual switch memberships for servers,
+                  switches, firewalls, AP uplinks, and VMs.
+                </p>
+              </article>
+              <article class="feature-card">
+                <div class="kicker">VLANs and IPAM</div>
+                <h3>Subnet-aware inventory and address allocation</h3>
+                <p>
+                  Create VLAN ranges, assign subnets, define DHCP scopes and IP
+                  zones, and keep management addressing synchronized with the
+                  devices that actually consume it.
+                </p>
+              </article>
+              <article class="feature-card">
+                <div class="kicker">Compute</div>
+                <h3>
+                  Hosts, guests, virtual switches, and documented capacity
+                </h3>
+                <p>
+                  Link VMs to hosts, record CPU, memory, storage, and human
+                  specs text, map host uplinks and guest NICs onto shared
+                  virtual bridges, then compare the host footprint against the
+                  guests assigned to it.
+                </p>
+              </article>
+              <article class="feature-card">
+                <div class="kicker">WiFi</div>
+                <h3>Controllers, SSIDs, radios, and client associations</h3>
+                <p>
+                  Capture APs, controllers, SSIDs, radios, channels, bands,
+                  client telemetry, and last-roam context instead of pretending
+                  WiFi is just another unmanaged endpoint list.
+                </p>
+              </article>
+              <article class="feature-card">
+                <div class="kicker">Monitoring and alerts</div>
+                <h3>Multi-target health checks with notification delivery</h3>
+                <p>
+                  Run separate management, storage, service, or VIP checks per
+                  device and send alerts to Discord, Telegram, or SMTP email
+                  when a target goes down or recovers.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="screenshots">
+          <div class="container">
+            <div class="section-header">
+              <div class="kicker">Demo screenshots</div>
+              <h2>Demo-based product views for the full Rackpad workflow.</h2>
+              <p>
+                These visuals are based on the shipped Rackpad demo environment
+                and cover the current app shape around racks, shelf-mounted
+                gear, bridge-aware networking, monitoring, WiFi, discovery, and
+                compute. They are meant to show what operators get before they
+                document a real lab.
+              </p>
+            </div>
+
+            <div class="screenshot-grid">
+              <figure class="screenshot-card screenshot-card-wide">
+                <img
+                  src="assets/demo-dashboard.svg"
+                  alt="Rackpad dashboard screenshot with monitoring, capacity, and recent activity"
+                />
+                <figcaption>
+                  <strong>Dashboard and monitoring overview</strong>
+                  <span
+                    >Multi-lab totals, device health, capacity, alerts, and
+                    recent operational activity in one screen.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card">
+                <img
+                  src="assets/demo-racks.svg"
+                  alt="Rackpad rack screenshot showing mounted gear and shelf-mounted devices"
+                />
+                <figcaption>
+                  <strong
+                    >Racks, shelves, blanking panels, and mounted gear</strong
+                  >
+                  <span
+                    >Physical rack units, switch and server placement, blanking
+                    and brush panels, and shelf or tray-mounted small devices
+                    modeled cleanly.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card">
+                <img
+                  src="assets/demo-network.svg"
+                  alt="Rackpad ports screenshot showing trunk VLANs and virtual switch memberships"
+                />
+                <figcaption>
+                  <strong>Ports, trunks, and virtual switching</strong>
+                  <span
+                    >Access and trunk ports, native and tagged VLANs, AP and
+                    host uplinks, and VM NICs mapped onto shared virtual
+                    bridges.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card">
+                <img
+                  src="assets/demo-wireless.svg"
+                  alt="Rackpad WiFi and discovery screenshot with controllers, SSIDs, and staged devices"
+                />
+                <figcaption>
+                  <strong>Controller-aware WiFi and discovery</strong>
+                  <span
+                    >Controllers, SSIDs, radios, clients, and discovered hosts
+                    with MAC, vendor, and import or link decisions.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card">
+                <img
+                  src="assets/demo-compute.svg"
+                  alt="Rackpad compute screenshot showing host capacity, VMs, and bridges"
+                />
+                <figcaption>
+                  <strong>Compute hosts, guests, bridges, and capacity</strong>
+                  <span
+                    >CPU, memory, and storage planning with guest mappings and
+                    host-level bridge inventories, including external, internal,
+                    and private switching patterns.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card">
+                <img
+                  src="assets/demo-ipam.svg"
+                  alt="Rackpad IPAM and monitoring screenshot with subnets, scopes, and monitor status"
+                />
+                <figcaption>
+                  <strong>IPAM, DHCP scopes, and monitor context</strong>
+                  <span
+                    >Linked VLANs, subnets, scopes, zones, and the monitoring
+                    workspace in one operational path.</span
+                  >
+                </figcaption>
+              </figure>
+            </div>
+
+            <div class="feature-check-grid">
+              <article class="fact-card">
+                <div class="kicker">Demo coverage</div>
+                <strong>What the bundled demo already shows</strong>
+                <ul class="feature-checklist">
+                  <li>Multiple labs with racks and room gear</li>
+                  <li>Rack shelves, brush panels, and blanking panels</li>
+                  <li>
+                    Shared virtual switches with host uplinks and guest NICs
+                  </li>
+                  <li>Multi-target monitoring and alert destinations</li>
+                </ul>
+              </article>
+              <article class="fact-card">
+                <div class="kicker">Operator paths</div>
+                <strong>What you can validate before going live</strong>
+                <ul class="feature-checklist">
+                  <li>Discovery import and link-existing flow</li>
+                  <li>Controller-aware WiFi, SSIDs, radios, and clients</li>
+                  <li>VLAN-aware IPAM with DHCP scopes and zones</li>
+                  <li>Backup and restore from the admin screen</li>
+                </ul>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="container overview-grid">
+            <div class="stack">
+              <article class="overview-card">
+                <div class="kicker">Signature view | rack inventory</div>
+                <h3>Actual equipment placement that still reads fast.</h3>
+                <p>
+                  Rackpad's cabinet view is designed for operators who want a
+                  quick answer to what is mounted where, what is online, and
+                  where the switch, patch, storage, and hypervisor layers are
+                  stacked.
+                </p>
+                <div class="rack-preview">
+                  <div class="rack-scale">
+                    <div class="rack-unit">24</div>
+                    <div class="rack-unit">23</div>
+                    <div class="rack-unit">22</div>
+                    <div class="rack-unit">21</div>
+                    <div class="rack-unit">20</div>
+                    <div class="rack-unit">19</div>
+                    <div class="rack-unit">18</div>
+                    <div class="rack-unit">17</div>
+                  </div>
+                  <div class="rack-body">
+                    <div class="rack-unit device-patch">
+                      <div class="rack-unit-label">
+                        <span>Patch Panel A</span>
+                        <span class="mono">U24</span>
+                      </div>
+                    </div>
+                    <div class="rack-unit device-switch">
+                      <div class="rack-unit-label">
+                        <span>Top-of-Rack Switch</span>
+                        <span class="status-badge status-ok">online</span>
+                      </div>
+                    </div>
+                    <div class="rack-unit device-switch">
+                      <div class="rack-unit-label">
+                        <span>Aggregation Switch</span>
+                        <span class="pill pill-info">10G</span>
+                      </div>
+                    </div>
+                    <div class="rack-unit device-server">
+                      <div class="rack-unit-label">
+                        <span>Edge Firewall</span>
+                        <span class="mono">10.0.10.1</span>
+                      </div>
+                    </div>
+                    <div class="rack-unit device-server">
+                      <div class="rack-unit-label">
+                        <span>UniFi Cloud Key</span>
+                        <span class="status-badge status-warn">warning</span>
+                      </div>
+                    </div>
+                    <div class="rack-unit"></div>
+                    <div class="rack-unit"></div>
+                    <div class="rack-unit"></div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="overview-card">
+                <div class="kicker">Signature view | ports</div>
+                <h3>
+                  Port state that reads like a switch face, not a spreadsheet.
+                </h3>
+                <p>
+                  Linked ports light up, uplinks stand apart, and the data model
+                  keeps peer links, VLAN mode, and template-driven port creation
+                  close to the device that owns them.
+                </p>
+                <div class="port-matrix">
+                  <div class="port-row">
+                    <div class="port-tile active">1</div>
+                    <div class="port-tile">2</div>
+                    <div class="port-tile active">3</div>
+                    <div class="port-tile">4</div>
+                    <div class="port-tile active">5</div>
+                    <div class="port-tile">6</div>
+                    <div class="port-tile active">7</div>
+                    <div class="port-tile">8</div>
+                  </div>
+                  <div class="port-row">
+                    <div class="port-tile">9</div>
+                    <div class="port-tile active">10</div>
+                    <div class="port-tile">11</div>
+                    <div class="port-tile active">12</div>
+                    <div class="port-tile">13</div>
+                    <div class="port-tile">14</div>
+                    <div class="port-tile">15</div>
+                    <div class="port-tile active">16</div>
+                  </div>
+                  <div class="port-row">
+                    <div class="port-tile uplink">SFP+1</div>
+                    <div class="port-tile uplink">SFP+2</div>
+                    <div class="port-tile uplink">SFP+3</div>
+                    <div class="port-tile uplink">SFP+4</div>
+                  </div>
+                </div>
+                <div class="legend">
+                  <div class="kicker">Legend</div>
+                  <div class="legend-items">
+                    <div class="legend-item">
+                      <span class="legend-chip active"></span>
+                      Linked port
+                    </div>
+                    <div class="legend-item">
+                      <span class="legend-chip uplink"></span>
+                      Uplink / high-speed slot
+                    </div>
+                    <div class="legend-item">
+                      <span class="legend-chip idle"></span>
+                      Unlinked / idle
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <div class="stack">
+              <article class="table-card">
+                <div class="kicker">Monitoring workspace</div>
+                <h3>One place to see what is being checked.</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Device</th>
+                      <th>Target</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <strong>fw-01</strong>
+                        <span class="mono">Management ICMP</span>
+                      </td>
+                      <td class="mono">10.0.10.1</td>
+                      <td>
+                        <span class="status-badge status-ok">online</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>pve-01</strong>
+                        <span class="mono">vSwitch-Servers uplink</span>
+                      </td>
+                      <td class="mono">10.0.10.11</td>
+                      <td>
+                        <span class="status-badge status-ok">online</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>backup-01</strong>
+                        <span class="mono">Management ICMP</span>
+                      </td>
+                      <td class="mono">10.0.10.21</td>
+                      <td>
+                        <span class="status-badge status-danger">offline</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </article>
+
+              <article class="table-card">
+                <div class="kicker">WiFi and discovery</div>
+                <h3>Controller-aware wireless context and staging.</h3>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Entity</th>
+                      <th>Context</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <strong>Lounge AP</strong>
+                        <span>Omada1 | lounge coverage cell</span>
+                      </td>
+                      <td>
+                        <span class="pill pill-info">Home-Main</span>
+                        <span class="pill pill-neutral">5 GHz</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>Kobus Phone</strong>
+                        <span class="mono">pixel-9-pro</span>
+                      </td>
+                      <td>
+                        <span class="pill pill-accent">-52 dBm</span>
+                        <span class="pill pill-info">AP: lounge</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <strong>laser-cutter-probe</strong>
+                        <span class="mono">10.42.20.50</span>
+                      </td>
+                      <td>
+                        <span class="status-badge status-warn">staged</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </article>
+
+              <article class="overview-card">
+                <div class="kicker">Operator workflow</div>
+                <h3>Built to move from documentation into action.</h3>
+                <div class="overview-list">
+                  <div class="simple-row">
+                    <div>
+                      <strong>Bootstrap</strong>
+                      <span>create first admin, choose empty or demo data</span>
+                    </div>
+                    <span class="pill pill-accent">First run</span>
+                  </div>
+                  <div class="simple-row">
+                    <div>
+                      <strong>Document</strong>
+                      <span
+                        >racks, shelves, devices, templates, ports, VLANs,
+                        subnets</span
+                      >
+                    </div>
+                    <span class="pill pill-neutral">Inventory</span>
+                  </div>
+                  <div class="simple-row">
+                    <div>
+                      <strong>Operate</strong>
+                      <span
+                        >multi-target monitoring, alerts, discovery import,
+                        backups</span
+                      >
+                    </div>
+                    <span class="pill pill-info">Ops</span>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="section" id="install">
+          <div class="container install-grid">
+            <div class="stack">
+              <div class="section-header">
+                <div class="kicker">Deployment</div>
+                <h2>Fastest path: Linux + Docker + GitHub clone.</h2>
+                <p>
+                  Rackpad is easiest to test as a Docker deployment on a Linux
+                  server or VM. The static product site you are reading is
+                  separate and IIS-friendly; the app itself remains the Docker
+                  or Node service.
+                </p>
+              </div>
+
+              <div class="requirements-grid">
+                <article class="fact-card">
+                  <div class="kicker">Minimum test host</div>
+                  <strong>2 vCPU | 4 GB RAM | 10 GB free disk</strong>
+                  <p>
+                    Practical starting point for a single-user lab deployment
+                    with SQLite, Docker, and moderate demo data.
+                  </p>
+                </article>
+                <article class="fact-card">
+                  <div class="kicker">Recommended</div>
+                  <strong>4 vCPU | 8 GB RAM | 20+ GB SSD</strong>
+                  <p>
+                    Better fit if discovery, monitoring, backups, and a larger
+                    real lab inventory will all be active together.
+                  </p>
+                </article>
+                <article class="fact-card">
+                  <div class="kicker">Platform</div>
+                  <strong>64-bit Linux with Docker Engine and Compose</strong>
+                  <p>
+                    Ubuntu or Debian-class hosts are the easiest path for first
+                    deployment and update cycles.
+                  </p>
+                </article>
+              </div>
+
+              <div class="callout">
+                <strong>What gets deployed?</strong>
+                <p>
+                  Rackpad ships as a React frontend, Fastify API, and SQLite
+                  persistence path in one containerized app. Docker gives you
+                  persistent storage, health checks, and an easier upgrade path
+                  without forcing you to manage a separate database stack.
+                </p>
+              </div>
+            </div>
+
+            <article class="code-card">
+              <div class="code-card-header">
+                <div>
+                  <strong>Quick start from GitHub</strong>
+                  <span>clone, configure, and start Rackpad</span>
+                </div>
+                <button class="copy-button" data-copy-target="#quickstart-code">
+                  Copy
+                </button>
+              </div>
+              <pre
+                id="quickstart-code"
+              ><code>git clone https://github.com/Kobii-git/Rackpad.git
+cd Rackpad
+cp .env.example .env
+docker compose up --build -d
+
+# then open:
+# http://SERVER_IP:3000</code></pre>
+            </article>
+          </div>
+        </section>
+
+        <section class="section-tight">
+          <div class="container">
+            <div class="section-header">
+              <div class="kicker">From the first browser session</div>
+              <h2>
+                Rackpad is ready to move from empty bootstrap to a full lab
+                model.
+              </h2>
+              <p>
+                On first run, the app creates the initial admin account and lets
+                you choose an empty environment or a richer demo environment
+                that already contains multiple labs, racks, WiFi controllers,
+                guest VMs, discovery states, and monitoring targets.
+              </p>
+            </div>
+
+            <div class="steps">
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">1</span>Bootstrap the admin</strong
+                >
+                <p>
+                  Create the first operator account, sign in, and decide whether
+                  to start empty or preload the demo environment.
+                </p>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">2</span>Document the physical
+                  layer</strong
+                >
+                <p>
+                  Add racks, room gear, servers, switches, patch panels, power
+                  gear, and device templates before you start linking ports and
+                  cables.
+                </p>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">3</span>Connect the network
+                  context</strong
+                >
+                <p>
+                  Capture VLANs, subnets, DHCP scopes, IP zones, trunk and
+                  access port behavior, and management addressing.
+                </p>
+              </article>
+              <article class="step-card">
+                <strong
+                  ><span class="step-number">4</span>Operate and review</strong
+                >
+                <p>
+                  Turn on monitoring, stage discovery results, configure alerts,
+                  manage users, and keep backups in the admin area.
+                </p>
+              </article>
+            </div>
+
+            <div class="hero-actions hero-actions-spaced">
+              <a class="button button-primary" href="install.html">
+                View full installation guide
+              </a>
+              <a class="button button-secondary" href="legal.html">
+                Review license and support docs
+              </a>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <div class="container footer-grid">
+          <div class="footer-brand">
+            <div class="brand">
+              <img class="brand-mark" src="assets/favicon.svg" alt="" />
+              <span class="brand-copy">
+                <strong>Rackpad</strong>
+                <span>rackpad.co.za</span>
+              </span>
+            </div>
+            <p>
+              Self-hosted inventory and operations for racks, networks, WiFi,
+              compute, discovery, and monitoring.
+            </p>
+          </div>
+          <div class="footer-links">
+            <strong>Site</strong>
+            <a href="install.html">Installation guide</a>
+            <a href="legal.html">Legal and security</a>
+            <a
+              href="https://github.com/Kobii-git/Rackpad"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub repository
+            </a>
+          </div>
+          <div class="footer-meta">
+            <strong>Copyright and license</strong>
+            <p>Copyright &copy; 2026 Kobii-git.</p>
+            <p>Assumed open-source license for this release prep: MIT.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
