@@ -243,7 +243,15 @@ function sortUsers(users: AppUser[]) {
 }
 
 function sortMonitors(monitors: DeviceMonitor[]) {
-  return [...monitors].sort((a, b) => a.deviceId.localeCompare(b.deviceId))
+  return [...monitors].sort((a, b) => {
+    const byDevice = a.deviceId.localeCompare(b.deviceId)
+    if (byDevice !== 0) return byDevice
+    const byOrder = a.sortOrder - b.sortOrder
+    if (byOrder !== 0) return byOrder
+    const byName = a.name.localeCompare(b.name)
+    if (byName !== 0) return byName
+    return a.id.localeCompare(b.id)
+  })
 }
 
 function sortPortTemplates(templates: PortTemplate[]) {
@@ -1763,21 +1771,71 @@ export async function deleteUserAccount(id: string): Promise<void> {
   }
 }
 
-export async function saveDeviceMonitorConfig(deviceId: string, changes: MonitorPatch): Promise<DeviceMonitor> {
-  const updated = await api.saveDeviceMonitor(deviceId, changes)
+export async function createDeviceMonitorConfig(deviceId: string, changes: MonitorPatch): Promise<DeviceMonitor> {
+  const created = await api.createDeviceMonitor({
+    deviceId,
+    ...changes,
+  })
+  const device = await api.getDevice(deviceId)
+  setState((prev) => ({
+    ...prev,
+    deviceMonitors: replaceById(prev.deviceMonitors, created, sortMonitors),
+    devices: replaceById(prev.devices, device, sortDevices),
+  }))
+  void recordAudit(
+    'monitor.create',
+    'DeviceMonitor',
+    created.id,
+    `Added monitor ${created.name} for ${state.devices.find((entry) => entry.id === deviceId)?.hostname ?? deviceId}`,
+  )
+  return created
+}
+
+export async function updateDeviceMonitorConfig(id: string, changes: MonitorPatch): Promise<DeviceMonitor | null> {
+  const existing = state.deviceMonitors.find((monitor) => monitor.id === id)
+  if (!existing) return null
+
+  const updated = await api.updateDeviceMonitor(id, changes)
+  const device = await api.getDevice(existing.deviceId)
+
   setState((prev) => ({
     ...prev,
     deviceMonitors: replaceById(prev.deviceMonitors, updated, sortMonitors),
+    devices: replaceById(prev.devices, device, sortDevices),
   }))
-  void recordAudit('monitor.update', 'DeviceMonitor', updated.id, `Updated monitor for ${state.devices.find((device) => device.id === deviceId)?.hostname ?? deviceId}`)
+  void recordAudit(
+    'monitor.update',
+    'DeviceMonitor',
+    updated.id,
+    `Updated monitor ${updated.name} for ${state.devices.find((entry) => entry.id === existing.deviceId)?.hostname ?? existing.deviceId}`,
+  )
   return updated
 }
 
-export async function runDeviceMonitorCheck(deviceId: string): Promise<DeviceMonitor> {
-  const [monitor, device] = await Promise.all([
-    api.runDeviceMonitor(deviceId),
-    api.getDevice(deviceId),
-  ])
+export async function deleteDeviceMonitorConfig(id: string): Promise<boolean> {
+  const existing = state.deviceMonitors.find((monitor) => monitor.id === id)
+  if (!existing) return false
+
+  await api.deleteDeviceMonitor(id)
+  const device = await api.getDevice(existing.deviceId)
+
+  setState((prev) => ({
+    ...prev,
+    deviceMonitors: removeById(prev.deviceMonitors, id),
+    devices: replaceById(prev.devices, device, sortDevices),
+  }))
+  void recordAudit(
+    'monitor.delete',
+    'DeviceMonitor',
+    id,
+    `Removed monitor ${existing.name} from ${state.devices.find((entry) => entry.id === existing.deviceId)?.hostname ?? existing.deviceId}`,
+  )
+  return true
+}
+
+export async function runDeviceMonitorCheck(id: string): Promise<DeviceMonitor> {
+  const monitor = await api.runDeviceMonitor(id)
+  const device = await api.getDevice(monitor.deviceId)
 
   setState((prev) => ({
     ...prev,
@@ -1786,6 +1844,25 @@ export async function runDeviceMonitorCheck(deviceId: string): Promise<DeviceMon
   }))
 
   return monitor
+}
+
+export async function runDeviceMonitorChecksForDevice(deviceId: string): Promise<DeviceMonitor[]> {
+  const { results } = await api.runDeviceMonitorsForDevice(deviceId)
+  const device = await api.getDevice(deviceId)
+
+  setState((prev) => {
+    let nextMonitors = prev.deviceMonitors
+    for (const result of results) {
+      nextMonitors = replaceById(nextMonitors, result, sortMonitors)
+    }
+    return {
+      ...prev,
+      deviceMonitors: nextMonitors,
+      devices: replaceById(prev.devices, device, sortDevices),
+    }
+  })
+
+  return results
 }
 
 export async function runAllDeviceMonitorChecks(): Promise<void> {

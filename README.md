@@ -2,14 +2,14 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.9.0`
+Current release: `v0.9.1`
 
 It is a full-stack app:
 - React + Vite frontend
 - Fastify API
 - SQLite persistence through `better-sqlite3`
 - session-based authentication with admin/editor/viewer roles
-- per-device health checks with ICMP, TCP, HTTP, and HTTPS monitor support
+- per-device health checks with multi-target ICMP, TCP, HTTP, and HTTPS monitor support
 - Docker support for a single-container test deployment
 
 ## What works
@@ -36,6 +36,7 @@ It is a full-stack app:
 - User bootstrap, login, logout, and user management
 - Admin-only JSON backup export from the users screen
 - Device health-check configuration, alert destinations, and on-demand monitor runs
+- Multiple monitor targets per device so servers, firewalls, and multi-NIC systems can track separate management, service, storage, or VIP endpoints
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
 
@@ -45,6 +46,7 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 - The app version lives in [package.json](./package.json).
 - Release notes live in [CHANGELOG.md](./CHANGELOG.md).
+- The `v1.0` rollout checklist lives in [V1_CHECKLIST.md](./V1_CHECKLIST.md).
 - Install and deploy examples should pin a version instead of assuming `main`.
 
 Every shipped change should update the version and add a matching changelog entry describing what changed.

@@ -10,12 +10,14 @@ export type MonitorResult = { result: 'online' | 'offline' | 'unknown'; message:
 export interface DeviceMonitor {
   id: string
   deviceId: string
+  name: string
   type: MonitorType
   target?: string | null
   port?: number | null
   path?: string | null
   intervalMs?: number | null
   enabled: boolean
+  sortOrder: number
   lastCheckAt?: string | null
   lastResult?: string | null
   lastMessage?: string | null
@@ -27,12 +29,14 @@ export function parseMonitor(row: Record<string, unknown>): DeviceMonitor {
   return {
     id: String(row.id),
     deviceId: String(row.deviceId),
+    name: row.name ? String(row.name) : 'Primary',
     type: String(row.type) as MonitorType,
     target: row.target ? String(row.target) : null,
     port: row.port == null ? null : Number(row.port),
     path: row.path ? String(row.path) : null,
     intervalMs: row.intervalMs == null ? null : Number(row.intervalMs),
     enabled: Number(row.enabled ?? 0) === 1,
+    sortOrder: row.sortOrder == null ? 0 : Number(row.sortOrder),
     lastCheckAt: row.lastCheckAt ? String(row.lastCheckAt) : null,
     lastResult: row.lastResult ? String(row.lastResult) : null,
     lastMessage: row.lastMessage ? String(row.lastMessage) : null,
@@ -41,8 +45,8 @@ export function parseMonitor(row: Record<string, unknown>): DeviceMonitor {
 
 export function listMonitors(deviceId?: string) {
   const rows = deviceId
-    ? db.prepare('SELECT * FROM deviceMonitors WHERE deviceId = ? ORDER BY deviceId').all(deviceId)
-    : db.prepare('SELECT * FROM deviceMonitors ORDER BY deviceId').all()
+    ? db.prepare('SELECT * FROM deviceMonitors WHERE deviceId = ? ORDER BY deviceId, sortOrder, name, id').all(deviceId)
+    : db.prepare('SELECT * FROM deviceMonitors ORDER BY deviceId, sortOrder, name, id').all()
   return (rows as Record<string, unknown>[]).map(parseMonitor)
 }
 
@@ -66,13 +70,13 @@ export async function runDueChecks(defaultIntervalMs: number) {
   for (const monitor of monitors) {
     const dueEvery = monitor.intervalMs ?? defaultIntervalMs
     if (!monitor.lastCheckAt || Date.now() - Date.parse(monitor.lastCheckAt) >= dueEvery) {
-      await runDeviceCheck(monitor.deviceId)
+      await runMonitorCheck(monitor.id)
     }
   }
 }
 
-export async function runDeviceCheck(deviceId: string) {
-  const row = db.prepare('SELECT * FROM deviceMonitors WHERE deviceId = ?').get(deviceId) as Record<string, unknown> | undefined
+export async function runMonitorCheck(id: string) {
+  const row = db.prepare('SELECT * FROM deviceMonitors WHERE id = ?').get(id) as Record<string, unknown> | undefined
   if (!row) {
     return null
   }
@@ -86,12 +90,22 @@ export async function runDeviceCheck(deviceId: string) {
       result: 'unknown',
       message: 'Health checks disabled.',
     })
-    return parseMonitor(db.prepare('SELECT * FROM deviceMonitors WHERE deviceId = ?').get(deviceId) as Record<string, unknown>)
+    return parseMonitor(db.prepare('SELECT * FROM deviceMonitors WHERE id = ?').get(id) as Record<string, unknown>)
   }
 
   const result = await executeCheck(monitor)
   await persistMonitorResult(monitor, { checkedAt, ...result })
-  return parseMonitor(db.prepare('SELECT * FROM deviceMonitors WHERE deviceId = ?').get(deviceId) as Record<string, unknown>)
+  return parseMonitor(db.prepare('SELECT * FROM deviceMonitors WHERE id = ?').get(id) as Record<string, unknown>)
+}
+
+export async function runDeviceChecks(deviceId: string) {
+  const monitors = listMonitors(deviceId).filter((monitor) => monitor.enabled && monitor.type !== 'none')
+  const results: DeviceMonitor[] = []
+  for (const monitor of monitors) {
+    const result = await runMonitorCheck(monitor.id)
+    if (result) results.push(result)
+  }
+  return results
 }
 
 async function persistMonitorResult(
@@ -101,8 +115,8 @@ async function persistMonitorResult(
   db.prepare(`
     UPDATE deviceMonitors
     SET lastCheckAt = ?, lastResult = ?, lastMessage = ?
-    WHERE deviceId = ?
-  `).run(payload.checkedAt, payload.result, payload.message, monitor.deviceId)
+    WHERE id = ?
+  `).run(payload.checkedAt, payload.result, payload.message, monitor.id)
 
   const currentDevice = db.prepare(`
     SELECT hostname, displayName, managementIp, deviceType, status
@@ -113,21 +127,7 @@ async function persistMonitorResult(
     | undefined
   if (!currentDevice) return
 
-  if (currentDevice.status === 'maintenance') {
-    if (payload.result === 'online') {
-      db.prepare('UPDATE devices SET lastSeen = ? WHERE id = ?').run(payload.checkedAt, monitor.deviceId)
-    }
-    return
-  }
-
-  if (payload.result === 'online') {
-    db.prepare('UPDATE devices SET status = ?, lastSeen = ? WHERE id = ?').run('online', payload.checkedAt, monitor.deviceId)
-    return
-  }
-
-  if (payload.result === 'offline') {
-    db.prepare('UPDATE devices SET status = ? WHERE id = ?').run('offline', monitor.deviceId)
-  }
+  refreshDeviceMonitorRollup(monitor.deviceId, currentDevice.status, payload.checkedAt)
 
   if (!monitor.lastResult || monitor.lastResult === payload.result) {
     return
@@ -138,12 +138,55 @@ async function persistMonitorResult(
     displayName: currentDevice.displayName ?? null,
     deviceType: currentDevice.deviceType ?? null,
     managementIp: currentDevice.managementIp ?? monitor.target ?? null,
+    monitorName: monitor.name,
     monitorType: monitor.type,
     target: monitor.target ?? null,
     result: payload.result,
     message: payload.message,
     checkedAt: payload.checkedAt,
   })
+}
+
+export function reconcileDeviceMonitorRollup(deviceId: string) {
+  const currentDevice = db.prepare(`
+    SELECT status
+    FROM devices
+    WHERE id = ?
+  `).get(deviceId) as { status?: string } | undefined
+  if (!currentDevice) return
+  refreshDeviceMonitorRollup(deviceId, currentDevice.status, null)
+}
+
+function refreshDeviceMonitorRollup(deviceId: string, currentStatus: string | undefined, checkedAt: string | null) {
+  const activeMonitors = listMonitors(deviceId).filter((monitor) => monitor.enabled && monitor.type !== 'none')
+  const latestOnlineCheck = activeMonitors
+    .filter((monitor) => monitor.lastResult === 'online' && monitor.lastCheckAt)
+    .map((monitor) => String(monitor.lastCheckAt))
+    .sort()
+    .at(-1) ?? checkedAt
+
+  if (currentStatus === 'maintenance') {
+    if (latestOnlineCheck) {
+      db.prepare('UPDATE devices SET lastSeen = ? WHERE id = ?').run(latestOnlineCheck, deviceId)
+    }
+    return
+  }
+
+  if (activeMonitors.length === 0) {
+    return
+  }
+
+  if (activeMonitors.some((monitor) => monitor.lastResult === 'offline')) {
+    db.prepare('UPDATE devices SET status = ? WHERE id = ?').run('offline', deviceId)
+    return
+  }
+
+  if (activeMonitors.some((monitor) => monitor.lastResult === 'online')) {
+    db.prepare('UPDATE devices SET status = ?, lastSeen = ? WHERE id = ?').run('online', latestOnlineCheck ?? checkedAt ?? new Date().toISOString(), deviceId)
+    return
+  }
+
+  db.prepare('UPDATE devices SET status = ? WHERE id = ?').run('unknown', deviceId)
 }
 
 async function executeCheck(monitor: DeviceMonitor) {

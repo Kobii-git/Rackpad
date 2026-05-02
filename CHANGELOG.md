@@ -4,6 +4,32 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.1] - 2026-05-02
+
+### Added
+
+- Multi-target device monitoring so a single device can track separate management IPs, service ports, storage NICs, or VIPs instead of being limited to one health-check endpoint.
+- A target list and editor on the device detail page for creating, naming, selecting, running, and deleting multiple monitor definitions per device.
+- A `V1_CHECKLIST.md` roadmap file that breaks the remaining `1.0` work into concrete milestones, acceptance criteria, and release gating checks.
+
+### Changed
+
+- Device monitoring now rolls up overall device status from all enabled targets, which lets one host show a clean aggregate `online`, `offline`, or `unknown` state while preserving per-target detail.
+- Monitor alerts now include the monitor target name so outage and recovery notifications are easier to interpret on multi-homed or multi-service devices.
+- Backup restore now understands the richer monitor schema and preserves monitor names and ordering.
+
+### Schema
+
+- Reworked `deviceMonitors` into a one-to-many table by removing the one-monitor-per-device uniqueness assumption.
+- Added `name` and `sortOrder` columns to `deviceMonitors`.
+- Bumped the SQLite schema version to `6`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- This is the first `v1.0` runway release; SMTP alerts, controller-aware WiFi, demo expansion, and additional security/deploy hardening are tracked in `V1_CHECKLIST.md`.
+
 ## [0.9.0] - 2026-05-02
 
 ### Added

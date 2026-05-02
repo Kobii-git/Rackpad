@@ -13,6 +13,7 @@ export interface MonitorAlertPayload {
   displayName?: string | null
   deviceType?: string | null
   managementIp?: string | null
+  monitorName?: string | null
   monitorType: string
   target?: string | null
   result: 'online' | 'offline' | 'unknown'
@@ -76,12 +77,15 @@ export async function sendMonitorTransitionAlert(
   }
 
   const heading = isRecovery ? 'Rackpad recovery alert' : 'Rackpad outage alert'
+  const monitorLabel = payload.monitorName
+    ? `${payload.monitorName} (${payload.monitorType}${payload.target ? ` -> ${payload.target}` : ''})`
+    : `${payload.monitorType}${payload.target ? ` -> ${payload.target}` : ''}`
   const details = [
     heading,
     '',
     `${payload.hostname}${payload.displayName ? ` (${payload.displayName})` : ''}`,
     `Type: ${payload.deviceType ?? 'device'}`,
-    `Monitor: ${payload.monitorType}${payload.target ? ` -> ${payload.target}` : ''}`,
+    `Monitor: ${monitorLabel}`,
     `Management IP: ${payload.managementIp ?? 'n/a'}`,
     `Result: ${payload.result}`,
     `Message: ${payload.message}`,

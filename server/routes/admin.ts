@@ -167,8 +167,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertDeviceMonitor = db.prepare(`
-    INSERT INTO deviceMonitors (id, deviceId, type, target, port, path, intervalMs, enabled, lastCheckAt, lastResult, lastMessage)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO deviceMonitors (id, deviceId, name, type, target, port, path, intervalMs, enabled, sortOrder, lastCheckAt, lastResult, lastMessage)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertAppSetting = db.prepare(`
     INSERT INTO appSettings (key, value, updatedAt)
@@ -312,12 +312,14 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
     insertDeviceMonitor.run(
       row.id,
       row.deviceId,
+      row.name ?? 'Primary',
       row.type,
       row.target ?? null,
       row.port ?? null,
       row.path ?? null,
       row.intervalMs ?? null,
       Number(row.enabled ?? 0),
+      row.sortOrder ?? 0,
       row.lastCheckAt ?? null,
       row.lastResult ?? null,
       row.lastMessage ?? null,

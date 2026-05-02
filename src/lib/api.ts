@@ -56,7 +56,7 @@ export type DiscoveredDevicePatch = Nullable<
 export type UserPatch = Nullable<Pick<AppUser, 'username' | 'displayName' | 'role' | 'disabled'>> & {
   password?: string | null
 }
-export type MonitorPatch = Nullable<Pick<DeviceMonitor, 'type' | 'target' | 'port' | 'path' | 'intervalMs' | 'enabled'>>
+export type MonitorPatch = Nullable<Pick<DeviceMonitor, 'name' | 'type' | 'target' | 'port' | 'path' | 'intervalMs' | 'enabled'>>
 
 export interface AuthStatus {
   needsBootstrap: boolean
@@ -556,10 +556,23 @@ export const api = {
     return request<DeviceMonitor[]>('/device-monitors', undefined, params)
   },
 
-  saveDeviceMonitor(deviceId: string, body: MonitorPatch) {
-    return request<DeviceMonitor>(`/device-monitors/${deviceId}`, {
-      method: 'PUT',
+  createDeviceMonitor(body: { deviceId: string } & MonitorPatch) {
+    return request<DeviceMonitor>('/device-monitors', {
+      method: 'POST',
       body: JSON.stringify(body),
+    })
+  },
+
+  updateDeviceMonitor(id: string, body: MonitorPatch) {
+    return request<DeviceMonitor>(`/device-monitors/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteDeviceMonitor(id: string) {
+    return request<void>(`/device-monitors/${id}`, {
+      method: 'DELETE',
     })
   },
 
@@ -569,8 +582,14 @@ export const api = {
     })
   },
 
-  runDeviceMonitor(deviceId: string) {
-    return request<DeviceMonitor>(`/device-monitors/run/${deviceId}`, {
+  runDeviceMonitorsForDevice(deviceId: string) {
+    return request<{ results: DeviceMonitor[] }>(`/device-monitors/run/${deviceId}`, {
+      method: 'POST',
+    })
+  },
+
+  runDeviceMonitor(id: string) {
+    return request<DeviceMonitor>(`/device-monitors/${id}/run`, {
       method: 'POST',
     })
   },

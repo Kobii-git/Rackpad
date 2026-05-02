@@ -205,12 +205,14 @@ export interface AuthSession {
 export interface DeviceMonitor {
   id: ID
   deviceId: ID
+  name: string
   type: MonitorType
   target?: string | null
   port?: number | null
   path?: string | null
   intervalMs?: number | null
   enabled: boolean
+  sortOrder: number
   lastCheckAt?: string | null
   lastResult?: string | null
   lastMessage?: string | null

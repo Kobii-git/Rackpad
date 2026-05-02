@@ -15,18 +15,22 @@ import { PortList } from '@/components/ports/PortList'
 import { api } from '@/lib/api'
 import {
   canEditInventory,
+  createDeviceMonitorConfig,
   deleteDevice,
+  deleteDeviceMonitorConfig,
   loadAll,
   runDeviceMonitorCheck,
-  saveDeviceMonitorConfig,
+  runDeviceMonitorChecksForDevice,
   unassignIp,
+  updateDeviceMonitorConfig,
   useStore,
 } from '@/lib/store'
 import type { Device, DeviceMonitor, Port, PortLink } from '@/lib/types'
-import { ArrowLeft, Pencil, RefreshCcw, Save, ShieldCheck, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, RefreshCcw, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { relativeTime, statusLabel } from '@/lib/utils'
 
 type MonitorForm = {
+  name: string
   enabled: boolean
   type: DeviceMonitor['type']
   target: string
@@ -36,6 +40,7 @@ type MonitorForm = {
 }
 
 const EMPTY_MONITOR_FORM: MonitorForm = {
+  name: '',
   enabled: false,
   type: 'none',
   target: '',
@@ -43,6 +48,8 @@ const EMPTY_MONITOR_FORM: MonitorForm = {
   path: '',
   intervalMinutes: '5',
 }
+
+const NEW_MONITOR_ID = '__new_monitor__'
 
 export default function DeviceDetail() {
   const { id } = useParams<{ id: string }>()
@@ -62,9 +69,12 @@ export default function DeviceDetail() {
   const [deleting, setDeleting] = useState(false)
   const [releasingId, setReleasingId] = useState<string | null>(null)
   const [selectedPortId, setSelectedPortId] = useState<string | undefined>()
+  const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(null)
   const [monitorForm, setMonitorForm] = useState<MonitorForm>(EMPTY_MONITOR_FORM)
   const [monitorSaving, setMonitorSaving] = useState(false)
   const [monitorRunning, setMonitorRunning] = useState(false)
+  const [allMonitorsRunning, setAllMonitorsRunning] = useState(false)
+  const [monitorDeleting, setMonitorDeleting] = useState(false)
   const [monitorError, setMonitorError] = useState('')
   const [activityEntries, setActivityEntries] = useState<typeof auditLog>([])
   const [activityLimit, setActivityLimit] = useState(500)
@@ -72,7 +82,13 @@ export default function DeviceDetail() {
   const [activityError, setActivityError] = useState('')
 
   const device = id ? devices.find((entry) => entry.id === id) : undefined
-  const monitor = id ? deviceMonitors.find((entry) => entry.deviceId === id) : undefined
+  const deviceMonitorList = useMemo(
+    () => (id ? deviceMonitors.filter((entry) => entry.deviceId === id) : []),
+    [deviceMonitors, id],
+  )
+  const selectedMonitor = selectedMonitorId && selectedMonitorId !== NEW_MONITOR_ID
+    ? deviceMonitorList.find((entry) => entry.id === selectedMonitorId)
+    : undefined
 
   const portsByDeviceId = useMemo(() => {
     return ports.reduce<Record<string, Port[]>>((acc, port) => {
@@ -104,28 +120,35 @@ export default function DeviceDetail() {
   }, [devices])
 
   useEffect(() => {
-    if (!device) return
+    setSelectedMonitorId(null)
+  }, [device?.id])
 
-    if (!monitor) {
-      setMonitorForm({
-        ...EMPTY_MONITOR_FORM,
-        type: device.managementIp ? 'icmp' : 'none',
-        target: device.managementIp ?? '',
-      })
-      setMonitorError('')
+  useEffect(() => {
+    if (!device) return
+    if (deviceMonitorList.length === 0) {
+      if (selectedMonitorId !== NEW_MONITOR_ID) {
+        setSelectedMonitorId(NEW_MONITOR_ID)
+      }
       return
     }
+    if (
+      !selectedMonitorId ||
+      (selectedMonitorId !== NEW_MONITOR_ID && !deviceMonitorList.some((entry) => entry.id === selectedMonitorId))
+    ) {
+      setSelectedMonitorId(deviceMonitorList[0].id)
+    }
+  }, [device, deviceMonitorList, selectedMonitorId])
 
-    setMonitorForm({
-      enabled: monitor.enabled,
-      type: monitor.type,
-      target: monitor.target ?? device.managementIp ?? '',
-      port: monitor.port != null ? String(monitor.port) : '',
-      path: monitor.path ?? '',
-      intervalMinutes: monitor.intervalMs != null ? String(Math.max(1, Math.round(monitor.intervalMs / 60000))) : '5',
-    })
+  useEffect(() => {
+    if (!device) return
+
+    if (selectedMonitor) {
+      setMonitorForm(monitorToForm(selectedMonitor, device))
+    } else {
+      setMonitorForm(buildNewMonitorForm(device, deviceMonitorList.length))
+    }
     setMonitorError('')
-  }, [device, monitor])
+  }, [device, selectedMonitor, deviceMonitorList.length])
 
   const devicePorts = device?.id ? portsByDeviceId[device.id] ?? [] : []
   const rack = device?.rackId ? racks.find((entry) => entry.id === device.rackId) : undefined
@@ -161,6 +184,17 @@ export default function DeviceDetail() {
     }
   }, [devicePorts, selectedPortId])
 
+  useEffect(() => {
+    if (!device) {
+      setActivityEntries([])
+      return
+    }
+    const filtered = auditLog.filter((entry) => entry.entityId === device.id)
+    setActivityEntries(filtered)
+    setActivityLimit(Math.max(500, filtered.length || 0))
+    setActivityError('')
+  }, [auditLog, device])
+
   if (!device) {
     return (
       <>
@@ -179,17 +213,6 @@ export default function DeviceDetail() {
       </>
     )
   }
-
-  useEffect(() => {
-    if (!device) {
-      setActivityEntries([])
-      return
-    }
-    const filtered = auditLog.filter((entry) => entry.entityId === device.id)
-    setActivityEntries(filtered)
-    setActivityLimit(Math.max(500, filtered.length || 0))
-    setActivityError('')
-  }, [auditLog, device])
 
   async function handleRefresh() {
     setRefreshing(true)
@@ -234,16 +257,28 @@ export default function DeviceDetail() {
       const usesPort =
         monitorForm.type === 'tcp' || monitorForm.type === 'http' || monitorForm.type === 'https'
       const usesPath = monitorForm.type === 'http' || monitorForm.type === 'https'
-      await saveDeviceMonitorConfig(device.id, {
+      const payload = {
+        name: monitorForm.name.trim() || null,
         enabled: monitorForm.enabled,
         type: monitorForm.enabled ? monitorForm.type : 'none',
         target: monitorForm.target.trim() || null,
         port: usesPort && monitorForm.port.trim() ? Number.parseInt(monitorForm.port, 10) : null,
         path: usesPath ? monitorForm.path.trim() || null : null,
         intervalMs: Math.max(1, Number.parseInt(monitorForm.intervalMinutes, 10) || 5) * 60 * 1000,
-      })
+      }
+
+      if (selectedMonitor) {
+        const updated = await updateDeviceMonitorConfig(selectedMonitor.id, payload)
+        if (updated && monitorForm.enabled && monitorForm.type !== 'none') {
+          await runDeviceMonitorCheck(updated.id)
+        }
+        return
+      }
+
+      const created = await createDeviceMonitorConfig(device.id, payload)
+      setSelectedMonitorId(created.id)
       if (monitorForm.enabled && monitorForm.type !== 'none') {
-        await runDeviceMonitorCheck(device.id)
+        await runDeviceMonitorCheck(created.id)
       }
     } catch (err) {
       setMonitorError(err instanceof Error ? err.message : 'Failed to save monitor.')
@@ -253,16 +288,56 @@ export default function DeviceDetail() {
   }
 
   async function handleRunMonitor() {
-    if (!device) return
+    if (!selectedMonitor) return
     setMonitorRunning(true)
     setMonitorError('')
     try {
-      await runDeviceMonitorCheck(device.id)
+      await runDeviceMonitorCheck(selectedMonitor.id)
     } catch (err) {
       setMonitorError(err instanceof Error ? err.message : 'Failed to run monitor.')
     } finally {
       setMonitorRunning(false)
     }
+  }
+
+  async function handleRunAllMonitors() {
+    if (!device) return
+    setAllMonitorsRunning(true)
+    setMonitorError('')
+    try {
+      await runDeviceMonitorChecksForDevice(device.id)
+    } catch (err) {
+      setMonitorError(err instanceof Error ? err.message : 'Failed to run device monitors.')
+    } finally {
+      setAllMonitorsRunning(false)
+    }
+  }
+
+  async function handleDeleteMonitor() {
+    if (!selectedMonitor) return
+    if (!window.confirm(`Delete monitor target "${selectedMonitor.name}"?`)) {
+      return
+    }
+
+    setMonitorDeleting(true)
+    setMonitorError('')
+    try {
+      const deleted = await deleteDeviceMonitorConfig(selectedMonitor.id)
+      if (deleted) {
+        setSelectedMonitorId(deviceMonitorList.length > 1 ? null : NEW_MONITOR_ID)
+      }
+    } catch (err) {
+      setMonitorError(err instanceof Error ? err.message : 'Failed to delete monitor.')
+    } finally {
+      setMonitorDeleting(false)
+    }
+  }
+
+  function startNewMonitor() {
+    if (!device) return
+    setSelectedMonitorId(NEW_MONITOR_ID)
+    setMonitorForm(buildNewMonitorForm(device, deviceMonitorList.length))
+    setMonitorError('')
   }
 
   async function handleLoadMoreActivity() {
@@ -285,6 +360,8 @@ export default function DeviceDetail() {
     monitorForm.type === 'tcp' || monitorForm.type === 'http' || monitorForm.type === 'https'
   const showMonitorPathField = monitorForm.type === 'http' || monitorForm.type === 'https'
   const monitorTypeDescription = describeMonitorType(monitorForm.type)
+  const monitorStateTone = device.status === 'online' ? 'ok' : device.status === 'offline' ? 'err' : 'neutral'
+  const activeMonitorCount = deviceMonitorList.filter((entry) => entry.enabled && entry.type !== 'none').length
 
   return (
     <>
@@ -609,91 +686,181 @@ export default function DeviceDetail() {
                   <CardLabel>Health checks</CardLabel>
                   <CardHeading>Automated device monitoring</CardHeading>
                 </CardTitle>
-                <Badge tone={monitor?.lastResult === 'online' ? 'ok' : monitor?.lastResult === 'offline' ? 'err' : 'neutral'}>
-                  <ShieldCheck className="size-3" />
-                  {monitor?.lastResult ?? 'not configured'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge tone={monitorStateTone}>
+                    <ShieldCheck className="size-3" />
+                    {device.status}
+                  </Badge>
+                  <Badge tone="neutral">
+                    {activeMonitorCount}/{deviceMonitorList.length} active targets
+                  </Badge>
+                </div>
               </CardHeader>
               <CardBody className="space-y-4">
-                <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
-                  <input
-                    type="checkbox"
-                    checked={monitorForm.enabled}
-                    disabled={!canEdit}
-                    onChange={(event) =>
-                      setMonitorForm((prev) => ({ ...prev, enabled: event.target.checked }))
-                    }
-                  />
-                  Enable health checks for this device
-                </label>
-
                 <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg-subtle)]">
                   Rackpad runs these checks from the server or Docker container itself. A device stays
                   <span className="mx-1 font-mono text-[var(--color-fg)]">unknown</span>
-                  until a monitor is enabled and at least one check has run.
+                  until at least one enabled target has run.
                 </div>
 
-                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg-subtle)]">
-                  {monitorTypeDescription}
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2">
+                  <div className="text-sm text-[var(--color-fg-subtle)]">
+                    Use separate targets for management IPs, storage NICs, service ports, or VIPs on the same device.
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => void handleRunAllMonitors()} disabled={allMonitorsRunning || activeMonitorCount === 0}>
+                      <ShieldCheck className="size-3.5" />
+                      {allMonitorsRunning ? 'Running all...' : 'Run all targets'}
+                    </Button>
+                    {canEdit && (
+                      <Button variant="outline" size="sm" onClick={startNewMonitor}>
+                        <Plus className="size-3.5" />
+                        Add target
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-4">
-                  <Field label="Type">
-                    <Select
-                      value={monitorForm.type}
-                      onChange={(value) => setMonitorForm((prev) => ({ ...prev, type: value as MonitorForm['type'] }))}
-                      disabled={!canEdit}
-                    >
-                      <option value="none">none</option>
-                      <option value="icmp">icmp</option>
-                      <option value="tcp">tcp</option>
-                      <option value="http">http</option>
-                      <option value="https">https</option>
-                    </Select>
-                  </Field>
-                  <Field label="Target">
-                    <Input
-                      value={monitorForm.target}
-                      disabled={!canEdit}
-                      onChange={(event) => setMonitorForm((prev) => ({ ...prev, target: event.target.value }))}
-                      placeholder="10.0.10.12 or host.example"
-                    />
-                  </Field>
-                  {showMonitorPortField && (
-                    <Field label="Port">
-                      <Input
-                        value={monitorForm.port}
+                <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]">
+                  <div className="space-y-2">
+                    {deviceMonitorList.length === 0 ? (
+                      <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-4 text-sm text-[var(--color-fg-subtle)]">
+                        No monitor targets documented yet.
+                      </div>
+                    ) : (
+                      deviceMonitorList.map((entry) => (
+                        <button
+                          key={entry.id}
+                          type="button"
+                          onClick={() => setSelectedMonitorId(entry.id)}
+                          className={[
+                            'w-full rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors',
+                            selectedMonitorId === entry.id
+                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                              : 'border-[var(--color-line)] bg-[var(--color-bg)] hover:border-[var(--color-line-strong)]',
+                          ].join(' ')}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-sm font-medium text-[var(--color-fg)]">{entry.name}</div>
+                            <Badge tone={entry.lastResult === 'online' ? 'ok' : entry.lastResult === 'offline' ? 'err' : 'neutral'}>
+                              {entry.lastResult ?? 'unknown'}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+                            {entry.type}
+                            {entry.target ? ` | ${entry.target}` : ''}
+                            {entry.port ? `:${entry.port}` : ''}
+                          </div>
+                          <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
+                            {entry.lastMessage ?? 'No checks have run yet.'}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="space-y-4 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
+                          {selectedMonitor ? 'Monitor editor' : 'New target'}
+                        </div>
+                        <div className="text-base font-medium text-[var(--color-fg)]">
+                          {selectedMonitor ? selectedMonitor.name : 'Create a new monitor target'}
+                        </div>
+                      </div>
+                      {selectedMonitor && (
+                        <Badge tone={selectedMonitor.lastResult === 'online' ? 'ok' : selectedMonitor.lastResult === 'offline' ? 'err' : 'neutral'}>
+                          {selectedMonitor.lastResult ?? 'unknown'}
+                        </Badge>
+                      )}
+                    </div>
+
+                    <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                      <input
+                        type="checkbox"
+                        checked={monitorForm.enabled}
                         disabled={!canEdit}
-                        onChange={(event) => setMonitorForm((prev) => ({ ...prev, port: event.target.value }))}
-                        placeholder={monitorForm.type === 'tcp' ? '22, 443, 8006' : monitorForm.type === 'https' ? '443' : '80'}
+                        onChange={(event) =>
+                          setMonitorForm((prev) => ({ ...prev, enabled: event.target.checked }))
+                        }
                       />
-                    </Field>
-                  )}
-                  <Field label="Every (minutes)">
-                    <Input
-                      value={monitorForm.intervalMinutes}
-                      disabled={!canEdit}
-                      onChange={(event) => setMonitorForm((prev) => ({ ...prev, intervalMinutes: event.target.value }))}
-                      placeholder="5"
-                    />
-                  </Field>
-                </div>
+                      Enable health checks for this target
+                    </label>
 
-                {showMonitorPathField && (
-                  <Field label="HTTP path">
-                    <Input
-                      value={monitorForm.path}
-                      disabled={!canEdit}
-                      onChange={(event) => setMonitorForm((prev) => ({ ...prev, path: event.target.value }))}
-                      placeholder="/health"
-                    />
-                  </Field>
-                )}
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-fg-subtle)]">
+                      {monitorTypeDescription}
+                    </div>
 
-                <div className="grid gap-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4 md:grid-cols-3">
-                  <MonitorStat label="Last check" value={monitor?.lastCheckAt ? new Date(monitor.lastCheckAt).toLocaleString() : 'Never'} />
-                  <MonitorStat label="Last result" value={monitor?.lastResult ?? 'unknown'} />
-                  <MonitorStat label="Message" value={monitor?.lastMessage ?? 'No checks have run yet.'} />
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      <Field label="Name">
+                        <Input
+                          value={monitorForm.name}
+                          disabled={!canEdit}
+                          onChange={(event) => setMonitorForm((prev) => ({ ...prev, name: event.target.value }))}
+                          placeholder="Management, Storage, WAN, VIP..."
+                        />
+                      </Field>
+                      <Field label="Type">
+                        <Select
+                          value={monitorForm.type}
+                          onChange={(value) => setMonitorForm((prev) => ({ ...prev, type: value as MonitorForm['type'] }))}
+                          disabled={!canEdit}
+                        >
+                          <option value="none">none</option>
+                          <option value="icmp">icmp</option>
+                          <option value="tcp">tcp</option>
+                          <option value="http">http</option>
+                          <option value="https">https</option>
+                        </Select>
+                      </Field>
+                      <Field label="Target">
+                        <Input
+                          value={monitorForm.target}
+                          disabled={!canEdit}
+                          onChange={(event) => setMonitorForm((prev) => ({ ...prev, target: event.target.value }))}
+                          placeholder="10.0.10.12 or host.example"
+                        />
+                      </Field>
+                      <Field label="Every (minutes)">
+                        <Input
+                          value={monitorForm.intervalMinutes}
+                          disabled={!canEdit}
+                          onChange={(event) => setMonitorForm((prev) => ({ ...prev, intervalMinutes: event.target.value }))}
+                          placeholder="5"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {showMonitorPortField && (
+                        <Field label="Port">
+                          <Input
+                            value={monitorForm.port}
+                            disabled={!canEdit}
+                            onChange={(event) => setMonitorForm((prev) => ({ ...prev, port: event.target.value }))}
+                            placeholder={monitorForm.type === 'tcp' ? '22, 443, 8006' : monitorForm.type === 'https' ? '443' : '80'}
+                          />
+                        </Field>
+                      )}
+                      {showMonitorPathField && (
+                        <Field label="HTTP path">
+                          <Input
+                            value={monitorForm.path}
+                            disabled={!canEdit}
+                            onChange={(event) => setMonitorForm((prev) => ({ ...prev, path: event.target.value }))}
+                            placeholder="/health"
+                          />
+                        </Field>
+                      )}
+                    </div>
+
+                    <div className="grid gap-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] p-4 md:grid-cols-3">
+                      <MonitorStat label="Last check" value={selectedMonitor?.lastCheckAt ? new Date(selectedMonitor.lastCheckAt).toLocaleString() : 'Never'} />
+                      <MonitorStat label="Last result" value={selectedMonitor?.lastResult ?? 'unknown'} />
+                      <MonitorStat label="Message" value={selectedMonitor?.lastMessage ?? 'No checks have run yet.'} />
+                    </div>
+                  </div>
                 </div>
 
                 {monitorError && (
@@ -703,14 +870,20 @@ export default function DeviceDetail() {
                 )}
 
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => void handleRunMonitor()} disabled={monitorRunning}>
+                  <Button variant="outline" size="sm" onClick={() => void handleRunMonitor()} disabled={monitorRunning || !selectedMonitor}>
                     <ShieldCheck className="size-3.5" />
                     {monitorRunning ? 'Running...' : 'Run now'}
                   </Button>
+                  {canEdit && selectedMonitor && (
+                    <Button variant="destructive" size="sm" onClick={() => void handleDeleteMonitor()} disabled={monitorDeleting}>
+                      <Trash2 className="size-3.5" />
+                      {monitorDeleting ? 'Deleting...' : 'Delete target'}
+                    </Button>
+                  )}
                   {canEdit && (
                     <Button size="sm" onClick={() => void handleSaveMonitor()} disabled={monitorSaving}>
                       <Save className="size-3.5" />
-                      {monitorSaving ? 'Saving...' : 'Save monitor'}
+                      {monitorSaving ? 'Saving...' : selectedMonitor ? 'Save target' : 'Create target'}
                     </Button>
                   )}
                 </div>
@@ -987,6 +1160,31 @@ function SummaryPill({ label, value }: { label: string; value: string }) {
       <div className="mt-1 text-sm text-[var(--color-fg)]">{value}</div>
     </div>
   )
+}
+
+function buildNewMonitorForm(device: Device, existingCount: number): MonitorForm {
+  const defaultTarget = existingCount === 0 ? device.managementIp ?? '' : ''
+  return {
+    name: existingCount === 0 ? 'Management' : `Target ${existingCount + 1}`,
+    enabled: Boolean(defaultTarget),
+    type: defaultTarget ? 'icmp' : 'none',
+    target: defaultTarget,
+    port: '',
+    path: '',
+    intervalMinutes: '5',
+  }
+}
+
+function monitorToForm(monitor: DeviceMonitor, device: Device): MonitorForm {
+  return {
+    name: monitor.name,
+    enabled: monitor.enabled,
+    type: monitor.type,
+    target: monitor.target ?? device.managementIp ?? '',
+    port: monitor.port != null ? String(monitor.port) : '',
+    path: monitor.path ?? '',
+    intervalMinutes: monitor.intervalMs != null ? String(Math.max(1, Math.round(monitor.intervalMs / 60000))) : '5',
+  }
 }
 
 function describeMonitorType(type: MonitorForm['type']) {

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 5
+const CURRENT_SCHEMA_VERSION = 6
 
 export const db = new Database(DB_PATH)
 
@@ -303,6 +303,67 @@ const SCHEMA_MIGRATIONS = [
         value     TEXT NOT NULL,
         updatedAt TEXT NOT NULL
       );
+    `,
+  },
+  {
+    version: 6,
+    sql: `
+      ALTER TABLE deviceMonitors RENAME TO deviceMonitors_legacy;
+
+      CREATE TABLE deviceMonitors (
+        id          TEXT PRIMARY KEY,
+        deviceId    TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+        name        TEXT NOT NULL DEFAULT 'Primary',
+        type        TEXT NOT NULL DEFAULT 'none',
+        target      TEXT,
+        port        INTEGER,
+        path        TEXT,
+        intervalMs  INTEGER,
+        enabled     INTEGER NOT NULL DEFAULT 0,
+        sortOrder   INTEGER NOT NULL DEFAULT 0,
+        lastCheckAt TEXT,
+        lastResult  TEXT,
+        lastMessage TEXT
+      );
+
+      INSERT INTO deviceMonitors (
+        id,
+        deviceId,
+        name,
+        type,
+        target,
+        port,
+        path,
+        intervalMs,
+        enabled,
+        sortOrder,
+        lastCheckAt,
+        lastResult,
+        lastMessage
+      )
+      SELECT
+        id,
+        deviceId,
+        'Primary',
+        type,
+        target,
+        port,
+        path,
+        intervalMs,
+        enabled,
+        0,
+        lastCheckAt,
+        lastResult,
+        lastMessage
+      FROM deviceMonitors_legacy;
+
+      DROP TABLE deviceMonitors_legacy;
+
+      CREATE INDEX IF NOT EXISTS idx_device_monitors_device_id
+        ON deviceMonitors (deviceId);
+
+      CREATE INDEX IF NOT EXISTS idx_device_monitors_device_sort
+        ON deviceMonitors (deviceId, sortOrder, name, id);
     `,
   },
 ] as const
