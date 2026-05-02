@@ -23,76 +23,136 @@ import type {
   WifiController,
   WifiRadio,
   WifiSsid,
-} from './types'
+} from "./types";
 
-const API_BASE = '/api'
-const TOKEN_STORAGE_KEY = 'rackpad.auth.token'
+const API_BASE = "/api";
+const TOKEN_STORAGE_KEY = "rackpad.auth.token";
 
-type QueryValue = string | number | boolean | undefined | null
+type QueryValue = string | number | boolean | undefined | null;
 type Nullable<T> = {
-  [K in keyof T]?: T[K] | null
-}
+  [K in keyof T]?: T[K] | null;
+};
 
 export class ApiError extends Error {
-  status: number
+  status: number;
 
   constructor(message: string, status: number) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
   }
 }
 
-export type DevicePatch = Nullable<Omit<Device, 'id' | 'labId'>>
-export type LabPatch = Nullable<Omit<Lab, 'id'>>
-export type RackPatch = Nullable<Omit<Rack, 'id' | 'labId'>>
-export type SubnetPatch = Nullable<Omit<Subnet, 'id' | 'labId'>>
-export type DhcpScopePatch = Nullable<Omit<DhcpScope, 'id' | 'subnetId'>>
-export type IpZonePatch = Nullable<Omit<IpZone, 'id' | 'subnetId'>>
-export type IpAssignmentPatch = Nullable<Omit<IpAssignment, 'id'>>
-export type VlanPatch = Nullable<Omit<Vlan, 'id' | 'labId'>>
-export type VlanRangePatch = Nullable<Omit<VlanRange, 'id' | 'labId'>>
-export type PortPatch = Nullable<Omit<Port, 'id' | 'deviceId' | 'position'>>
-export type PortLinkPatch = Nullable<Omit<PortLink, 'id' | 'fromPortId' | 'toPortId'>>
-export type PortTemplatePatch = Nullable<Pick<PortTemplate, 'name' | 'description' | 'deviceTypes' | 'ports'>>
+export type DevicePatch = Nullable<Omit<Device, "id" | "labId">>;
+export type LabPatch = Nullable<Omit<Lab, "id">>;
+export type RackPatch = Nullable<Omit<Rack, "id" | "labId">>;
+export type SubnetPatch = Nullable<Omit<Subnet, "id" | "labId">>;
+export type DhcpScopePatch = Nullable<Omit<DhcpScope, "id" | "subnetId">>;
+export type IpZonePatch = Nullable<Omit<IpZone, "id" | "subnetId">>;
+export type IpAssignmentPatch = Nullable<Omit<IpAssignment, "id">>;
+export type VlanPatch = Nullable<Omit<Vlan, "id" | "labId">>;
+export type VlanRangePatch = Nullable<Omit<VlanRange, "id" | "labId">>;
+export type PortPatch = Nullable<Omit<Port, "id" | "deviceId" | "position">>;
+export type PortLinkPatch = Nullable<
+  Omit<PortLink, "id" | "fromPortId" | "toPortId">
+>;
+export type PortTemplatePatch = Nullable<
+  Pick<PortTemplate, "name" | "description" | "deviceTypes" | "ports">
+>;
 export type DiscoveredDevicePatch = Nullable<
-  Pick<DiscoveredDevice, 'hostname' | 'displayName' | 'deviceType' | 'placement' | 'status' | 'notes' | 'importedDeviceId' | 'lastSeen'>
->
-export type WifiControllerPatch = Nullable<Pick<WifiController, 'deviceId' | 'name' | 'vendor' | 'model' | 'managementIp' | 'notes'>>
-export type WifiSsidPatch = Nullable<Pick<WifiSsid, 'name' | 'purpose' | 'security' | 'hidden' | 'vlanId' | 'color'>>
-export type WifiAccessPointPatch = Nullable<Pick<WifiAccessPoint, 'controllerId' | 'location' | 'firmwareVersion' | 'notes'>>
-export type WifiRadioPatch = Nullable<Pick<WifiRadio, 'slotName' | 'band' | 'channel' | 'channelWidth' | 'txPower' | 'ssidIds' | 'notes'>>
-export type WifiClientAssociationPatch = Nullable<Pick<WifiClientAssociation, 'apDeviceId' | 'radioId' | 'ssidId' | 'band' | 'channel' | 'signalDbm' | 'lastSeen' | 'lastRoamAt' | 'notes'>>
-export type UserPatch = Nullable<Pick<AppUser, 'username' | 'displayName' | 'role' | 'disabled'>> & {
-  password?: string | null
-}
-export type MonitorPatch = Nullable<Pick<DeviceMonitor, 'name' | 'type' | 'target' | 'port' | 'path' | 'intervalMs' | 'enabled'>>
+  Pick<
+    DiscoveredDevice,
+    | "hostname"
+    | "displayName"
+    | "deviceType"
+    | "placement"
+    | "status"
+    | "notes"
+    | "importedDeviceId"
+    | "lastSeen"
+  >
+>;
+export type WifiControllerPatch = Nullable<
+  Pick<
+    WifiController,
+    "deviceId" | "name" | "vendor" | "model" | "managementIp" | "notes"
+  >
+>;
+export type WifiSsidPatch = Nullable<
+  Pick<
+    WifiSsid,
+    "name" | "purpose" | "security" | "hidden" | "vlanId" | "color"
+  >
+>;
+export type WifiAccessPointPatch = Nullable<
+  Pick<
+    WifiAccessPoint,
+    "controllerId" | "location" | "firmwareVersion" | "notes"
+  >
+>;
+export type WifiRadioPatch = Nullable<
+  Pick<
+    WifiRadio,
+    | "slotName"
+    | "band"
+    | "channel"
+    | "channelWidth"
+    | "txPower"
+    | "ssidIds"
+    | "notes"
+  >
+>;
+export type WifiClientAssociationPatch = Nullable<
+  Pick<
+    WifiClientAssociation,
+    | "apDeviceId"
+    | "radioId"
+    | "ssidId"
+    | "band"
+    | "channel"
+    | "signalDbm"
+    | "lastSeen"
+    | "lastRoamAt"
+    | "notes"
+  >
+>;
+export type UserPatch = Nullable<
+  Pick<AppUser, "username" | "displayName" | "role" | "disabled">
+> & {
+  password?: string | null;
+};
+export type MonitorPatch = Nullable<
+  Pick<
+    DeviceMonitor,
+    "name" | "type" | "target" | "port" | "path" | "intervalMs" | "enabled"
+  >
+>;
 
 export interface AuthStatus {
-  needsBootstrap: boolean
+  needsBootstrap: boolean;
 }
 
-let authToken = readStoredToken()
+let authToken = readStoredToken();
 
 function readStoredToken() {
   try {
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY)
+    return window.localStorage.getItem(TOKEN_STORAGE_KEY);
   } catch {
-    return null
+    return null;
   }
 }
 
 export function getAuthToken() {
-  return authToken
+  return authToken;
 }
 
 export function setAuthToken(token: string | null) {
-  authToken = token
+  authToken = token;
   try {
     if (token) {
-      window.localStorage.setItem(TOKEN_STORAGE_KEY, token)
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
     } else {
-      window.localStorage.removeItem(TOKEN_STORAGE_KEY)
+      window.localStorage.removeItem(TOKEN_STORAGE_KEY);
     }
   } catch {
     // Ignore storage failures and keep the in-memory token.
@@ -100,47 +160,51 @@ export function setAuthToken(token: string | null) {
 }
 
 function buildUrl(path: string, query?: Record<string, QueryValue>) {
-  const url = new URL(`${API_BASE}${path}`, window.location.origin)
+  const url = new URL(`${API_BASE}${path}`, window.location.origin);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
-      if (value !== undefined && value !== null && value !== '') {
-        url.searchParams.set(key, String(value))
+      if (value !== undefined && value !== null && value !== "") {
+        url.searchParams.set(key, String(value));
       }
     }
   }
-  return `${url.pathname}${url.search}`
+  return `${url.pathname}${url.search}`;
 }
 
-async function request<T>(path: string, init?: RequestInit, query?: Record<string, QueryValue>): Promise<T> {
-  const headers = new Headers(init?.headers)
-  if (!headers.has('Content-Type') && init?.body != null) {
-    headers.set('Content-Type', 'application/json')
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  query?: Record<string, QueryValue>,
+): Promise<T> {
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type") && init?.body != null) {
+    headers.set("Content-Type", "application/json");
   }
-  if (authToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${authToken}`)
+  if (authToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${authToken}`);
   }
 
   const res = await fetch(buildUrl(path, query), {
     ...init,
     headers,
-  })
+  });
 
   if (!res.ok) {
-    let message = `Request failed: ${res.status}`
+    let message = `Request failed: ${res.status}`;
     try {
-      const body = await res.json() as { error?: string }
-      if (body.error) message = body.error
+      const body = (await res.json()) as { error?: string };
+      if (body.error) message = body.error;
     } catch {
       // Keep the fallback message.
     }
-    throw new ApiError(message, res.status)
+    throw new ApiError(message, res.status);
   }
 
   if (res.status === 204) {
-    return undefined as T
+    return undefined as T;
   }
 
-  return res.json() as Promise<T>
+  return res.json() as Promise<T>;
 }
 
 async function requestBlob(
@@ -148,583 +212,635 @@ async function requestBlob(
   init?: RequestInit,
   query?: Record<string, QueryValue>,
 ): Promise<{ blob: Blob; filename: string | null }> {
-  const headers = new Headers(init?.headers)
-  if (authToken && !headers.has('Authorization')) {
-    headers.set('Authorization', `Bearer ${authToken}`)
+  const headers = new Headers(init?.headers);
+  if (authToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${authToken}`);
   }
 
   const res = await fetch(buildUrl(path, query), {
     ...init,
     headers,
-  })
+  });
 
   if (!res.ok) {
-    let message = `Request failed: ${res.status}`
+    let message = `Request failed: ${res.status}`;
     try {
-      const body = await res.json() as { error?: string }
-      if (body.error) message = body.error
+      const body = (await res.json()) as { error?: string };
+      if (body.error) message = body.error;
     } catch {
       // Keep the fallback message.
     }
-    throw new ApiError(message, res.status)
+    throw new ApiError(message, res.status);
   }
 
-  const disposition = res.headers.get('content-disposition')
-  const filenameMatch = disposition?.match(/filename="?([^"]+)"?/)
+  const disposition = res.headers.get("content-disposition");
+  const filenameMatch = disposition?.match(/filename="?([^"]+)"?/);
 
   return {
     blob: await res.blob(),
     filename: filenameMatch?.[1] ?? null,
-  }
+  };
 }
 
 export const api = {
   getAuthStatus() {
-    return request<AuthStatus>('/auth/status')
+    return request<AuthStatus>("/auth/status");
   },
 
-  bootstrap(body: { username: string; displayName?: string; password: string; loadDemoData?: boolean }) {
-    return request<AuthSession>('/auth/bootstrap', {
-      method: 'POST',
+  bootstrap(body: {
+    username: string;
+    displayName?: string;
+    password: string;
+    loadDemoData?: boolean;
+  }) {
+    return request<AuthSession>("/auth/bootstrap", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   login(body: { username: string; password: string }) {
-    return request<AuthSession>('/auth/login', {
-      method: 'POST',
+    return request<AuthSession>("/auth/login", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   getCurrentSession() {
-    return request<{ user: AppUser; expiresAt: string }>('/auth/me')
+    return request<{ user: AppUser; expiresAt: string }>("/auth/me");
   },
 
   logout() {
-    return request<void>('/auth/logout', {
-      method: 'POST',
-    })
+    return request<void>("/auth/logout", {
+      method: "POST",
+    });
   },
 
   getUsers() {
-    return request<AppUser[]>('/users')
+    return request<AppUser[]>("/users");
   },
 
   getLabs() {
-    return request<Lab[]>('/labs')
+    return request<Lab[]>("/labs");
   },
 
-  createLab(body: Omit<Lab, 'id'> & { id?: string }) {
-    return request<Lab>('/labs', {
-      method: 'POST',
+  createLab(body: Omit<Lab, "id"> & { id?: string }) {
+    return request<Lab>("/labs", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateLab(id: string, body: LabPatch) {
     return request<Lab>(`/labs/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteLab(id: string) {
     return request<void>(`/labs/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
-  createUser(body: { username: string; displayName?: string; password: string; role: UserRole; disabled?: boolean }) {
-    return request<AppUser>('/users', {
-      method: 'POST',
+  createUser(body: {
+    username: string;
+    displayName?: string;
+    password: string;
+    role: UserRole;
+    disabled?: boolean;
+  }) {
+    return request<AppUser>("/users", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateUser(id: string, body: UserPatch) {
     return request<AppUser>(`/users/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteUser(id: string) {
     return request<void>(`/users/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   downloadAdminBackup() {
-    return requestBlob('/admin/export')
+    return requestBlob("/admin/export");
   },
 
   restoreAdminBackup(body: unknown) {
-    return request<{ restored: boolean; requiresLogin: boolean; counts: Record<string, number> }>('/admin/restore', {
-      method: 'POST',
+    return request<{
+      restored: boolean;
+      requiresLogin: boolean;
+      counts: Record<string, number>;
+    }>("/admin/restore", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   getAlertSettings() {
-    return request<AlertSettings>('/admin/alert-settings')
+    return request<AlertSettings>("/admin/alert-settings");
   },
 
   updateAlertSettings(body: AlertSettings) {
-    return request<AlertSettings>('/admin/alert-settings', {
-      method: 'PUT',
+    return request<AlertSettings>("/admin/alert-settings", {
+      method: "PUT",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   sendAlertSettingsTest() {
-    return request<{ delivered: boolean; channels: Array<{ channel: string; delivered: boolean }> }>('/admin/alert-settings/test', {
-      method: 'POST',
-    })
+    return request<{
+      delivered: boolean;
+      channels: Array<{ channel: string; delivered: boolean }>;
+    }>("/admin/alert-settings/test", {
+      method: "POST",
+    });
   },
 
   getRacks(params?: { labId?: string }) {
-    return request<Rack[]>('/racks', undefined, params)
+    return request<Rack[]>("/racks", undefined, params);
   },
 
-  createRack(body: Omit<Rack, 'id'> & { id?: string }) {
-    return request<Rack>('/racks', {
-      method: 'POST',
+  createRack(body: Omit<Rack, "id"> & { id?: string }) {
+    return request<Rack>("/racks", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateRack(id: string, body: RackPatch) {
     return request<Rack>(`/racks/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteRack(id: string) {
     return request<void>(`/racks/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getDevices(params?: { rackId?: string; labId?: string }) {
-    return request<Device[]>('/devices', undefined, params)
+    return request<Device[]>("/devices", undefined, params);
   },
 
   getDevice(id: string) {
-    return request<Device>(`/devices/${id}`)
+    return request<Device>(`/devices/${id}`);
   },
 
-  createDevice(body: Omit<Device, 'id'> & { id?: string; portTemplateId?: string }) {
-    return request<Device>('/devices', {
-      method: 'POST',
+  createDevice(
+    body: Omit<Device, "id"> & { id?: string; portTemplateId?: string },
+  ) {
+    return request<Device>("/devices", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
-  updateDevice(id: string, body: DevicePatch & { portTemplateId?: string | null }) {
+  updateDevice(
+    id: string,
+    body: DevicePatch & { portTemplateId?: string | null },
+  ) {
     return request<Device>(`/devices/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteDevice(id: string) {
     return request<void>(`/devices/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getPortTemplates() {
-    return request<PortTemplate[]>('/ports/templates')
+    return request<PortTemplate[]>("/ports/templates");
   },
 
-  createPortTemplate(body: Omit<PortTemplate, 'builtIn' | 'id'> & { id?: string }) {
-    return request<PortTemplate>('/ports/templates', {
-      method: 'POST',
+  createPortTemplate(
+    body: Omit<PortTemplate, "builtIn" | "id"> & { id?: string },
+  ) {
+    return request<PortTemplate>("/ports/templates", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updatePortTemplate(id: string, body: PortTemplatePatch) {
     return request<PortTemplate>(`/ports/templates/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deletePortTemplate(id: string) {
     return request<void>(`/ports/templates/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getPorts(params?: { deviceId?: string }) {
-    return request<Port[]>('/ports', undefined, params)
+    return request<Port[]>("/ports", undefined, params);
   },
 
-  createPort(body: Omit<Port, 'id'> & { id?: string }) {
-    return request<Port>('/ports', {
-      method: 'POST',
+  createPort(body: Omit<Port, "id"> & { id?: string }) {
+    return request<Port>("/ports", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updatePort(id: string, body: PortPatch) {
     return request<Port>(`/ports/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deletePort(id: string) {
     return request<void>(`/ports/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getPortLinks() {
-    return request<PortLink[]>('/port-links')
+    return request<PortLink[]>("/port-links");
   },
 
-  createPortLink(body: Omit<PortLink, 'id'> & { id?: string }) {
-    return request<PortLink>('/port-links', {
-      method: 'POST',
+  createPortLink(body: Omit<PortLink, "id"> & { id?: string }) {
+    return request<PortLink>("/port-links", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updatePortLink(id: string, body: PortLinkPatch) {
     return request<PortLink>(`/port-links/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deletePortLink(id: string) {
     return request<void>(`/port-links/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getVlans(params?: { labId?: string }) {
-    return request<Vlan[]>('/vlans', undefined, params)
+    return request<Vlan[]>("/vlans", undefined, params);
   },
 
-  createVlan(body: Omit<Vlan, 'id'> & { id?: string }) {
-    return request<Vlan>('/vlans', {
-      method: 'POST',
+  createVlan(body: Omit<Vlan, "id"> & { id?: string }) {
+    return request<Vlan>("/vlans", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateVlan(id: string, body: VlanPatch) {
     return request<Vlan>(`/vlans/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteVlan(id: string) {
     return request<void>(`/vlans/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getVlanRanges(params?: { labId?: string }) {
-    return request<VlanRange[]>('/vlans/ranges', undefined, params)
+    return request<VlanRange[]>("/vlans/ranges", undefined, params);
   },
 
-  createVlanRange(body: Omit<VlanRange, 'id'> & { id?: string }) {
-    return request<VlanRange>('/vlans/ranges', {
-      method: 'POST',
+  createVlanRange(body: Omit<VlanRange, "id"> & { id?: string }) {
+    return request<VlanRange>("/vlans/ranges", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateVlanRange(id: string, body: VlanRangePatch) {
     return request<VlanRange>(`/vlans/ranges/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteVlanRange(id: string) {
     return request<void>(`/vlans/ranges/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getSubnets(params?: { labId?: string }) {
-    return request<Subnet[]>('/subnets', undefined, params)
+    return request<Subnet[]>("/subnets", undefined, params);
   },
 
-  createSubnet(body: Omit<Subnet, 'id'> & { id?: string }) {
-    return request<Subnet>('/subnets', {
-      method: 'POST',
+  createSubnet(body: Omit<Subnet, "id"> & { id?: string }) {
+    return request<Subnet>("/subnets", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateSubnet(id: string, body: SubnetPatch) {
     return request<Subnet>(`/subnets/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteSubnet(id: string) {
     return request<void>(`/subnets/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getDhcpScopes(params?: { subnetId?: string }) {
-    return request<DhcpScope[]>('/dhcp-scopes', undefined, params)
+    return request<DhcpScope[]>("/dhcp-scopes", undefined, params);
   },
 
-  createDhcpScope(body: Omit<DhcpScope, 'id'> & { id?: string }) {
-    return request<DhcpScope>('/dhcp-scopes', {
-      method: 'POST',
+  createDhcpScope(body: Omit<DhcpScope, "id"> & { id?: string }) {
+    return request<DhcpScope>("/dhcp-scopes", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateDhcpScope(id: string, body: DhcpScopePatch) {
     return request<DhcpScope>(`/dhcp-scopes/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteDhcpScope(id: string) {
     return request<void>(`/dhcp-scopes/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getIpZones(params?: { subnetId?: string }) {
-    return request<IpZone[]>('/ip-zones', undefined, params)
+    return request<IpZone[]>("/ip-zones", undefined, params);
   },
 
-  createIpZone(body: Omit<IpZone, 'id'> & { id?: string }) {
-    return request<IpZone>('/ip-zones', {
-      method: 'POST',
+  createIpZone(body: Omit<IpZone, "id"> & { id?: string }) {
+    return request<IpZone>("/ip-zones", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateIpZone(id: string, body: IpZonePatch) {
     return request<IpZone>(`/ip-zones/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteIpZone(id: string) {
     return request<void>(`/ip-zones/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getIpAssignments(params?: { subnetId?: string; deviceId?: string }) {
-    return request<IpAssignment[]>('/ip-assignments', undefined, params)
+    return request<IpAssignment[]>("/ip-assignments", undefined, params);
   },
 
-  createIpAssignment(body: Omit<IpAssignment, 'id'> & { id?: string }) {
-    return request<IpAssignment>('/ip-assignments', {
-      method: 'POST',
+  createIpAssignment(body: Omit<IpAssignment, "id"> & { id?: string }) {
+    return request<IpAssignment>("/ip-assignments", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateIpAssignment(id: string, body: IpAssignmentPatch) {
     return request<IpAssignment>(`/ip-assignments/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteIpAssignment(id: string) {
     return request<void>(`/ip-assignments/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
-  getAuditLog(params?: { entityId?: string; entityType?: string; limit?: number }) {
-    return request<AuditEntry[]>('/audit-log', undefined, params)
+  getAuditLog(params?: {
+    entityId?: string;
+    entityType?: string;
+    limit?: number;
+  }) {
+    return request<AuditEntry[]>("/audit-log", undefined, params);
   },
 
-  createAuditEntry(body: Omit<AuditEntry, 'id' | 'ts' | 'user'> & { id?: string; ts?: string; user?: string }) {
-    return request<AuditEntry>('/audit-log', {
-      method: 'POST',
+  createAuditEntry(
+    body: Omit<AuditEntry, "id" | "ts" | "user"> & {
+      id?: string;
+      ts?: string;
+      user?: string;
+    },
+  ) {
+    return request<AuditEntry>("/audit-log", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   getDeviceMonitors(params?: { deviceId?: string }) {
-    return request<DeviceMonitor[]>('/device-monitors', undefined, params)
+    return request<DeviceMonitor[]>("/device-monitors", undefined, params);
   },
 
   createDeviceMonitor(body: { deviceId: string } & MonitorPatch) {
-    return request<DeviceMonitor>('/device-monitors', {
-      method: 'POST',
+    return request<DeviceMonitor>("/device-monitors", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateDeviceMonitor(id: string, body: MonitorPatch) {
     return request<DeviceMonitor>(`/device-monitors/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteDeviceMonitor(id: string) {
     return request<void>(`/device-monitors/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   runAllDeviceMonitors() {
-    return request<{ results: DeviceMonitor[] }>('/device-monitors/run', {
-      method: 'POST',
-    })
+    return request<{ results: DeviceMonitor[] }>("/device-monitors/run", {
+      method: "POST",
+    });
   },
 
   runDeviceMonitorsForDevice(deviceId: string) {
-    return request<{ results: DeviceMonitor[] }>(`/device-monitors/run/${deviceId}`, {
-      method: 'POST',
-    })
+    return request<{ results: DeviceMonitor[] }>(
+      `/device-monitors/run/${deviceId}`,
+      {
+        method: "POST",
+      },
+    );
   },
 
   runDeviceMonitor(id: string) {
     return request<DeviceMonitor>(`/device-monitors/${id}/run`, {
-      method: 'POST',
-    })
+      method: "POST",
+    });
   },
 
   getDiscoveredDevices(params?: { labId?: string; status?: string }) {
-    return request<DiscoveredDevice[]>('/discovery', undefined, params)
+    return request<DiscoveredDevice[]>("/discovery", undefined, params);
   },
 
   scanDiscoveredDevices(body: { labId: string; cidr: string }) {
-    return request<{ scannedHostCount: number; discoveredCount: number; rows: DiscoveredDevice[] }>('/discovery/scan', {
-      method: 'POST',
+    return request<{
+      scannedHostCount: number;
+      discoveredCount: number;
+      rows: DiscoveredDevice[];
+    }>("/discovery/scan", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateDiscoveredDevice(id: string, body: DiscoveredDevicePatch) {
     return request<DiscoveredDevice>(`/discovery/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteDiscoveredDevice(id: string) {
     return request<void>(`/discovery/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getWifiControllers(params?: { labId?: string }) {
-    return request<WifiController[]>('/wifi/controllers', undefined, params)
+    return request<WifiController[]>("/wifi/controllers", undefined, params);
   },
 
-  createWifiController(body: Omit<WifiController, 'id'> & { id?: string }) {
-    return request<WifiController>('/wifi/controllers', {
-      method: 'POST',
+  createWifiController(body: Omit<WifiController, "id"> & { id?: string }) {
+    return request<WifiController>("/wifi/controllers", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateWifiController(id: string, body: WifiControllerPatch) {
     return request<WifiController>(`/wifi/controllers/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteWifiController(id: string) {
     return request<void>(`/wifi/controllers/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getWifiSsids(params?: { labId?: string }) {
-    return request<WifiSsid[]>('/wifi/ssids', undefined, params)
+    return request<WifiSsid[]>("/wifi/ssids", undefined, params);
   },
 
-  createWifiSsid(body: Omit<WifiSsid, 'id'> & { id?: string }) {
-    return request<WifiSsid>('/wifi/ssids', {
-      method: 'POST',
+  createWifiSsid(body: Omit<WifiSsid, "id"> & { id?: string }) {
+    return request<WifiSsid>("/wifi/ssids", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateWifiSsid(id: string, body: WifiSsidPatch) {
     return request<WifiSsid>(`/wifi/ssids/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteWifiSsid(id: string) {
     return request<void>(`/wifi/ssids/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getWifiAccessPoints(params?: { labId?: string }) {
-    return request<WifiAccessPoint[]>('/wifi/access-points', undefined, params)
+    return request<WifiAccessPoint[]>("/wifi/access-points", undefined, params);
   },
 
   saveWifiAccessPoint(deviceId: string, body: WifiAccessPointPatch) {
     return request<WifiAccessPoint>(`/wifi/access-points/${deviceId}`, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   getWifiRadios(params?: { labId?: string; apDeviceId?: string }) {
-    return request<WifiRadio[]>('/wifi/radios', undefined, params)
+    return request<WifiRadio[]>("/wifi/radios", undefined, params);
   },
 
-  createWifiRadio(body: Omit<WifiRadio, 'id'> & { id?: string }) {
-    return request<WifiRadio>('/wifi/radios', {
-      method: 'POST',
+  createWifiRadio(body: Omit<WifiRadio, "id"> & { id?: string }) {
+    return request<WifiRadio>("/wifi/radios", {
+      method: "POST",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   updateWifiRadio(id: string, body: WifiRadioPatch) {
     return request<WifiRadio>(`/wifi/radios/${id}`, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
-    })
+    });
   },
 
   deleteWifiRadio(id: string) {
     return request<void>(`/wifi/radios/${id}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
 
   getWifiClientAssociations(params?: { labId?: string; apDeviceId?: string }) {
-    return request<WifiClientAssociation[]>('/wifi/associations', undefined, params)
+    return request<WifiClientAssociation[]>(
+      "/wifi/associations",
+      undefined,
+      params,
+    );
   },
 
-  saveWifiClientAssociation(clientDeviceId: string, body: WifiClientAssociationPatch) {
-    return request<WifiClientAssociation>(`/wifi/associations/${clientDeviceId}`, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    })
+  saveWifiClientAssociation(
+    clientDeviceId: string,
+    body: WifiClientAssociationPatch,
+  ) {
+    return request<WifiClientAssociation>(
+      `/wifi/associations/${clientDeviceId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(body),
+      },
+    );
   },
 
   deleteWifiClientAssociation(clientDeviceId: string) {
     return request<void>(`/wifi/associations/${clientDeviceId}`, {
-      method: 'DELETE',
-    })
+      method: "DELETE",
+    });
   },
-}
+};

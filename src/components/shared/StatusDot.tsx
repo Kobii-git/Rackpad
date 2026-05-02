@@ -1,55 +1,77 @@
-import { cn } from '@/lib/utils'
-import type { DeviceStatus, LinkState } from '@/lib/types'
+import { cn } from "@/lib/utils";
+import type { DeviceStatus, LinkState } from "@/lib/types";
 
 interface StatusDotProps {
-  status?: DeviceStatus
-  link?: LinkState
-  size?: 'sm' | 'md'
-  className?: string
+  status?: DeviceStatus;
+  link?: LinkState;
+  size?: "sm" | "md";
+  className?: string;
 }
 
-export function StatusDot({ status, link, size = 'sm', className }: StatusDotProps) {
-  let color = 'var(--color-fg-faint)'
-  let glow = 'transparent'
-  let pulse = false
+export function StatusDot({
+  status,
+  link,
+  size = "sm",
+  className,
+}: StatusDotProps) {
+  let color = "var(--neutral)";
+  let glow = "transparent";
+  let pulse = false;
 
   if (link !== undefined) {
-    if (link === 'up') {
-      color = 'var(--color-cyan)'
-      glow = 'var(--color-cyan-glow)'
-      pulse = true
-    } else if (link === 'down') {
-      color = 'var(--color-fg-faint)'
-    } else if (link === 'disabled') {
-      color = 'var(--color-fg-subtle)'
+    if (link === "up") {
+      color = "var(--accent-secondary)";
+      glow = "var(--accent-secondary-glow)";
+      pulse = true;
+    } else if (link === "down") {
+      color = "var(--danger)";
+    } else if (link === "disabled") {
+      color = "var(--text-muted)";
     }
   } else if (status !== undefined) {
     switch (status) {
-      case 'online':
-        color = 'var(--color-ok)'; glow = 'var(--color-ok-glow)'; pulse = true; break
-      case 'offline':
-        color = 'var(--color-fg-faint)'; break
-      case 'warning':
-        color = 'var(--color-warn)'; glow = 'var(--color-warn-glow)'; break
-      case 'maintenance':
-        color = 'var(--color-info)'; glow = 'var(--color-info-glow)'; break
-      case 'unknown':
-        color = 'var(--color-fg-subtle)'; break
+      case "online":
+        color = "var(--success)";
+        glow = "var(--success-soft)";
+        pulse = true;
+        break;
+      case "offline":
+        color = "var(--danger)";
+        glow = "var(--danger-soft)";
+        break;
+      case "warning":
+        color = "var(--warning)";
+        glow = "var(--warning-soft)";
+        break;
+      case "maintenance":
+        color = "var(--info)";
+        glow = "var(--info-soft)";
+        break;
+      case "unknown":
+        color = "var(--neutral)";
+        break;
     }
   }
 
-  const dim = size === 'sm' ? 6 : 8
+  const dim = size === "sm" ? 6 : 8;
 
   return (
     <span
-      className={cn('relative inline-block shrink-0 rounded-full', pulse && 'animate-pulse-slow', className)}
+      className={cn(
+        "relative inline-block shrink-0 rounded-full",
+        pulse && "animate-pulse-slow",
+        className,
+      )}
       style={{
         width: dim,
         height: dim,
         backgroundColor: color,
-        boxShadow: `0 0 0 ${size === 'sm' ? 2 : 3}px ${glow}`,
+        boxShadow:
+          glow === "transparent"
+            ? `0 0 0 1px rgb(255 255 255 / 0.08) inset`
+            : `0 0 0 ${size === "sm" ? 2 : 3}px ${glow}`,
       }}
       aria-hidden
     />
-  )
+  );
 }

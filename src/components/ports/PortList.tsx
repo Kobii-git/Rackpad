@@ -1,26 +1,33 @@
-import type { ReactNode } from 'react'
-import type { Port, PortLink, Device } from '@/lib/types'
-import { cn, portTypeColor, portTypeLabel } from '@/lib/utils'
-import { StatusDot } from '@/components/shared/StatusDot'
-import { Mono } from '@/components/shared/Mono'
-import { ArrowRight } from 'lucide-react'
+import type { ReactNode } from "react";
+import type { Device, Port, PortLink } from "@/lib/types";
+import { cn, portTypeColor, portTypeLabel } from "@/lib/utils";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { Mono } from "@/components/shared/Mono";
+import { ArrowRight } from "lucide-react";
 
 interface PortListProps {
-  ports: Port[]
-  links: Record<string, PortLink>
-  portsById: Record<string, Port>
-  devicesById: Record<string, Device>
-  onSelectPort?: (portId: string) => void
-  selectedPortId?: string
+  ports: Port[];
+  links: Record<string, PortLink>;
+  portsById: Record<string, Port>;
+  devicesById: Record<string, Device>;
+  onSelectPort?: (portId: string) => void;
+  selectedPortId?: string;
 }
 
-export function PortList({ ports, links, portsById, devicesById, onSelectPort, selectedPortId }: PortListProps) {
+export function PortList({
+  ports,
+  links,
+  portsById,
+  devicesById,
+  onSelectPort,
+  selectedPortId,
+}: PortListProps) {
   return (
-    <div className="overflow-hidden border border-[var(--color-line)] rounded-[var(--radius-md)]">
-      <table className="w-full text-sm">
-        <thead className="bg-[var(--color-bg-2)]">
-          <tr className="border-b border-[var(--color-line)]">
-            <Th className="w-1">·</Th>
+    <div className="rk-table-shell">
+      <table className="rk-table">
+        <thead>
+          <tr>
+            <Th className="w-1">•</Th>
             <Th>Port</Th>
             <Th>Type</Th>
             <Th>Speed</Th>
@@ -30,104 +37,114 @@ export function PortList({ ports, links, portsById, devicesById, onSelectPort, s
           </tr>
         </thead>
         <tbody>
-          {ports.map((p) => {
-            const link = links[p.id]
-            let otherDevice: Device | undefined
-            let otherPort: Port | undefined
+          {ports.map((port) => {
+            const link = links[port.id];
+            let otherDevice: Device | undefined;
+            let otherPort: Port | undefined;
             if (link) {
-              const otherId = link.fromPortId === p.id ? link.toPortId : link.fromPortId
-              otherPort = portsById[otherId]
-              if (otherPort) otherDevice = devicesById[otherPort.deviceId]
+              const otherId =
+                link.fromPortId === port.id ? link.toPortId : link.fromPortId;
+              otherPort = portsById[otherId];
+              if (otherPort) otherDevice = devicesById[otherPort.deviceId];
             }
 
             return (
               <tr
-                key={p.id}
-                onClick={() => onSelectPort?.(p.id)}
-                className={cn(
-                  'border-b border-[var(--color-line)] last:border-b-0 transition-colors',
-                  onSelectPort ? 'cursor-pointer hover:bg-[var(--color-surface)]' : 'hover:bg-[var(--color-surface)]',
-                  selectedPortId === p.id ? 'bg-[var(--color-accent)]/8' : '',
-                )}
+                key={port.id}
+                data-selected={selectedPortId === port.id}
+                onClick={() => onSelectPort?.(port.id)}
+                className={cn(onSelectPort ? "cursor-pointer" : "")}
               >
                 <Td>
-                  <StatusDot link={p.linkState} />
+                  <StatusDot link={port.linkState} />
                 </Td>
                 <Td>
-                  <Mono>{p.name}</Mono>
+                  <Mono className="text-[var(--text-primary)]">
+                    {port.name}
+                  </Mono>
                 </Td>
                 <Td>
-                  <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center gap-2">
                     <span
-                      className="size-1.5 rounded-[1px]"
-                      style={{ backgroundColor: portTypeColor[p.kind] }}
+                      className="size-1.5 rounded-[2px]"
+                      style={{ backgroundColor: portTypeColor[port.kind] }}
                     />
-                    <span className="font-mono text-xs text-[var(--color-fg-muted)]">
-                      {portTypeLabel[p.kind]}
+                    <span className="font-mono text-[11px] text-[var(--text-secondary)]">
+                      {portTypeLabel[port.kind]}
                     </span>
                   </span>
                 </Td>
                 <Td>
-                  <Mono className="text-[var(--color-fg-muted)]">{p.speed ?? 'n/a'}</Mono>
+                  <Mono className="text-[var(--text-tertiary)]">
+                    {port.speed ?? "n/a"}
+                  </Mono>
                 </Td>
                 <Td>
-                  <div className="text-xs text-[var(--color-fg-muted)]">
-                    {formatPortModeSummary(p)}
+                  <div className="text-xs text-[var(--text-secondary)]">
+                    {formatPortModeSummary(port)}
                   </div>
                 </Td>
                 <Td>
                   {otherDevice && otherPort ? (
                     <span className="inline-flex items-center gap-1.5 text-xs">
-                      <ArrowRight className="size-3 text-[var(--color-cyan)]" />
+                      <ArrowRight className="size-3 text-[var(--accent-secondary)]" />
                       <span>{otherDevice.hostname}</span>
-                      <span className="text-[var(--color-fg-faint)]">:</span>
-                      <Mono className="text-[var(--color-cyan)]">{otherPort.name}</Mono>
+                      <span className="text-[var(--text-muted)]">:</span>
+                      <Mono className="text-[var(--accent-secondary)]">
+                        {otherPort.name}
+                      </Mono>
                     </span>
                   ) : (
-                    <span className="text-xs text-[var(--color-fg-faint)]">—</span>
+                    <span className="text-xs text-[var(--text-muted)]">—</span>
                   )}
                 </Td>
                 <Td>
                   {link ? (
-                    <span className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
-                      {link.cableType} · {link.cableLength}
+                    <span className="font-mono text-[11px] text-[var(--text-tertiary)]">
+                      {link.cableType || "cable"}
+                      {link.cableLength ? ` | ${link.cableLength}` : ""}
                     </span>
                   ) : (
-                    <span className="text-xs text-[var(--color-fg-faint)]">—</span>
+                    <span className="text-xs text-[var(--text-muted)]">—</span>
                   )}
                 </Td>
               </tr>
-            )
+            );
           })}
         </tbody>
       </table>
     </div>
-  )
+  );
 }
 
-function Th({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <th
-      className={cn(
-        'text-left px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)] font-normal',
-        className,
-      )}
-    >
-      {children}
-    </th>
-  )
+function Th({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return <th className={cn(className)}>{children}</th>;
 }
 
-function Td({ className, children }: { className?: string; children: ReactNode }) {
-  return <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
+function Td({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  return <td className={cn(className)}>{children}</td>;
 }
 
 function formatPortModeSummary(port: Port) {
-  if (port.mode === 'trunk') {
-    const taggedCount = port.allowedVlanIds?.length ?? 0
-    const nativeLabel = port.vlanId ? `native ${port.vlanId}` : 'no native'
-    return taggedCount > 0 ? `trunk · ${nativeLabel} · ${taggedCount} tagged` : `trunk · ${nativeLabel}`
+  if (port.mode === "trunk") {
+    const taggedCount = port.allowedVlanIds?.length ?? 0;
+    const nativeLabel = port.vlanId ? `native ${port.vlanId}` : "no native";
+    return taggedCount > 0
+      ? `trunk | ${nativeLabel} | ${taggedCount} tagged`
+      : `trunk | ${nativeLabel}`;
   }
 
-  return port.vlanId ? `access · VLAN ${port.vlanId}` : 'access · unassigned'
+  return port.vlanId ? `access | VLAN ${port.vlanId}` : "access | unassigned";
 }

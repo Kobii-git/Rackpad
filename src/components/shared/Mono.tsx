@@ -1,11 +1,17 @@
-import { cn } from '@/lib/utils'
-import * as React from 'react'
+import { cn } from "@/lib/utils";
+import * as React from "react";
 
-export function Mono({ className, ...props }: React.HTMLAttributes<HTMLSpanElement>) {
+export function Mono({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLSpanElement>) {
   return (
     <span
-      className={cn('font-mono text-[12px] tracking-tight text-[var(--color-fg)]', className)}
+      className={cn(
+        "font-mono text-[12px] tracking-tight text-[var(--color-fg)]",
+        className,
+      )}
       {...props}
     />
-  )
+  );
 }

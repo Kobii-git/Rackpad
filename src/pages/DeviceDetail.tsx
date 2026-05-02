@@ -1,18 +1,25 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { DeviceDrawer } from '@/components/shared/DeviceDrawer'
-import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Input } from '@/components/ui/Input'
-import { StatusDot } from '@/components/shared/StatusDot'
-import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
-import { Mono } from '@/components/shared/Mono'
-import { PortGrid } from '@/components/ports/PortGrid'
-import { PortList } from '@/components/ports/PortList'
-import { api } from '@/lib/api'
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { DeviceDrawer } from "@/components/shared/DeviceDrawer";
+import { TopBar } from "@/components/layout/TopBar";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { DeviceTypeIcon } from "@/components/shared/DeviceTypeIcon";
+import { Mono } from "@/components/shared/Mono";
+import { PortGrid } from "@/components/ports/PortGrid";
+import { PortList } from "@/components/ports/PortList";
+import { api } from "@/lib/api";
 import {
   canEditInventory,
   createDeviceMonitorConfig,
@@ -24,183 +31,225 @@ import {
   unassignIp,
   updateDeviceMonitorConfig,
   useStore,
-} from '@/lib/store'
-import type { Device, DeviceMonitor, Port, PortLink, Vlan } from '@/lib/types'
-import { ArrowLeft, Pencil, Plus, RefreshCcw, Save, ShieldCheck, Trash2 } from 'lucide-react'
-import { relativeTime, statusLabel } from '@/lib/utils'
+} from "@/lib/store";
+import type { Device, DeviceMonitor, Port, PortLink, Vlan } from "@/lib/types";
+import {
+  ArrowLeft,
+  Pencil,
+  Plus,
+  RefreshCcw,
+  Save,
+  ShieldCheck,
+  Trash2,
+} from "lucide-react";
+import { relativeTime, statusLabel } from "@/lib/utils";
 
 type MonitorForm = {
-  name: string
-  enabled: boolean
-  type: DeviceMonitor['type']
-  target: string
-  port: string
-  path: string
-  intervalMinutes: string
-}
+  name: string;
+  enabled: boolean;
+  type: DeviceMonitor["type"];
+  target: string;
+  port: string;
+  path: string;
+  intervalMinutes: string;
+};
 
 const EMPTY_MONITOR_FORM: MonitorForm = {
-  name: '',
+  name: "",
   enabled: false,
-  type: 'none',
-  target: '',
-  port: '',
-  path: '',
-  intervalMinutes: '5',
-}
+  type: "none",
+  target: "",
+  port: "",
+  path: "",
+  intervalMinutes: "5",
+};
 
-const NEW_MONITOR_ID = '__new_monitor__'
+const NEW_MONITOR_ID = "__new_monitor__";
 
 export default function DeviceDetail() {
-  const { id } = useParams<{ id: string }>()
-  const navigate = useNavigate()
-  const currentUser = useStore((s) => s.currentUser)
-  const devices = useStore((s) => s.devices)
-  const ports = useStore((s) => s.ports)
-  const portLinks = useStore((s) => s.portLinks)
-  const vlans = useStore((s) => s.vlans)
-  const ipAssignments = useStore((s) => s.ipAssignments)
-  const auditLog = useStore((s) => s.auditLog)
-  const racks = useStore((s) => s.racks)
-  const deviceMonitors = useStore((s) => s.deviceMonitors)
-  const canEdit = canEditInventory(currentUser)
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const currentUser = useStore((s) => s.currentUser);
+  const devices = useStore((s) => s.devices);
+  const ports = useStore((s) => s.ports);
+  const portLinks = useStore((s) => s.portLinks);
+  const vlans = useStore((s) => s.vlans);
+  const ipAssignments = useStore((s) => s.ipAssignments);
+  const auditLog = useStore((s) => s.auditLog);
+  const racks = useStore((s) => s.racks);
+  const deviceMonitors = useStore((s) => s.deviceMonitors);
+  const canEdit = canEditInventory(currentUser);
 
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const [refreshing, setRefreshing] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [releasingId, setReleasingId] = useState<string | null>(null)
-  const [selectedPortId, setSelectedPortId] = useState<string | undefined>()
-  const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(null)
-  const [monitorForm, setMonitorForm] = useState<MonitorForm>(EMPTY_MONITOR_FORM)
-  const [monitorSaving, setMonitorSaving] = useState(false)
-  const [monitorRunning, setMonitorRunning] = useState(false)
-  const [allMonitorsRunning, setAllMonitorsRunning] = useState(false)
-  const [monitorDeleting, setMonitorDeleting] = useState(false)
-  const [monitorError, setMonitorError] = useState('')
-  const [activityEntries, setActivityEntries] = useState<typeof auditLog>([])
-  const [activityLimit, setActivityLimit] = useState(500)
-  const [activityLoading, setActivityLoading] = useState(false)
-  const [activityError, setActivityError] = useState('')
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [releasingId, setReleasingId] = useState<string | null>(null);
+  const [selectedPortId, setSelectedPortId] = useState<string | undefined>();
+  const [selectedMonitorId, setSelectedMonitorId] = useState<string | null>(
+    null,
+  );
+  const [monitorForm, setMonitorForm] =
+    useState<MonitorForm>(EMPTY_MONITOR_FORM);
+  const [monitorSaving, setMonitorSaving] = useState(false);
+  const [monitorRunning, setMonitorRunning] = useState(false);
+  const [allMonitorsRunning, setAllMonitorsRunning] = useState(false);
+  const [monitorDeleting, setMonitorDeleting] = useState(false);
+  const [monitorError, setMonitorError] = useState("");
+  const [activityEntries, setActivityEntries] = useState<typeof auditLog>([]);
+  const [activityLimit, setActivityLimit] = useState(500);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityError, setActivityError] = useState("");
 
-  const device = id ? devices.find((entry) => entry.id === id) : undefined
+  const device = id ? devices.find((entry) => entry.id === id) : undefined;
   const deviceMonitorList = useMemo(
     () => (id ? deviceMonitors.filter((entry) => entry.deviceId === id) : []),
     [deviceMonitors, id],
-  )
-  const selectedMonitor = selectedMonitorId && selectedMonitorId !== NEW_MONITOR_ID
-    ? deviceMonitorList.find((entry) => entry.id === selectedMonitorId)
-    : undefined
+  );
+  const selectedMonitor =
+    selectedMonitorId && selectedMonitorId !== NEW_MONITOR_ID
+      ? deviceMonitorList.find((entry) => entry.id === selectedMonitorId)
+      : undefined;
 
   const portsByDeviceId = useMemo(() => {
     return ports.reduce<Record<string, Port[]>>((acc, port) => {
-      ;(acc[port.deviceId] ??= []).push(port)
-      return acc
-    }, {})
-  }, [ports])
+      (acc[port.deviceId] ??= []).push(port);
+      return acc;
+    }, {});
+  }, [ports]);
 
   const linkByPortId = useMemo(() => {
     return portLinks.reduce<Record<string, PortLink>>((acc, link) => {
-      acc[link.fromPortId] = link
-      acc[link.toPortId] = link
-      return acc
-    }, {})
-  }, [portLinks])
+      acc[link.fromPortId] = link;
+      acc[link.toPortId] = link;
+      return acc;
+    }, {});
+  }, [portLinks]);
 
   const portById = useMemo(() => {
     return ports.reduce<Record<string, Port>>((acc, port) => {
-      acc[port.id] = port
-      return acc
-    }, {})
-  }, [ports])
+      acc[port.id] = port;
+      return acc;
+    }, {});
+  }, [ports]);
 
   const deviceById = useMemo(() => {
     return devices.reduce<Record<string, Device>>((acc, entry) => {
-      acc[entry.id] = entry
-      return acc
-    }, {})
-  }, [devices])
+      acc[entry.id] = entry;
+      return acc;
+    }, {});
+  }, [devices]);
   const vlanById = useMemo(() => {
     return vlans.reduce<Record<string, Vlan>>((acc, entry) => {
-      acc[entry.id] = entry
-      return acc
-    }, {})
-  }, [vlans])
+      acc[entry.id] = entry;
+      return acc;
+    }, {});
+  }, [vlans]);
 
   useEffect(() => {
-    setSelectedMonitorId(null)
-  }, [device?.id])
+    setSelectedMonitorId(null);
+  }, [device?.id]);
 
   useEffect(() => {
-    if (!device) return
+    if (!device) return;
     if (deviceMonitorList.length === 0) {
       if (selectedMonitorId !== NEW_MONITOR_ID) {
-        setSelectedMonitorId(NEW_MONITOR_ID)
+        setSelectedMonitorId(NEW_MONITOR_ID);
       }
-      return
+      return;
     }
     if (
       !selectedMonitorId ||
-      (selectedMonitorId !== NEW_MONITOR_ID && !deviceMonitorList.some((entry) => entry.id === selectedMonitorId))
+      (selectedMonitorId !== NEW_MONITOR_ID &&
+        !deviceMonitorList.some((entry) => entry.id === selectedMonitorId))
     ) {
-      setSelectedMonitorId(deviceMonitorList[0].id)
+      setSelectedMonitorId(deviceMonitorList[0].id);
     }
-  }, [device, deviceMonitorList, selectedMonitorId])
+  }, [device, deviceMonitorList, selectedMonitorId]);
 
   useEffect(() => {
-    if (!device) return
+    if (!device) return;
 
     if (selectedMonitor) {
-      setMonitorForm(monitorToForm(selectedMonitor, device))
+      setMonitorForm(monitorToForm(selectedMonitor, device));
     } else {
-      setMonitorForm(buildNewMonitorForm(device, deviceMonitorList.length))
+      setMonitorForm(buildNewMonitorForm(device, deviceMonitorList.length));
     }
-    setMonitorError('')
-  }, [device, selectedMonitor, deviceMonitorList.length])
+    setMonitorError("");
+  }, [device, selectedMonitor, deviceMonitorList.length]);
 
-  const devicePorts = device?.id ? portsByDeviceId[device.id] ?? [] : []
-  const rack = device?.rackId ? racks.find((entry) => entry.id === device.rackId) : undefined
-  const deviceIps = device?.id ? ipAssignments.filter((assignment) => assignment.deviceId === device.id) : []
-  const parentDevice = device?.parentDeviceId ? deviceById[device.parentDeviceId] : undefined
-  const childDevices = device ? devices.filter((entry) => entry.parentDeviceId === device.id) : []
-  const childCapacity = useMemo(() => ({
-    cpu: childDevices.reduce((sum, entry) => sum + (entry.cpuCores ?? 0), 0),
-    memory: childDevices.reduce((sum, entry) => sum + (entry.memoryGb ?? 0), 0),
-    storage: childDevices.reduce((sum, entry) => sum + (entry.storageGb ?? 0), 0),
-  }), [childDevices])
-  const selectedPort = selectedPortId ? devicePorts.find((port) => port.id === selectedPortId) : undefined
-  const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
-  const peerPortId = selectedPort && selectedLink
-    ? (selectedLink.fromPortId === selectedPort.id ? selectedLink.toPortId : selectedLink.fromPortId)
-    : undefined
-  const peerPort = peerPortId ? portById[peerPortId] : undefined
-  const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined
-  const linkedCount = devicePorts.filter((port) => port.linkState === 'up').length
+  const devicePorts = device?.id ? (portsByDeviceId[device.id] ?? []) : [];
+  const rack = device?.rackId
+    ? racks.find((entry) => entry.id === device.rackId)
+    : undefined;
+  const deviceIps = device?.id
+    ? ipAssignments.filter((assignment) => assignment.deviceId === device.id)
+    : [];
+  const parentDevice = device?.parentDeviceId
+    ? deviceById[device.parentDeviceId]
+    : undefined;
+  const childDevices = device
+    ? devices.filter((entry) => entry.parentDeviceId === device.id)
+    : [];
+  const childCapacity = useMemo(
+    () => ({
+      cpu: childDevices.reduce((sum, entry) => sum + (entry.cpuCores ?? 0), 0),
+      memory: childDevices.reduce(
+        (sum, entry) => sum + (entry.memoryGb ?? 0),
+        0,
+      ),
+      storage: childDevices.reduce(
+        (sum, entry) => sum + (entry.storageGb ?? 0),
+        0,
+      ),
+    }),
+    [childDevices],
+  );
+  const selectedPort = selectedPortId
+    ? devicePorts.find((port) => port.id === selectedPortId)
+    : undefined;
+  const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined;
+  const peerPortId =
+    selectedPort && selectedLink
+      ? selectedLink.fromPortId === selectedPort.id
+        ? selectedLink.toPortId
+        : selectedLink.fromPortId
+      : undefined;
+  const peerPort = peerPortId ? portById[peerPortId] : undefined;
+  const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined;
+  const linkedCount = devicePorts.filter(
+    (port) => port.linkState === "up",
+  ).length;
   const isVisualGrid =
-    device?.deviceType === 'switch' ||
-    device?.deviceType === 'patch_panel' ||
-    device?.deviceType === 'router'
-  const hardwareMeta = [device?.manufacturer, device?.model].filter(Boolean).join(' ')
+    device?.deviceType === "switch" ||
+    device?.deviceType === "patch_panel" ||
+    device?.deviceType === "router";
+  const hardwareMeta = [device?.manufacturer, device?.model]
+    .filter(Boolean)
+    .join(" ");
 
   useEffect(() => {
     if (!devicePorts.length) {
-      setSelectedPortId(undefined)
-      return
+      setSelectedPortId(undefined);
+      return;
     }
-    if (!selectedPortId || !devicePorts.some((port) => port.id === selectedPortId)) {
-      setSelectedPortId(devicePorts[0].id)
+    if (
+      !selectedPortId ||
+      !devicePorts.some((port) => port.id === selectedPortId)
+    ) {
+      setSelectedPortId(devicePorts[0].id);
     }
-  }, [devicePorts, selectedPortId])
+  }, [devicePorts, selectedPortId]);
 
   useEffect(() => {
     if (!device) {
-      setActivityEntries([])
-      return
+      setActivityEntries([]);
+      return;
     }
-    const filtered = auditLog.filter((entry) => entry.entityId === device.id)
-    setActivityEntries(filtered)
-    setActivityLimit(Math.max(500, filtered.length || 0))
-    setActivityError('')
-  }, [auditLog, device])
+    const filtered = auditLog.filter((entry) => entry.entityId === device.id);
+    setActivityEntries(filtered);
+    setActivityLimit(Math.max(500, filtered.length || 0));
+    setActivityError("");
+  }, [auditLog, device]);
 
   if (!device) {
     return (
@@ -208,7 +257,9 @@ export default function DeviceDetail() {
         <TopBar subtitle="Devices" title="Not found" />
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="mb-3 text-sm text-[var(--color-fg-subtle)]">Device not found.</div>
+            <div className="mb-3 text-sm text-[var(--color-fg-subtle)]">
+              Device not found.
+            </div>
             <Button variant="outline" size="sm" asChild>
               <Link to="/devices">
                 <ArrowLeft />
@@ -218,157 +269,200 @@ export default function DeviceDetail() {
           </div>
         </div>
       </>
-    )
+    );
   }
 
   async function handleRefresh() {
-    setRefreshing(true)
+    setRefreshing(true);
     try {
-      await loadAll(true)
+      await loadAll(true);
     } finally {
-      setRefreshing(false)
+      setRefreshing(false);
     }
   }
 
   async function handleDelete() {
-    if (!device) return
-    if (!window.confirm(`Delete ${device.hostname}? This will remove its ports and IP assignments too.`)) {
-      return
+    if (!device) return;
+    if (
+      !window.confirm(
+        `Delete ${device.hostname}? This will remove its ports and IP assignments too.`,
+      )
+    ) {
+      return;
     }
 
-    setDeleting(true)
+    setDeleting(true);
     try {
-      const deleted = await deleteDevice(device.id)
+      const deleted = await deleteDevice(device.id);
       if (deleted) {
-        navigate('/devices')
+        navigate("/devices");
       }
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
   async function handleUnassignIp(assignmentId: string) {
-    setReleasingId(assignmentId)
+    setReleasingId(assignmentId);
     try {
-      await unassignIp(assignmentId)
+      await unassignIp(assignmentId);
     } finally {
-      setReleasingId(null)
+      setReleasingId(null);
     }
   }
 
   async function handleSaveMonitor() {
-    if (!device) return
-    setMonitorSaving(true)
-    setMonitorError('')
+    if (!device) return;
+    setMonitorSaving(true);
+    setMonitorError("");
     try {
       const usesPort =
-        monitorForm.type === 'tcp' || monitorForm.type === 'http' || monitorForm.type === 'https'
-      const usesPath = monitorForm.type === 'http' || monitorForm.type === 'https'
+        monitorForm.type === "tcp" ||
+        monitorForm.type === "http" ||
+        monitorForm.type === "https";
+      const usesPath =
+        monitorForm.type === "http" || monitorForm.type === "https";
       const payload = {
         name: monitorForm.name.trim() || null,
         enabled: monitorForm.enabled,
-        type: monitorForm.enabled ? monitorForm.type : 'none',
+        type: monitorForm.enabled ? monitorForm.type : "none",
         target: monitorForm.target.trim() || null,
-        port: usesPort && monitorForm.port.trim() ? Number.parseInt(monitorForm.port, 10) : null,
+        port:
+          usesPort && monitorForm.port.trim()
+            ? Number.parseInt(monitorForm.port, 10)
+            : null,
         path: usesPath ? monitorForm.path.trim() || null : null,
-        intervalMs: Math.max(1, Number.parseInt(monitorForm.intervalMinutes, 10) || 5) * 60 * 1000,
-      }
+        intervalMs:
+          Math.max(1, Number.parseInt(monitorForm.intervalMinutes, 10) || 5) *
+          60 *
+          1000,
+      };
 
       if (selectedMonitor) {
-        const updated = await updateDeviceMonitorConfig(selectedMonitor.id, payload)
-        if (updated && monitorForm.enabled && monitorForm.type !== 'none') {
-          await runDeviceMonitorCheck(updated.id)
+        const updated = await updateDeviceMonitorConfig(
+          selectedMonitor.id,
+          payload,
+        );
+        if (updated && monitorForm.enabled && monitorForm.type !== "none") {
+          await runDeviceMonitorCheck(updated.id);
         }
-        return
+        return;
       }
 
-      const created = await createDeviceMonitorConfig(device.id, payload)
-      setSelectedMonitorId(created.id)
-      if (monitorForm.enabled && monitorForm.type !== 'none') {
-        await runDeviceMonitorCheck(created.id)
+      const created = await createDeviceMonitorConfig(device.id, payload);
+      setSelectedMonitorId(created.id);
+      if (monitorForm.enabled && monitorForm.type !== "none") {
+        await runDeviceMonitorCheck(created.id);
       }
     } catch (err) {
-      setMonitorError(err instanceof Error ? err.message : 'Failed to save monitor.')
+      setMonitorError(
+        err instanceof Error ? err.message : "Failed to save monitor.",
+      );
     } finally {
-      setMonitorSaving(false)
+      setMonitorSaving(false);
     }
   }
 
   async function handleRunMonitor() {
-    if (!selectedMonitor) return
-    setMonitorRunning(true)
-    setMonitorError('')
+    if (!selectedMonitor) return;
+    setMonitorRunning(true);
+    setMonitorError("");
     try {
-      await runDeviceMonitorCheck(selectedMonitor.id)
+      await runDeviceMonitorCheck(selectedMonitor.id);
     } catch (err) {
-      setMonitorError(err instanceof Error ? err.message : 'Failed to run monitor.')
+      setMonitorError(
+        err instanceof Error ? err.message : "Failed to run monitor.",
+      );
     } finally {
-      setMonitorRunning(false)
+      setMonitorRunning(false);
     }
   }
 
   async function handleRunAllMonitors() {
-    if (!device) return
-    setAllMonitorsRunning(true)
-    setMonitorError('')
+    if (!device) return;
+    setAllMonitorsRunning(true);
+    setMonitorError("");
     try {
-      await runDeviceMonitorChecksForDevice(device.id)
+      await runDeviceMonitorChecksForDevice(device.id);
     } catch (err) {
-      setMonitorError(err instanceof Error ? err.message : 'Failed to run device monitors.')
+      setMonitorError(
+        err instanceof Error ? err.message : "Failed to run device monitors.",
+      );
     } finally {
-      setAllMonitorsRunning(false)
+      setAllMonitorsRunning(false);
     }
   }
 
   async function handleDeleteMonitor() {
-    if (!selectedMonitor) return
+    if (!selectedMonitor) return;
     if (!window.confirm(`Delete monitor target "${selectedMonitor.name}"?`)) {
-      return
+      return;
     }
 
-    setMonitorDeleting(true)
-    setMonitorError('')
+    setMonitorDeleting(true);
+    setMonitorError("");
     try {
-      const deleted = await deleteDeviceMonitorConfig(selectedMonitor.id)
+      const deleted = await deleteDeviceMonitorConfig(selectedMonitor.id);
       if (deleted) {
-        setSelectedMonitorId(deviceMonitorList.length > 1 ? null : NEW_MONITOR_ID)
+        setSelectedMonitorId(
+          deviceMonitorList.length > 1 ? null : NEW_MONITOR_ID,
+        );
       }
     } catch (err) {
-      setMonitorError(err instanceof Error ? err.message : 'Failed to delete monitor.')
+      setMonitorError(
+        err instanceof Error ? err.message : "Failed to delete monitor.",
+      );
     } finally {
-      setMonitorDeleting(false)
+      setMonitorDeleting(false);
     }
   }
 
   function startNewMonitor() {
-    if (!device) return
-    setSelectedMonitorId(NEW_MONITOR_ID)
-    setMonitorForm(buildNewMonitorForm(device, deviceMonitorList.length))
-    setMonitorError('')
+    if (!device) return;
+    setSelectedMonitorId(NEW_MONITOR_ID);
+    setMonitorForm(buildNewMonitorForm(device, deviceMonitorList.length));
+    setMonitorError("");
   }
 
   async function handleLoadMoreActivity() {
-    if (!device) return
-    const nextLimit = activityLimit + 250
-    setActivityLoading(true)
-    setActivityError('')
+    if (!device) return;
+    const nextLimit = activityLimit + 250;
+    setActivityLoading(true);
+    setActivityError("");
     try {
-      const entries = await api.getAuditLog({ entityId: device.id, limit: nextLimit })
-      setActivityEntries(entries)
-      setActivityLimit(nextLimit)
+      const entries = await api.getAuditLog({
+        entityId: device.id,
+        limit: nextLimit,
+      });
+      setActivityEntries(entries);
+      setActivityLimit(nextLimit);
     } catch (err) {
-      setActivityError(err instanceof Error ? err.message : 'Failed to load additional audit entries.')
+      setActivityError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load additional audit entries.",
+      );
     } finally {
-      setActivityLoading(false)
+      setActivityLoading(false);
     }
   }
 
   const showMonitorPortField =
-    monitorForm.type === 'tcp' || monitorForm.type === 'http' || monitorForm.type === 'https'
-  const showMonitorPathField = monitorForm.type === 'http' || monitorForm.type === 'https'
-  const monitorTypeDescription = describeMonitorType(monitorForm.type)
-  const monitorStateTone = device.status === 'online' ? 'ok' : device.status === 'offline' ? 'err' : 'neutral'
-  const activeMonitorCount = deviceMonitorList.filter((entry) => entry.enabled && entry.type !== 'none').length
+    monitorForm.type === "tcp" ||
+    monitorForm.type === "http" ||
+    monitorForm.type === "https";
+  const showMonitorPathField =
+    monitorForm.type === "http" || monitorForm.type === "https";
+  const monitorTypeDescription = describeMonitorType(monitorForm.type);
+  const monitorStateTone =
+    device.status === "online"
+      ? "ok"
+      : device.status === "offline"
+        ? "err"
+        : "neutral";
+  const activeMonitorCount = deviceMonitorList.filter(
+    (entry) => entry.enabled && entry.type !== "none",
+  ).length;
 
   return (
     <>
@@ -376,9 +470,14 @@ export default function DeviceDetail() {
         subtitle={
           rack ? (
             <>
-              Devices | <Link to="/racks" className="hover:text-[var(--color-fg-muted)]">{rack.name}</Link>
+              Devices |{" "}
+              <Link to="/racks" className="hover:text-[var(--color-fg-muted)]">
+                {rack.name}
+              </Link>
             </>
-          ) : 'Devices'
+          ) : (
+            "Devices"
+          )
         }
         title={device.hostname}
         meta={
@@ -399,19 +498,33 @@ export default function DeviceDetail() {
         actions={
           <>
             {canEdit && (
-              <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDrawerOpen(true)}
+              >
                 <Pencil className="size-3.5" />
                 Edit
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => void handleRefresh()} disabled={refreshing}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleRefresh()}
+              disabled={refreshing}
+            >
               <RefreshCcw className="size-3.5" />
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              {refreshing ? "Refreshing..." : "Refresh"}
             </Button>
             {canEdit && (
-              <Button variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={deleting}>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => void handleDelete()}
+                disabled={deleting}
+              >
                 <Trash2 className="size-3.5" />
-                {deleting ? 'Deleting...' : 'Delete'}
+                {deleting ? "Deleting..." : "Delete"}
               </Button>
             )}
           </>
@@ -432,20 +545,29 @@ export default function DeviceDetail() {
           <span className="absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-[var(--color-accent)] to-transparent opacity-60" />
           <div className="flex items-center gap-5 px-5 py-4">
             <div className="grid size-12 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line-strong)] bg-[var(--color-surface)]">
-              <DeviceTypeIcon type={device.deviceType} className="size-5 text-[var(--color-accent)]" />
+              <DeviceTypeIcon
+                type={device.deviceType}
+                className="size-5 text-[var(--color-accent)]"
+              />
             </div>
             <div className="flex-1">
               <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-                {device.deviceType.replace('_', ' ')}
+                {device.deviceType.replace("_", " ")}
               </div>
-              <h1 className="text-xl font-semibold tracking-tight">{device.hostname}</h1>
+              <h1 className="text-xl font-semibold tracking-tight">
+                {device.hostname}
+              </h1>
               <div className="mt-0.5 text-xs text-[var(--color-fg-subtle)]">
                 {device.displayName}
                 {rack && (
                   <>
-                    <span className="mx-1.5 text-[var(--color-fg-faint)]">|</span>
+                    <span className="mx-1.5 text-[var(--color-fg-faint)]">
+                      |
+                    </span>
                     {rack.name} U{device.startU}
-                    {(device.heightU ?? 1) > 1 ? `-${device.startU! + device.heightU! - 1}` : ''}
+                    {(device.heightU ?? 1) > 1
+                      ? `-${device.startU! + device.heightU! - 1}`
+                      : ""}
                   </>
                 )}
               </div>
@@ -454,9 +576,12 @@ export default function DeviceDetail() {
               <Stat label="Mgmt IP" value={device.managementIp} mono />
               <Stat label="Serial" value={device.serial} mono />
               <Stat label="Last seen" value={relativeTime(device.lastSeen)} />
-              <Stat label="Ports" value={`${linkedCount}/${devicePorts.length} linked`} />
+              <Stat
+                label="Ports"
+                value={`${linkedCount}/${devicePorts.length} linked`}
+              />
               <Stat label="IPs" value={String(deviceIps.length)} />
-              <Stat label="Tags" value={device.tags?.join(', ') ?? '-'} />
+              <Stat label="Tags" value={device.tags?.join(", ") ?? "-"} />
             </dl>
           </div>
         </Card>
@@ -464,8 +589,12 @@ export default function DeviceDetail() {
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="ports">Ports | {devicePorts.length}</TabsTrigger>
-            <TabsTrigger value="network">Network | {deviceIps.length}</TabsTrigger>
+            <TabsTrigger value="ports">
+              Ports | {devicePorts.length}
+            </TabsTrigger>
+            <TabsTrigger value="network">
+              Network | {deviceIps.length}
+            </TabsTrigger>
             <TabsTrigger value="monitoring">Monitoring</TabsTrigger>
             <TabsTrigger value="notes">Notes</TabsTrigger>
             <TabsTrigger value="activity">Activity</TabsTrigger>
@@ -485,10 +614,25 @@ export default function DeviceDetail() {
                     <Row label="Manufacturer" value={device.manufacturer} />
                     <Row label="Model" value={device.model} mono />
                     <Row label="Serial" value={device.serial} mono />
-                    <Row label="Type" value={device.deviceType.replace('_', ' ')} />
-                    <Row label="CPU cores" value={formatCapacityValue(device.cpuCores)} mono />
-                    <Row label="Memory" value={formatCapacityUnit(device.memoryGb, 'GB')} mono />
-                    <Row label="Storage" value={formatCapacityUnit(device.storageGb, 'GB')} mono />
+                    <Row
+                      label="Type"
+                      value={device.deviceType.replace("_", " ")}
+                    />
+                    <Row
+                      label="CPU cores"
+                      value={formatCapacityValue(device.cpuCores)}
+                      mono
+                    />
+                    <Row
+                      label="Memory"
+                      value={formatCapacityUnit(device.memoryGb, "GB")}
+                      mono
+                    />
+                    <Row
+                      label="Storage"
+                      value={formatCapacityUnit(device.storageGb, "GB")}
+                      mono
+                    />
                   </dl>
                   {device.specs && (
                     <div className="mt-4 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-fg-subtle)]">
@@ -506,10 +650,19 @@ export default function DeviceDetail() {
                 </CardHeader>
                 <CardBody>
                   <dl className="space-y-2 text-xs">
-                    <Row label="Placement" value={formatPlacement(device.placement)} />
+                    <Row
+                      label="Placement"
+                      value={formatPlacement(device.placement)}
+                    />
                     <Row label="Rack" value={rack?.name} />
                     <Row
-                      label={device.placement === 'wireless' ? 'Connected AP' : device.placement === 'virtual' ? 'Host device' : 'Parent'}
+                      label={
+                        device.placement === "wireless"
+                          ? "Connected AP"
+                          : device.placement === "virtual"
+                            ? "Host device"
+                            : "Parent"
+                      }
                       value={parentDevice?.hostname}
                     />
                     <Row label="Face" value={device.face} />
@@ -517,11 +670,14 @@ export default function DeviceDetail() {
                       label="U position"
                       value={
                         device.startU
-                          ? `U${device.startU}${(device.heightU ?? 1) > 1 ? `-${device.startU + (device.heightU ?? 1) - 1}` : ''} (${device.heightU ?? 1}U)`
+                          ? `U${device.startU}${(device.heightU ?? 1) > 1 ? `-${device.startU + (device.heightU ?? 1) - 1}` : ""} (${device.heightU ?? 1}U)`
                           : undefined
                       }
                     />
-                    <Row label="Last seen" value={relativeTime(device.lastSeen)} />
+                    <Row
+                      label="Last seen"
+                      value={relativeTime(device.lastSeen)}
+                    />
                   </dl>
                 </CardBody>
               </Card>
@@ -531,16 +687,29 @@ export default function DeviceDetail() {
                     <CardTitle>
                       <CardLabel>Relationships</CardLabel>
                       <CardHeading>
-                        {device.deviceType === 'ap' ? 'Connected clients' : 'Hosted / child devices'}
+                        {device.deviceType === "ap"
+                          ? "Connected clients"
+                          : "Hosted / child devices"}
                       </CardHeading>
                     </CardTitle>
                   </CardHeader>
                   <CardBody>
-                    {(device.cpuCores || device.memoryGb || device.storageGb) && (
+                    {(device.cpuCores ||
+                      device.memoryGb ||
+                      device.storageGb) && (
                       <div className="mb-3 grid gap-2 md:grid-cols-3">
-                        <SummaryPill label="CPU" value={`${formatCapacityValue(childCapacity.cpu)} / ${formatCapacityValue(device.cpuCores)}`} />
-                        <SummaryPill label="Memory" value={`${formatCapacityValue(childCapacity.memory)} / ${formatCapacityValue(device.memoryGb)} GB`} />
-                        <SummaryPill label="Storage" value={`${formatCapacityValue(childCapacity.storage)} / ${formatCapacityValue(device.storageGb)} GB`} />
+                        <SummaryPill
+                          label="CPU"
+                          value={`${formatCapacityValue(childCapacity.cpu)} / ${formatCapacityValue(device.cpuCores)}`}
+                        />
+                        <SummaryPill
+                          label="Memory"
+                          value={`${formatCapacityValue(childCapacity.memory)} / ${formatCapacityValue(device.memoryGb)} GB`}
+                        />
+                        <SummaryPill
+                          label="Storage"
+                          value={`${formatCapacityValue(childCapacity.storage)} / ${formatCapacityValue(device.storageGb)} GB`}
+                        />
                       </div>
                     )}
                     <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -553,11 +722,18 @@ export default function DeviceDetail() {
                             className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 transition-colors hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface)]"
                           >
                             <div className="flex items-center gap-2">
-                              <DeviceTypeIcon type={child.deviceType} className="size-4 text-[var(--color-accent)]" />
-                              <span className="text-sm text-[var(--color-fg)]">{child.hostname}</span>
+                              <DeviceTypeIcon
+                                type={child.deviceType}
+                                className="size-4 text-[var(--color-accent)]"
+                              />
+                              <span className="text-sm text-[var(--color-fg)]">
+                                {child.hostname}
+                              </span>
                             </div>
                             <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
-                              {child.displayName || child.managementIp || formatPlacement(child.placement)}
+                              {child.displayName ||
+                                child.managementIp ||
+                                formatPlacement(child.placement)}
                             </div>
                           </Link>
                         ))}
@@ -598,7 +774,8 @@ export default function DeviceDetail() {
                     </CardHeader>
                     <CardBody>
                       <div className="text-sm text-[var(--color-fg-subtle)]">
-                        Add or template ports for this device to inspect cabling, VLANs, and interface notes here.
+                        Add or template ports for this device to inspect
+                        cabling, VLANs, and interface notes here.
                       </div>
                     </CardBody>
                   </Card>
@@ -662,11 +839,16 @@ export default function DeviceDetail() {
                     </div>
                   ) : (
                     deviceIps.map((ip) => (
-                      <div key={ip.id} className="grid grid-cols-12 items-center gap-3 px-4 py-2">
-                        <Mono className="col-span-3 text-[var(--color-fg)]">{ip.ipAddress}</Mono>
+                      <div
+                        key={ip.id}
+                        className="grid grid-cols-12 items-center gap-3 px-4 py-2"
+                      >
+                        <Mono className="col-span-3 text-[var(--color-fg)]">
+                          {ip.ipAddress}
+                        </Mono>
                         <div className="col-span-3 text-xs">{ip.hostname}</div>
                         <div className="col-span-4 text-[11px] text-[var(--color-fg-subtle)]">
-                          {ip.description ?? '-'}
+                          {ip.description ?? "-"}
                         </div>
                         <div className="col-span-2 flex items-center justify-end gap-2">
                           <Badge tone="cyan">{ip.assignmentType}</Badge>
@@ -676,7 +858,9 @@ export default function DeviceDetail() {
                             disabled={releasingId === ip.id || !canEdit}
                             onClick={() => void handleUnassignIp(ip.id)}
                           >
-                            {releasingId === ip.id ? 'Releasing...' : 'Unassign'}
+                            {releasingId === ip.id
+                              ? "Releasing..."
+                              : "Unassign"}
                           </Button>
                         </div>
                       </div>
@@ -700,28 +884,44 @@ export default function DeviceDetail() {
                     {device.status}
                   </Badge>
                   <Badge tone="neutral">
-                    {activeMonitorCount}/{deviceMonitorList.length} active targets
+                    {activeMonitorCount}/{deviceMonitorList.length} active
+                    targets
                   </Badge>
                 </div>
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg-subtle)]">
-                  Rackpad runs these checks from the server or Docker container itself. A device stays
-                  <span className="mx-1 font-mono text-[var(--color-fg)]">unknown</span>
+                  Rackpad runs these checks from the server or Docker container
+                  itself. A device stays
+                  <span className="mx-1 font-mono text-[var(--color-fg)]">
+                    unknown
+                  </span>
                   until at least one enabled target has run.
                 </div>
 
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2">
                   <div className="text-sm text-[var(--color-fg-subtle)]">
-                    Use separate targets for management IPs, storage NICs, service ports, or VIPs on the same device.
+                    Use separate targets for management IPs, storage NICs,
+                    service ports, or VIPs on the same device.
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void handleRunAllMonitors()} disabled={allMonitorsRunning || activeMonitorCount === 0}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleRunAllMonitors()}
+                      disabled={allMonitorsRunning || activeMonitorCount === 0}
+                    >
                       <ShieldCheck className="size-3.5" />
-                      {allMonitorsRunning ? 'Running all...' : 'Run all targets'}
+                      {allMonitorsRunning
+                        ? "Running all..."
+                        : "Run all targets"}
                     </Button>
                     {canEdit && (
-                      <Button variant="outline" size="sm" onClick={startNewMonitor}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={startNewMonitor}
+                      >
                         <Plus className="size-3.5" />
                         Add target
                       </Button>
@@ -742,25 +942,35 @@ export default function DeviceDetail() {
                           type="button"
                           onClick={() => setSelectedMonitorId(entry.id)}
                           className={[
-                            'w-full rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors',
+                            "w-full rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors",
                             selectedMonitorId === entry.id
-                              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                              : 'border-[var(--color-line)] bg-[var(--color-bg)] hover:border-[var(--color-line-strong)]',
-                          ].join(' ')}
+                              ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10"
+                              : "border-[var(--color-line)] bg-[var(--color-bg)] hover:border-[var(--color-line-strong)]",
+                          ].join(" ")}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <div className="text-sm font-medium text-[var(--color-fg)]">{entry.name}</div>
-                            <Badge tone={entry.lastResult === 'online' ? 'ok' : entry.lastResult === 'offline' ? 'err' : 'neutral'}>
-                              {entry.lastResult ?? 'unknown'}
+                            <div className="text-sm font-medium text-[var(--color-fg)]">
+                              {entry.name}
+                            </div>
+                            <Badge
+                              tone={
+                                entry.lastResult === "online"
+                                  ? "ok"
+                                  : entry.lastResult === "offline"
+                                    ? "err"
+                                    : "neutral"
+                              }
+                            >
+                              {entry.lastResult ?? "unknown"}
                             </Badge>
                           </div>
                           <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
                             {entry.type}
-                            {entry.target ? ` | ${entry.target}` : ''}
-                            {entry.port ? `:${entry.port}` : ''}
+                            {entry.target ? ` | ${entry.target}` : ""}
+                            {entry.port ? `:${entry.port}` : ""}
                           </div>
                           <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
-                            {entry.lastMessage ?? 'No checks have run yet.'}
+                            {entry.lastMessage ?? "No checks have run yet."}
                           </div>
                         </button>
                       ))
@@ -771,15 +981,25 @@ export default function DeviceDetail() {
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-                          {selectedMonitor ? 'Monitor editor' : 'New target'}
+                          {selectedMonitor ? "Monitor editor" : "New target"}
                         </div>
                         <div className="text-base font-medium text-[var(--color-fg)]">
-                          {selectedMonitor ? selectedMonitor.name : 'Create a new monitor target'}
+                          {selectedMonitor
+                            ? selectedMonitor.name
+                            : "Create a new monitor target"}
                         </div>
                       </div>
                       {selectedMonitor && (
-                        <Badge tone={selectedMonitor.lastResult === 'online' ? 'ok' : selectedMonitor.lastResult === 'offline' ? 'err' : 'neutral'}>
-                          {selectedMonitor.lastResult ?? 'unknown'}
+                        <Badge
+                          tone={
+                            selectedMonitor.lastResult === "online"
+                              ? "ok"
+                              : selectedMonitor.lastResult === "offline"
+                                ? "err"
+                                : "neutral"
+                          }
+                        >
+                          {selectedMonitor.lastResult ?? "unknown"}
                         </Badge>
                       )}
                     </div>
@@ -790,7 +1010,10 @@ export default function DeviceDetail() {
                         checked={monitorForm.enabled}
                         disabled={!canEdit}
                         onChange={(event) =>
-                          setMonitorForm((prev) => ({ ...prev, enabled: event.target.checked }))
+                          setMonitorForm((prev) => ({
+                            ...prev,
+                            enabled: event.target.checked,
+                          }))
                         }
                       />
                       Enable health checks for this target
@@ -805,14 +1028,24 @@ export default function DeviceDetail() {
                         <Input
                           value={monitorForm.name}
                           disabled={!canEdit}
-                          onChange={(event) => setMonitorForm((prev) => ({ ...prev, name: event.target.value }))}
+                          onChange={(event) =>
+                            setMonitorForm((prev) => ({
+                              ...prev,
+                              name: event.target.value,
+                            }))
+                          }
                           placeholder="Management, Storage, WAN, VIP..."
                         />
                       </Field>
                       <Field label="Type">
                         <Select
                           value={monitorForm.type}
-                          onChange={(value) => setMonitorForm((prev) => ({ ...prev, type: value as MonitorForm['type'] }))}
+                          onChange={(value) =>
+                            setMonitorForm((prev) => ({
+                              ...prev,
+                              type: value as MonitorForm["type"],
+                            }))
+                          }
                           disabled={!canEdit}
                         >
                           <option value="none">none</option>
@@ -826,7 +1059,12 @@ export default function DeviceDetail() {
                         <Input
                           value={monitorForm.target}
                           disabled={!canEdit}
-                          onChange={(event) => setMonitorForm((prev) => ({ ...prev, target: event.target.value }))}
+                          onChange={(event) =>
+                            setMonitorForm((prev) => ({
+                              ...prev,
+                              target: event.target.value,
+                            }))
+                          }
                           placeholder="10.0.10.12 or host.example"
                         />
                       </Field>
@@ -834,7 +1072,12 @@ export default function DeviceDetail() {
                         <Input
                           value={monitorForm.intervalMinutes}
                           disabled={!canEdit}
-                          onChange={(event) => setMonitorForm((prev) => ({ ...prev, intervalMinutes: event.target.value }))}
+                          onChange={(event) =>
+                            setMonitorForm((prev) => ({
+                              ...prev,
+                              intervalMinutes: event.target.value,
+                            }))
+                          }
                           placeholder="5"
                         />
                       </Field>
@@ -846,8 +1089,19 @@ export default function DeviceDetail() {
                           <Input
                             value={monitorForm.port}
                             disabled={!canEdit}
-                            onChange={(event) => setMonitorForm((prev) => ({ ...prev, port: event.target.value }))}
-                            placeholder={monitorForm.type === 'tcp' ? '22, 443, 8006' : monitorForm.type === 'https' ? '443' : '80'}
+                            onChange={(event) =>
+                              setMonitorForm((prev) => ({
+                                ...prev,
+                                port: event.target.value,
+                              }))
+                            }
+                            placeholder={
+                              monitorForm.type === "tcp"
+                                ? "22, 443, 8006"
+                                : monitorForm.type === "https"
+                                  ? "443"
+                                  : "80"
+                            }
                           />
                         </Field>
                       )}
@@ -856,7 +1110,12 @@ export default function DeviceDetail() {
                           <Input
                             value={monitorForm.path}
                             disabled={!canEdit}
-                            onChange={(event) => setMonitorForm((prev) => ({ ...prev, path: event.target.value }))}
+                            onChange={(event) =>
+                              setMonitorForm((prev) => ({
+                                ...prev,
+                                path: event.target.value,
+                              }))
+                            }
                             placeholder="/health"
                           />
                         </Field>
@@ -864,9 +1123,27 @@ export default function DeviceDetail() {
                     </div>
 
                     <div className="grid gap-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-surface)] p-4 md:grid-cols-3">
-                      <MonitorStat label="Last check" value={selectedMonitor?.lastCheckAt ? new Date(selectedMonitor.lastCheckAt).toLocaleString() : 'Never'} />
-                      <MonitorStat label="Last result" value={selectedMonitor?.lastResult ?? 'unknown'} />
-                      <MonitorStat label="Message" value={selectedMonitor?.lastMessage ?? 'No checks have run yet.'} />
+                      <MonitorStat
+                        label="Last check"
+                        value={
+                          selectedMonitor?.lastCheckAt
+                            ? new Date(
+                                selectedMonitor.lastCheckAt,
+                              ).toLocaleString()
+                            : "Never"
+                        }
+                      />
+                      <MonitorStat
+                        label="Last result"
+                        value={selectedMonitor?.lastResult ?? "unknown"}
+                      />
+                      <MonitorStat
+                        label="Message"
+                        value={
+                          selectedMonitor?.lastMessage ??
+                          "No checks have run yet."
+                        }
+                      />
                     </div>
                   </div>
                 </div>
@@ -878,20 +1155,38 @@ export default function DeviceDetail() {
                 )}
 
                 <div className="flex items-center justify-end gap-2">
-                  <Button variant="outline" size="sm" onClick={() => void handleRunMonitor()} disabled={monitorRunning || !selectedMonitor}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleRunMonitor()}
+                    disabled={monitorRunning || !selectedMonitor}
+                  >
                     <ShieldCheck className="size-3.5" />
-                    {monitorRunning ? 'Running...' : 'Run now'}
+                    {monitorRunning ? "Running..." : "Run now"}
                   </Button>
                   {canEdit && selectedMonitor && (
-                    <Button variant="destructive" size="sm" onClick={() => void handleDeleteMonitor()} disabled={monitorDeleting}>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => void handleDeleteMonitor()}
+                      disabled={monitorDeleting}
+                    >
                       <Trash2 className="size-3.5" />
-                      {monitorDeleting ? 'Deleting...' : 'Delete target'}
+                      {monitorDeleting ? "Deleting..." : "Delete target"}
                     </Button>
                   )}
                   {canEdit && (
-                    <Button size="sm" onClick={() => void handleSaveMonitor()} disabled={monitorSaving}>
+                    <Button
+                      size="sm"
+                      onClick={() => void handleSaveMonitor()}
+                      disabled={monitorSaving}
+                    >
                       <Save className="size-3.5" />
-                      {monitorSaving ? 'Saving...' : selectedMonitor ? 'Save target' : 'Create target'}
+                      {monitorSaving
+                        ? "Saving..."
+                        : selectedMonitor
+                          ? "Save target"
+                          : "Create target"}
                     </Button>
                   )}
                 </div>
@@ -907,7 +1202,11 @@ export default function DeviceDetail() {
                   <CardHeading>Device notes</CardHeading>
                 </CardTitle>
                 {canEdit && (
-                  <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setDrawerOpen(true)}
+                  >
                     <Pencil className="size-3.5" />
                     Edit notes
                   </Button>
@@ -934,9 +1233,14 @@ export default function DeviceDetail() {
                   <CardLabel>History</CardLabel>
                   <CardHeading>Audit log</CardHeading>
                 </CardTitle>
-                <Button variant="outline" size="sm" onClick={() => void handleLoadMoreActivity()} disabled={activityLoading}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleLoadMoreActivity()}
+                  disabled={activityLoading}
+                >
                   <RefreshCcw className="size-3.5" />
-                  {activityLoading ? 'Loading...' : 'Load more'}
+                  {activityLoading ? "Loading..." : "Load more"}
                 </Button>
               </CardHeader>
               <CardBody className="p-0">
@@ -952,14 +1256,23 @@ export default function DeviceDetail() {
                     </li>
                   ) : (
                     activityEntries.map((entry) => (
-                      <li key={entry.id} className="flex items-start gap-3 px-4 py-2.5 hover:bg-[var(--color-surface)]/40">
+                      <li
+                        key={entry.id}
+                        className="flex items-start gap-3 px-4 py-2.5 hover:bg-[var(--color-surface)]/40"
+                      >
                         <span className="mt-1 size-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
                         <div className="min-w-0 flex-1">
                           <div className="text-xs">{entry.summary}</div>
                           <div className="mt-0.5 flex items-center gap-2">
-                            <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{entry.user}</Mono>
-                            <span className="text-[10px] text-[var(--color-fg-faint)]">|</span>
-                            <Mono className="text-[10px] text-[var(--color-fg-subtle)]">{entry.action}</Mono>
+                            <Mono className="text-[10px] text-[var(--color-fg-subtle)]">
+                              {entry.user}
+                            </Mono>
+                            <span className="text-[10px] text-[var(--color-fg-faint)]">
+                              |
+                            </span>
+                            <Mono className="text-[10px] text-[var(--color-fg-subtle)]">
+                              {entry.action}
+                            </Mono>
                           </div>
                         </div>
                         <span className="whitespace-nowrap font-mono text-[10px] text-[var(--color-fg-faint)]">
@@ -975,9 +1288,15 @@ export default function DeviceDetail() {
         </Tabs>
       </div>
 
-      {canEdit && <DeviceDrawer device={device} open={drawerOpen} onClose={() => setDrawerOpen(false)} />}
+      {canEdit && (
+        <DeviceDrawer
+          device={device}
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        />
+      )}
     </>
-  )
+  );
 }
 
 function PortInspectorCard({
@@ -987,28 +1306,32 @@ function PortInspectorCard({
   link,
   vlansById,
 }: {
-  port?: Port
-  peerPort?: Port
-  peerDevice?: Device
-  link?: PortLink
-  vlansById: Record<string, Vlan>
+  port?: Port;
+  peerPort?: Port;
+  peerDevice?: Device;
+  link?: PortLink;
+  vlansById: Record<string, Vlan>;
 }) {
-  const primaryVlan = port?.vlanId ? vlansById[port.vlanId] : undefined
-  const allowedVlanLabels = port?.allowedVlanIds?.map((vlanId) => formatVlanReference(vlanId, vlansById)) ?? []
+  const primaryVlan = port?.vlanId ? vlansById[port.vlanId] : undefined;
+  const allowedVlanLabels =
+    port?.allowedVlanIds?.map((vlanId) =>
+      formatVlanReference(vlanId, vlansById),
+    ) ?? [];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>
           <CardLabel>Inspector</CardLabel>
-          <CardHeading>{port ? port.name : 'Select a port'}</CardHeading>
+          <CardHeading>{port ? port.name : "Select a port"}</CardHeading>
         </CardTitle>
-        {port ? <Badge tone="cyan">{port.kind.replace('_', ' ')}</Badge> : null}
+        {port ? <Badge tone="cyan">{port.kind.replace("_", " ")}</Badge> : null}
       </CardHeader>
       <CardBody className="space-y-4">
         {!port ? (
           <div className="text-sm text-[var(--color-fg-subtle)]">
-            Click a port to inspect its speed, VLAN, description, and cable peer.
+            Click a port to inspect its speed, VLAN, description, and cable
+            peer.
           </div>
         ) : (
           <>
@@ -1019,27 +1342,39 @@ function PortInspectorCard({
                   {formatLinkState(port.linkState)}
                 </span>
               </InspectorRow>
-              <InspectorRow label="Speed" value={port.speed ?? 'Not set'} mono />
-              <InspectorRow label="Mode" value={port.mode ?? 'access'} />
-              <InspectorRow label="Face" value={port.face ?? 'front'} />
-              <InspectorRow label="Position" value={String(port.position)} mono />
               <InspectorRow
-                label={port.mode === 'trunk' ? 'Native VLAN' : 'Access VLAN'}
+                label="Speed"
+                value={port.speed ?? "Not set"}
+                mono
+              />
+              <InspectorRow label="Mode" value={port.mode ?? "access"} />
+              <InspectorRow label="Face" value={port.face ?? "front"} />
+              <InspectorRow
+                label="Position"
+                value={String(port.position)}
+                mono
+              />
+              <InspectorRow
+                label={port.mode === "trunk" ? "Native VLAN" : "Access VLAN"}
                 value={
                   primaryVlan
                     ? formatVlanReference(primaryVlan.id, vlansById)
-                    : port.mode === 'trunk'
-                      ? 'None (tagged only)'
-                      : 'Unassigned'
+                    : port.mode === "trunk"
+                      ? "None (tagged only)"
+                      : "Unassigned"
                 }
               />
-              {port.mode === 'trunk' && (
+              {port.mode === "trunk" && (
                 <InspectorRow
                   label="Tagged VLANs"
-                  value={allowedVlanLabels.length > 0 ? allowedVlanLabels.join(', ') : 'None documented'}
+                  value={
+                    allowedVlanLabels.length > 0
+                      ? allowedVlanLabels.join(", ")
+                      : "None documented"
+                  }
                 />
               )}
-              <InspectorRow label="Type" value={port.kind.replace('_', ' ')} />
+              <InspectorRow label="Type" value={port.kind.replace("_", " ")} />
             </div>
 
             <div className="space-y-1">
@@ -1047,7 +1382,7 @@ function PortInspectorCard({
                 Description
               </div>
               <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
-                {port.description?.trim() || 'No description documented.'}
+                {port.description?.trim() || "No description documented."}
               </div>
             </div>
 
@@ -1060,15 +1395,22 @@ function PortInspectorCard({
                   <div className="space-y-1 text-sm">
                     <div className="text-[var(--color-fg)]">
                       {peerDevice.hostname}
-                      <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
-                      <Mono className="text-[var(--color-cyan)]">{peerPort.name}</Mono>
+                      <span className="mx-1 text-[var(--color-fg-faint)]">
+                        |
+                      </span>
+                      <Mono className="text-[var(--color-cyan)]">
+                        {peerPort.name}
+                      </Mono>
                     </div>
                     <div className="text-[11px] text-[var(--color-fg-subtle)]">
-                      {link?.cableType ?? 'Cable'} | {link?.cableLength ?? 'length n/a'}
+                      {link?.cableType ?? "Cable"} |{" "}
+                      {link?.cableLength ?? "length n/a"}
                     </div>
                   </div>
                 ) : (
-                  <div className="text-sm text-[var(--color-fg-subtle)]">No linked cable.</div>
+                  <div className="text-sm text-[var(--color-fg-subtle)]">
+                    No linked cable.
+                  </div>
                 )}
               </div>
             </div>
@@ -1082,7 +1424,7 @@ function PortInspectorCard({
         )}
       </CardBody>
     </Card>
-  )
+  );
 }
 
 function InspectorRow({
@@ -1091,10 +1433,10 @@ function InspectorRow({
   mono,
   children,
 }: {
-  label: string
-  value?: string
-  mono?: boolean
-  children?: ReactNode
+  label: string;
+  value?: string;
+  mono?: boolean;
+  children?: ReactNode;
 }) {
   return (
     <div>
@@ -1102,10 +1444,14 @@ function InspectorRow({
         {label}
       </div>
       {children ?? (
-        <div className={`mt-1 text-sm text-[var(--color-fg)] ${mono ? 'font-mono' : ''}`}>{value ?? '-'}</div>
+        <div
+          className={`mt-1 text-sm text-[var(--color-fg)] ${mono ? "font-mono" : ""}`}
+        >
+          {value ?? "-"}
+        </div>
       )}
     </div>
-  )
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -1116,7 +1462,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       </span>
       {children}
     </label>
-  )
+  );
 }
 
 function Select({
@@ -1125,10 +1471,10 @@ function Select({
   disabled,
   children,
 }: {
-  value: string
-  onChange: (value: string) => void
-  disabled?: boolean
-  children: ReactNode
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  children: ReactNode;
 }) {
   return (
     <select
@@ -1139,7 +1485,7 @@ function Select({
     >
       {children}
     </select>
-  )
+  );
 }
 
 function MonitorStat({ label, value }: { label: string; value: string }) {
@@ -1150,34 +1496,56 @@ function MonitorStat({ label, value }: { label: string; value: string }) {
       </div>
       <div className="mt-1 text-sm text-[var(--color-fg)]">{value}</div>
     </div>
-  )
+  );
 }
 
-function Row({ label, value, mono }: { label: string; value?: string; mono?: boolean }) {
-  if (!value) return null
+function Row({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value?: string;
+  mono?: boolean;
+}) {
+  if (!value) return null;
   return (
     <div className="flex items-baseline justify-between gap-3 capitalize">
       <dt className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
         {label}
       </dt>
-      <dd className={`text-right text-[var(--color-fg)] normal-case ${mono ? 'font-mono text-[11px]' : 'text-xs'}`}>
+      <dd
+        className={`text-right text-[var(--color-fg)] normal-case ${mono ? "font-mono text-[11px]" : "text-xs"}`}
+      >
         {value}
       </dd>
     </div>
-  )
+  );
 }
 
-function Stat({ label, value, mono }: { label: string; value?: string; mono?: boolean }) {
+function Stat({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value?: string;
+  mono?: boolean;
+}) {
   return (
     <div>
       <dt className="font-mono text-[9px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
         {label}
       </dt>
-      <dd className={mono ? 'font-mono text-[var(--color-fg)]' : 'text-[var(--color-fg)]'}>
-        {value ?? '-'}
+      <dd
+        className={
+          mono ? "font-mono text-[var(--color-fg)]" : "text-[var(--color-fg)]"
+        }
+      >
+        {value ?? "-"}
       </dd>
     </div>
-  )
+  );
 }
 
 function SummaryPill({ label, value }: { label: string; value: string }) {
@@ -1188,20 +1556,23 @@ function SummaryPill({ label, value }: { label: string; value: string }) {
       </div>
       <div className="mt-1 text-sm text-[var(--color-fg)]">{value}</div>
     </div>
-  )
+  );
 }
 
-function buildNewMonitorForm(device: Device, existingCount: number): MonitorForm {
-  const defaultTarget = existingCount === 0 ? device.managementIp ?? '' : ''
+function buildNewMonitorForm(
+  device: Device,
+  existingCount: number,
+): MonitorForm {
+  const defaultTarget = existingCount === 0 ? (device.managementIp ?? "") : "";
   return {
-    name: existingCount === 0 ? 'Management' : `Target ${existingCount + 1}`,
+    name: existingCount === 0 ? "Management" : `Target ${existingCount + 1}`,
     enabled: Boolean(defaultTarget),
-    type: defaultTarget ? 'icmp' : 'none',
+    type: defaultTarget ? "icmp" : "none",
     target: defaultTarget,
-    port: '',
-    path: '',
-    intervalMinutes: '5',
-  }
+    port: "",
+    path: "",
+    intervalMinutes: "5",
+  };
 }
 
 function monitorToForm(monitor: DeviceMonitor, device: Device): MonitorForm {
@@ -1209,68 +1580,71 @@ function monitorToForm(monitor: DeviceMonitor, device: Device): MonitorForm {
     name: monitor.name,
     enabled: monitor.enabled,
     type: monitor.type,
-    target: monitor.target ?? device.managementIp ?? '',
-    port: monitor.port != null ? String(monitor.port) : '',
-    path: monitor.path ?? '',
-    intervalMinutes: monitor.intervalMs != null ? String(Math.max(1, Math.round(monitor.intervalMs / 60000))) : '5',
-  }
+    target: monitor.target ?? device.managementIp ?? "",
+    port: monitor.port != null ? String(monitor.port) : "",
+    path: monitor.path ?? "",
+    intervalMinutes:
+      monitor.intervalMs != null
+        ? String(Math.max(1, Math.round(monitor.intervalMs / 60000)))
+        : "5",
+  };
 }
 
-function describeMonitorType(type: MonitorForm['type']) {
+function describeMonitorType(type: MonitorForm["type"]) {
   switch (type) {
-    case 'icmp':
-      return 'ICMP is best for simple reachability. It answers "can the Rackpad server or container reach this host on the network?"'
-    case 'tcp':
-      return 'TCP checks a specific service port from the Rackpad server. Port 22 only shows online when SSH itself is reachable from the server or container.'
-    case 'http':
-      return 'HTTP checks fetch a URL from the Rackpad server and expect a successful response.'
-    case 'https':
-      return 'HTTPS checks fetch a secure URL from the Rackpad server and expect a successful response.'
+    case "icmp":
+      return 'ICMP is best for simple reachability. It answers "can the Rackpad server or container reach this host on the network?"';
+    case "tcp":
+      return "TCP checks a specific service port from the Rackpad server. Port 22 only shows online when SSH itself is reachable from the server or container.";
+    case "http":
+      return "HTTP checks fetch a URL from the Rackpad server and expect a successful response.";
+    case "https":
+      return "HTTPS checks fetch a secure URL from the Rackpad server and expect a successful response.";
     default:
-      return 'Choose a monitor type to enable automated health checks for this device.'
+      return "Choose a monitor type to enable automated health checks for this device.";
   }
 }
 
-function formatLinkState(state: Port['linkState']) {
+function formatLinkState(state: Port["linkState"]) {
   switch (state) {
-    case 'up':
-      return 'Up'
-    case 'down':
-      return 'Down'
-    case 'disabled':
-      return 'Disabled'
+    case "up":
+      return "Up";
+    case "down":
+      return "Down";
+    case "disabled":
+      return "Disabled";
     default:
-      return 'Unknown'
+      return "Unknown";
   }
 }
 
 function formatVlanReference(vlanId: string, vlansById: Record<string, Vlan>) {
-  const vlan = vlansById[vlanId]
-  return vlan ? `${vlan.vlanId} - ${vlan.name}` : vlanId
+  const vlan = vlansById[vlanId];
+  return vlan ? `${vlan.vlanId} - ${vlan.name}` : vlanId;
 }
 
-function formatPlacement(placement?: Device['placement']) {
+function formatPlacement(placement?: Device["placement"]) {
   switch (placement) {
-    case 'rack':
-      return 'Rack mounted'
-    case 'wireless':
-      return 'WiFi linked'
-    case 'virtual':
-      return 'Virtual'
-    case 'room':
-      return 'Loose / room'
+    case "rack":
+      return "Rack mounted";
+    case "wireless":
+      return "WiFi linked";
+    case "virtual":
+      return "Virtual";
+    case "room":
+      return "Loose / room";
     default:
-      return 'Loose / room'
+      return "Loose / room";
   }
 }
 
 function formatCapacityValue(value?: number) {
-  if (value == null) return '-'
-  if (Number.isInteger(value)) return String(value)
-  return value.toFixed(1).replace(/\.0$/, '')
+  if (value == null) return "-";
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1).replace(/\.0$/, "");
 }
 
 function formatCapacityUnit(value: number | undefined, unit: string) {
-  const formatted = formatCapacityValue(value)
-  return formatted === '-' ? undefined : `${formatted} ${unit}`
+  const formatted = formatCapacityValue(value);
+  return formatted === "-" ? undefined : `${formatted} ${unit}`;
 }

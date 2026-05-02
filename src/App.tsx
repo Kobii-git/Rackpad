@@ -1,48 +1,146 @@
-import { Suspense, lazy, type ReactNode } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
-import { AppShell } from '@/components/layout/AppShell'
+import { Suspense, lazy, type ReactNode } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AppShell } from "@/components/layout/AppShell";
 
-const Dashboard = lazy(() => import('@/pages/Dashboard'))
-const LabsPage = lazy(() => import('@/pages/LabsPage'))
-const RackViewPage = lazy(() => import('@/pages/RackViewPage'))
-const DevicesList = lazy(() => import('@/pages/DevicesList'))
-const DeviceDetail = lazy(() => import('@/pages/DeviceDetail'))
-const ComputeView = lazy(() => import('@/pages/ComputeView'))
-const WifiView = lazy(() => import('@/pages/WifiView'))
-const DiscoveryView = lazy(() => import('@/pages/DiscoveryView'))
-const MonitoringView = lazy(() => import('@/pages/MonitoringView'))
-const PortView = lazy(() => import('@/pages/PortView'))
-const CableView = lazy(() => import('@/pages/CableView'))
-const VlansView = lazy(() => import('@/pages/VlansView'))
-const IpamView = lazy(() => import('@/pages/IpamView'))
-const UsersPage = lazy(() => import('@/pages/UsersPage'))
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const LabsPage = lazy(() => import("@/pages/LabsPage"));
+const RackViewPage = lazy(() => import("@/pages/RackViewPage"));
+const DevicesList = lazy(() => import("@/pages/DevicesList"));
+const DeviceDetail = lazy(() => import("@/pages/DeviceDetail"));
+const ComputeView = lazy(() => import("@/pages/ComputeView"));
+const WifiView = lazy(() => import("@/pages/WifiView"));
+const DiscoveryView = lazy(() => import("@/pages/DiscoveryView"));
+const MonitoringView = lazy(() => import("@/pages/MonitoringView"));
+const PortView = lazy(() => import("@/pages/PortView"));
+const CableView = lazy(() => import("@/pages/CableView"));
+const VlansView = lazy(() => import("@/pages/VlansView"));
+const IpamView = lazy(() => import("@/pages/IpamView"));
+const UsersPage = lazy(() => import("@/pages/UsersPage"));
 
 export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route index element={<RouteFrame><Dashboard /></RouteFrame>} />
-        <Route path="/labs" element={<RouteFrame><LabsPage /></RouteFrame>} />
-        <Route path="/racks" element={<RouteFrame><RackViewPage /></RouteFrame>} />
-        <Route path="/devices" element={<RouteFrame><DevicesList /></RouteFrame>} />
-        <Route path="/devices/:id" element={<RouteFrame><DeviceDetail /></RouteFrame>} />
-        <Route path="/compute" element={<RouteFrame><ComputeView /></RouteFrame>} />
-        <Route path="/wifi" element={<RouteFrame><WifiView /></RouteFrame>} />
-        <Route path="/discovery" element={<RouteFrame><DiscoveryView /></RouteFrame>} />
-        <Route path="/monitoring" element={<RouteFrame><MonitoringView /></RouteFrame>} />
-        <Route path="/ports" element={<RouteFrame><PortView /></RouteFrame>} />
-        <Route path="/cables" element={<RouteFrame><CableView /></RouteFrame>} />
-        <Route path="/vlans" element={<RouteFrame><VlansView /></RouteFrame>} />
-        <Route path="/ipam" element={<RouteFrame><IpamView /></RouteFrame>} />
-        <Route path="/users" element={<RouteFrame><UsersPage /></RouteFrame>} />
+        <Route
+          index
+          element={
+            <RouteFrame>
+              <Dashboard />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/labs"
+          element={
+            <RouteFrame>
+              <LabsPage />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/racks"
+          element={
+            <RouteFrame>
+              <RackViewPage />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/devices"
+          element={
+            <RouteFrame>
+              <DevicesList />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/devices/:id"
+          element={
+            <RouteFrame>
+              <DeviceDetail />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/compute"
+          element={
+            <RouteFrame>
+              <ComputeView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/wifi"
+          element={
+            <RouteFrame>
+              <WifiView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/discovery"
+          element={
+            <RouteFrame>
+              <DiscoveryView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/monitoring"
+          element={
+            <RouteFrame>
+              <MonitoringView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/ports"
+          element={
+            <RouteFrame>
+              <PortView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/cables"
+          element={
+            <RouteFrame>
+              <CableView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/vlans"
+          element={
+            <RouteFrame>
+              <VlansView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/ipam"
+          element={
+            <RouteFrame>
+              <IpamView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <RouteFrame>
+              <UsersPage />
+            </RouteFrame>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
-  )
+  );
 }
 
 function RouteFrame({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>
+  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
 }
 
 function RouteLoading() {
@@ -57,5 +155,5 @@ function RouteLoading() {
         </div>
       </div>
     </div>
-  )
+  );
 }

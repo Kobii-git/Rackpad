@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { api } from '@/lib/api'
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { TopBar } from "@/components/layout/TopBar";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { api } from "@/lib/api";
 import {
   createUserAccount,
   deleteUserAccount,
@@ -13,26 +20,35 @@ import {
   restoreAdminBackupSnapshot,
   updateUserAccount,
   useStore,
-} from '@/lib/store'
-import type { AlertSettings, AuditEntry, AppUser, UserRole } from '@/lib/types'
-import { APP_VERSION_TAG } from '@/lib/version'
-import { Download, Plus, Save, Shield, Trash2, Upload, UserRound, BellRing } from 'lucide-react'
+} from "@/lib/store";
+import type { AlertSettings, AuditEntry, AppUser, UserRole } from "@/lib/types";
+import { APP_VERSION_TAG } from "@/lib/version";
+import {
+  Download,
+  Plus,
+  Save,
+  Shield,
+  Trash2,
+  Upload,
+  UserRound,
+  BellRing,
+} from "lucide-react";
 
 type FormState = {
-  username: string
-  displayName: string
-  role: UserRole
-  disabled: boolean
-  password: string
-}
+  username: string;
+  displayName: string;
+  role: UserRole;
+  disabled: boolean;
+  password: string;
+};
 
 const EMPTY_FORM: FormState = {
-  username: '',
-  displayName: '',
-  role: 'viewer',
+  username: "",
+  displayName: "",
+  role: "viewer",
   disabled: false,
-  password: '',
-}
+  password: "",
+};
 
 const DEFAULT_ALERT_SETTINGS: AlertSettings = {
   enabled: false,
@@ -50,53 +66,58 @@ const DEFAULT_ALERT_SETTINGS: AlertSettings = {
   smtpPassword: null,
   smtpFrom: null,
   smtpTo: null,
-}
+};
 
 export default function UsersPage() {
-  const currentUser = useStore((s) => s.currentUser)
-  const users = useStore((s) => s.users)
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const [restoring, setRestoring] = useState(false)
-  const [error, setError] = useState('')
-  const [exportError, setExportError] = useState('')
-  const [exportSuccess, setExportSuccess] = useState('')
-  const [restoreError, setRestoreError] = useState('')
-  const [restoreFile, setRestoreFile] = useState<File | null>(null)
-  const [alertSettings, setAlertSettings] = useState<AlertSettings>(DEFAULT_ALERT_SETTINGS)
-  const [alertsLoading, setAlertsLoading] = useState(true)
-  const [alertSaving, setAlertSaving] = useState(false)
-  const [alertTesting, setAlertTesting] = useState(false)
-  const [alertError, setAlertError] = useState('')
-  const [alertSuccess, setAlertSuccess] = useState('')
-  const [alertHistory, setAlertHistory] = useState<AuditEntry[]>([])
-  const [alertHistoryLoading, setAlertHistoryLoading] = useState(true)
-  const [alertHistoryError, setAlertHistoryError] = useState('')
-  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const currentUser = useStore((s) => s.currentUser);
+  const users = useStore((s) => s.users);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [restoring, setRestoring] = useState(false);
+  const [error, setError] = useState("");
+  const [exportError, setExportError] = useState("");
+  const [exportSuccess, setExportSuccess] = useState("");
+  const [restoreError, setRestoreError] = useState("");
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [alertSettings, setAlertSettings] = useState<AlertSettings>(
+    DEFAULT_ALERT_SETTINGS,
+  );
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertSaving, setAlertSaving] = useState(false);
+  const [alertTesting, setAlertTesting] = useState(false);
+  const [alertError, setAlertError] = useState("");
+  const [alertSuccess, setAlertSuccess] = useState("");
+  const [alertHistory, setAlertHistory] = useState<AuditEntry[]>([]);
+  const [alertHistoryLoading, setAlertHistoryLoading] = useState(true);
+  const [alertHistoryError, setAlertHistoryError] = useState("");
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   useEffect(() => {
     if (!users.length) {
-      setSelectedUserId(null)
-      return
+      setSelectedUserId(null);
+      return;
     }
     if (!selectedUserId || !users.some((user) => user.id === selectedUserId)) {
-      setSelectedUserId(users[0].id)
+      setSelectedUserId(users[0].id);
     }
-  }, [selectedUserId, users])
+  }, [selectedUserId, users]);
 
   const selectedUser = useMemo(
-    () => (selectedUserId ? users.find((user) => user.id === selectedUserId) : undefined),
+    () =>
+      selectedUserId
+        ? users.find((user) => user.id === selectedUserId)
+        : undefined,
     [selectedUserId, users],
-  )
+  );
 
   useEffect(() => {
     if (creating) {
-      setForm(EMPTY_FORM)
-      setError('')
-      return
+      setForm(EMPTY_FORM);
+      setError("");
+      return;
     }
 
     if (selectedUser) {
@@ -105,75 +126,86 @@ export default function UsersPage() {
         displayName: selectedUser.displayName,
         role: selectedUser.role,
         disabled: selectedUser.disabled,
-        password: '',
-      })
-      setError('')
+        password: "",
+      });
+      setError("");
     }
-  }, [creating, selectedUser])
+  }, [creating, selectedUser]);
 
   useEffect(() => {
     if (!isAdmin(currentUser)) {
-      setAlertsLoading(false)
-      setAlertHistoryLoading(false)
-      return
+      setAlertsLoading(false);
+      setAlertHistoryLoading(false);
+      return;
     }
 
-    let cancelled = false
+    let cancelled = false;
 
     async function loadAlertSettings() {
-      setAlertsLoading(true)
-      setAlertError('')
+      setAlertsLoading(true);
+      setAlertError("");
       try {
-        const settings = await api.getAlertSettings()
+        const settings = await api.getAlertSettings();
         if (!cancelled) {
-          setAlertSettings(settings)
+          setAlertSettings(settings);
         }
       } catch (err) {
         if (!cancelled) {
-          setAlertError(err instanceof Error ? err.message : 'Failed to load notification settings.')
+          setAlertError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load notification settings.",
+          );
         }
       } finally {
         if (!cancelled) {
-          setAlertsLoading(false)
+          setAlertsLoading(false);
         }
       }
     }
 
-    void loadAlertSettings()
+    void loadAlertSettings();
     return () => {
-      cancelled = true
-    }
-  }, [currentUser])
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   useEffect(() => {
-    if (!isAdmin(currentUser)) return
+    if (!isAdmin(currentUser)) return;
 
-    let cancelled = false
+    let cancelled = false;
 
     async function loadAlertHistory() {
-      setAlertHistoryLoading(true)
-      setAlertHistoryError('')
+      setAlertHistoryLoading(true);
+      setAlertHistoryError("");
       try {
-        const entries = await api.getAuditLog({ entityType: 'Alert', limit: 40 })
+        const entries = await api.getAuditLog({
+          entityType: "Alert",
+          limit: 40,
+        });
         if (!cancelled) {
-          setAlertHistory(entries)
+          setAlertHistory(entries);
         }
       } catch (err) {
         if (!cancelled) {
-          setAlertHistoryError(err instanceof Error ? err.message : 'Failed to load alert history.')
+          setAlertHistoryError(
+            err instanceof Error
+              ? err.message
+              : "Failed to load alert history.",
+          );
         }
       } finally {
         if (!cancelled) {
-          setAlertHistoryLoading(false)
+          setAlertHistoryLoading(false);
         }
       }
     }
 
-    void loadAlertHistory()
+    void loadAlertHistory();
     return () => {
-      cancelled = true
-    }
-  }, [currentUser])
+      cancelled = true;
+    };
+  }, [currentUser]);
 
   if (!isAdmin(currentUser)) {
     return (
@@ -193,12 +225,12 @@ export default function UsersPage() {
           </Card>
         </div>
       </>
-    )
+    );
   }
 
   async function handleSave() {
-    setSaving(true)
-    setError('')
+    setSaving(true);
+    setError("");
     try {
       if (creating) {
         const created = await createUserAccount({
@@ -207,112 +239,128 @@ export default function UsersPage() {
           password: form.password,
           role: form.role,
           disabled: form.disabled,
-        })
-        setCreating(false)
-        setSelectedUserId(created.id)
-        return
+        });
+        setCreating(false);
+        setSelectedUserId(created.id);
+        return;
       }
 
-      if (!selectedUser) return
+      if (!selectedUser) return;
       const updated = await updateUserAccount(selectedUser.id, {
         username: form.username.trim(),
         displayName: form.displayName.trim() || null,
         role: form.role,
         disabled: form.disabled,
         password: form.password.trim() ? form.password : undefined,
-      })
-      setSelectedUserId(updated.id)
-      setForm((prev) => ({ ...prev, password: '' }))
+      });
+      setSelectedUserId(updated.id);
+      setForm((prev) => ({ ...prev, password: "" }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save user.')
+      setError(err instanceof Error ? err.message : "Failed to save user.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!selectedUser) return
-    if (!window.confirm(`Delete user ${selectedUser.username}?`)) return
+    if (!selectedUser) return;
+    if (!window.confirm(`Delete user ${selectedUser.username}?`)) return;
 
-    setDeleting(true)
-    setError('')
+    setDeleting(true);
+    setError("");
     try {
-      await deleteUserAccount(selectedUser.id)
-      setSelectedUserId(null)
-      setCreating(false)
+      await deleteUserAccount(selectedUser.id);
+      setSelectedUserId(null);
+      setCreating(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user.')
+      setError(err instanceof Error ? err.message : "Failed to delete user.");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
   async function handleExport() {
-    setExporting(true)
-    setExportError('')
-    setExportSuccess('')
+    setExporting(true);
+    setExportError("");
+    setExportSuccess("");
     try {
-      const filename = await downloadAdminBackup()
-      setExportSuccess(`Downloaded ${filename}`)
+      const filename = await downloadAdminBackup();
+      setExportSuccess(`Downloaded ${filename}`);
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : 'Failed to export backup.')
+      setExportError(
+        err instanceof Error ? err.message : "Failed to export backup.",
+      );
     } finally {
-      setExporting(false)
+      setExporting(false);
     }
   }
 
   async function handleRestore() {
     if (!restoreFile) {
-      setRestoreError('Choose a backup JSON file first.')
-      return
+      setRestoreError("Choose a backup JSON file first.");
+      return;
     }
-    if (!window.confirm('Restore this backup and replace the current database contents? You will need to sign in again.')) {
-      return
+    if (
+      !window.confirm(
+        "Restore this backup and replace the current database contents? You will need to sign in again.",
+      )
+    ) {
+      return;
     }
 
-    setRestoring(true)
-    setRestoreError('')
-    setExportSuccess('')
+    setRestoring(true);
+    setRestoreError("");
+    setExportSuccess("");
     try {
-      const raw = await restoreFile.text()
-      const snapshot = JSON.parse(raw) as unknown
-      await restoreAdminBackupSnapshot(snapshot)
-      window.alert('Backup restored. Please sign in again.')
+      const raw = await restoreFile.text();
+      const snapshot = JSON.parse(raw) as unknown;
+      await restoreAdminBackupSnapshot(snapshot);
+      window.alert("Backup restored. Please sign in again.");
     } catch (err) {
-      setRestoreError(err instanceof Error ? err.message : 'Failed to restore backup.')
+      setRestoreError(
+        err instanceof Error ? err.message : "Failed to restore backup.",
+      );
     } finally {
-      setRestoring(false)
+      setRestoring(false);
     }
   }
 
   async function handleSaveAlerts() {
-    setAlertSaving(true)
-    setAlertError('')
-    setAlertSuccess('')
+    setAlertSaving(true);
+    setAlertError("");
+    setAlertSuccess("");
     try {
-      const saved = await api.updateAlertSettings(alertSettings)
-      setAlertSettings(saved)
-      setAlertSuccess('Notification settings saved.')
+      const saved = await api.updateAlertSettings(alertSettings);
+      setAlertSettings(saved);
+      setAlertSuccess("Notification settings saved.");
     } catch (err) {
-      setAlertError(err instanceof Error ? err.message : 'Failed to save notification settings.')
+      setAlertError(
+        err instanceof Error
+          ? err.message
+          : "Failed to save notification settings.",
+      );
     } finally {
-      setAlertSaving(false)
+      setAlertSaving(false);
     }
   }
 
   async function handleTestAlert() {
-    setAlertTesting(true)
-    setAlertError('')
-    setAlertSuccess('')
+    setAlertTesting(true);
+    setAlertError("");
+    setAlertSuccess("");
     try {
-      const result = await api.sendAlertSettingsTest()
-      setAlertSuccess(`Test alert delivered via ${result.channels.map((channel) => channel.channel).join(', ')}.`)
-      const entries = await api.getAuditLog({ entityType: 'Alert', limit: 40 })
-      setAlertHistory(entries)
+      const result = await api.sendAlertSettingsTest();
+      setAlertSuccess(
+        `Test alert delivered via ${result.channels.map((channel) => channel.channel).join(", ")}.`,
+      );
+      const entries = await api.getAuditLog({ entityType: "Alert", limit: 40 });
+      setAlertHistory(entries);
     } catch (err) {
-      setAlertError(err instanceof Error ? err.message : 'Failed to send test alert.')
+      setAlertError(
+        err instanceof Error ? err.message : "Failed to send test alert.",
+      );
     } finally {
-      setAlertTesting(false)
+      setAlertTesting(false);
     }
   }
 
@@ -331,8 +379,8 @@ export default function UsersPage() {
             variant="outline"
             size="sm"
             onClick={() => {
-              setCreating(true)
-              setSelectedUserId(null)
+              setCreating(true);
+              setSelectedUserId(null);
             }}
           >
             <Plus className="size-3.5" />
@@ -350,23 +398,33 @@ export default function UsersPage() {
           </div>
           <div className="flex-1 overflow-y-auto py-2">
             {users.map((user) => {
-              const active = !creating && user.id === selectedUserId
+              const active = !creating && user.id === selectedUserId;
               return (
                 <button
                   key={user.id}
                   onClick={() => {
-                    setCreating(false)
-                    setSelectedUserId(user.id)
+                    setCreating(false);
+                    setSelectedUserId(user.id);
                   }}
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
                     active
-                      ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
-                      : 'border-transparent hover:bg-[var(--color-surface)]/40'
+                      ? "border-[var(--color-accent)] bg-[var(--color-surface)]"
+                      : "border-transparent hover:bg-[var(--color-surface)]/40"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="truncate text-sm font-medium text-[var(--color-fg)]">{user.displayName}</div>
-                    <Badge tone={user.role === 'admin' ? 'accent' : user.role === 'editor' ? 'info' : 'neutral'}>
+                    <div className="truncate text-sm font-medium text-[var(--color-fg)]">
+                      {user.displayName}
+                    </div>
+                    <Badge
+                      tone={
+                        user.role === "admin"
+                          ? "accent"
+                          : user.role === "editor"
+                            ? "info"
+                            : "neutral"
+                      }
+                    >
                       {user.role}
                     </Badge>
                   </div>
@@ -374,10 +432,12 @@ export default function UsersPage() {
                     @{user.username}
                   </div>
                   {user.disabled && (
-                    <div className="mt-1 text-[11px] text-[var(--color-err)]">Disabled</div>
+                    <div className="mt-1 text-[11px] text-[var(--color-err)]">
+                      Disabled
+                    </div>
                   )}
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -385,103 +445,174 @@ export default function UsersPage() {
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="max-w-3xl space-y-5">
             <Card>
-            <CardHeader>
-              <CardTitle>
-                <CardLabel>{creating ? 'New account' : 'User details'}</CardLabel>
-                <CardHeading>{creating ? 'Create user' : selectedUser?.displayName ?? 'Select a user'}</CardHeading>
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge tone={form.role === 'admin' ? 'accent' : form.role === 'editor' ? 'info' : 'neutral'}>
-                  {form.role}
-                </Badge>
-                {selectedUser && (
-                  <Badge tone={selectedUser.disabled ? 'err' : 'ok'}>
-                    {selectedUser.disabled ? 'disabled' : 'active'}
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>
+                    {creating ? "New account" : "User details"}
+                  </CardLabel>
+                  <CardHeading>
+                    {creating
+                      ? "Create user"
+                      : (selectedUser?.displayName ?? "Select a user")}
+                  </CardHeading>
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    tone={
+                      form.role === "admin"
+                        ? "accent"
+                        : form.role === "editor"
+                          ? "info"
+                          : "neutral"
+                    }
+                  >
+                    {form.role}
                   </Badge>
-                )}
-              </div>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              {selectedUser || creating ? (
-                <>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Username">
-                      <Input
-                        value={form.username}
-                        onChange={(event) => setForm((prev) => ({ ...prev, username: event.target.value }))}
-                        placeholder="username"
-                      />
-                    </Field>
-                    <Field label="Display name">
-                      <Input
-                        value={form.displayName}
-                        onChange={(event) => setForm((prev) => ({ ...prev, displayName: event.target.value }))}
-                        placeholder="Display name"
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Field label={creating ? 'Password' : 'Reset password'}>
-                      <Input
-                        type="password"
-                        value={form.password}
-                        onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-                        placeholder={creating ? 'At least 10 characters' : 'Leave blank to keep current password'}
-                      />
-                    </Field>
-                    <Field label="Role">
-                      <RolePicker value={form.role} onChange={(role) => setForm((prev) => ({ ...prev, role }))} />
-                    </Field>
-                  </div>
-
-                  <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
-                    <input
-                      type="checkbox"
-                      checked={form.disabled}
-                      onChange={(event) => setForm((prev) => ({ ...prev, disabled: event.target.checked }))}
-                    />
-                    Disable this account
-                  </label>
-
                   {selectedUser && (
-                    <div className="grid gap-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4 md:grid-cols-2">
-                      <Stat label="Created" value={new Date(selectedUser.createdAt).toLocaleString()} />
-                      <Stat label="Last login" value={selectedUser.lastLoginAt ? new Date(selectedUser.lastLoginAt).toLocaleString() : 'Never'} />
-                    </div>
+                    <Badge tone={selectedUser.disabled ? "err" : "ok"}>
+                      {selectedUser.disabled ? "disabled" : "active"}
+                    </Badge>
                   )}
-
-                  {error && (
-                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
-                      {error}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-xs text-[var(--color-fg-subtle)]">
-                      <UserRound className="size-3.5" />
-                      Viewer is read-only, editor can manage inventory, admin can manage users and backups.
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {selectedUser && (
-                        <Button variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={deleting}>
-                          <Trash2 className="size-3.5" />
-                          {deleting ? 'Deleting...' : 'Delete'}
-                        </Button>
-                      )}
-                      <Button size="sm" onClick={() => void handleSave()} disabled={saving}>
-                        <Save className="size-3.5" />
-                        {saving ? 'Saving...' : creating ? 'Create user' : 'Save changes'}
-                      </Button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="text-sm text-[var(--color-fg-subtle)]">
-                  Select an account from the left or create a new one.
                 </div>
-              )}
-            </CardBody>
+              </CardHeader>
+              <CardBody className="space-y-4">
+                {selectedUser || creating ? (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label="Username">
+                        <Input
+                          value={form.username}
+                          onChange={(event) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              username: event.target.value,
+                            }))
+                          }
+                          placeholder="username"
+                        />
+                      </Field>
+                      <Field label="Display name">
+                        <Input
+                          value={form.displayName}
+                          onChange={(event) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              displayName: event.target.value,
+                            }))
+                          }
+                          placeholder="Display name"
+                        />
+                      </Field>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Field label={creating ? "Password" : "Reset password"}>
+                        <Input
+                          type="password"
+                          value={form.password}
+                          onChange={(event) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              password: event.target.value,
+                            }))
+                          }
+                          placeholder={
+                            creating
+                              ? "At least 10 characters"
+                              : "Leave blank to keep current password"
+                          }
+                        />
+                      </Field>
+                      <Field label="Role">
+                        <RolePicker
+                          value={form.role}
+                          onChange={(role) =>
+                            setForm((prev) => ({ ...prev, role }))
+                          }
+                        />
+                      </Field>
+                    </div>
+
+                    <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                      <input
+                        type="checkbox"
+                        checked={form.disabled}
+                        onChange={(event) =>
+                          setForm((prev) => ({
+                            ...prev,
+                            disabled: event.target.checked,
+                          }))
+                        }
+                      />
+                      Disable this account
+                    </label>
+
+                    {selectedUser && (
+                      <div className="grid gap-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4 md:grid-cols-2">
+                        <Stat
+                          label="Created"
+                          value={new Date(
+                            selectedUser.createdAt,
+                          ).toLocaleString()}
+                        />
+                        <Stat
+                          label="Last login"
+                          value={
+                            selectedUser.lastLoginAt
+                              ? new Date(
+                                  selectedUser.lastLoginAt,
+                                ).toLocaleString()
+                              : "Never"
+                          }
+                        />
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                        {error}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 text-xs text-[var(--color-fg-subtle)]">
+                        <UserRound className="size-3.5" />
+                        Viewer is read-only, editor can manage inventory, admin
+                        can manage users and backups.
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedUser && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => void handleDelete()}
+                            disabled={deleting}
+                          >
+                            <Trash2 className="size-3.5" />
+                            {deleting ? "Deleting..." : "Delete"}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          onClick={() => void handleSave()}
+                          disabled={saving}
+                        >
+                          <Save className="size-3.5" />
+                          {saving
+                            ? "Saving..."
+                            : creating
+                              ? "Create user"
+                              : "Save changes"}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-[var(--color-fg-subtle)]">
+                    Select an account from the left or create a new one.
+                  </div>
+                )}
+              </CardBody>
             </Card>
 
             <Card>
@@ -498,11 +629,13 @@ export default function UsersPage() {
                     Export snapshot
                   </div>
                   <div className="mt-2 text-sm text-[var(--color-fg)]">
-                    Download a full JSON backup of racks, devices, ports, cables, VLANs, IPAM, monitors, audit history,
-                    and user accounts.
+                    Download a full JSON backup of racks, devices, ports,
+                    cables, VLANs, IPAM, monitors, audit history, and user
+                    accounts.
                   </div>
                   <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
-                    Backups include password hashes for local users, so keep the file somewhere private.
+                    Backups include password hashes for local users, so keep the
+                    file somewhere private.
                   </div>
                 </div>
 
@@ -523,24 +656,30 @@ export default function UsersPage() {
                     Restore snapshot
                   </div>
                   <div className="mt-2 text-sm text-[var(--color-fg)]">
-                    Import a Rackpad JSON backup and replace the current database contents.
+                    Import a Rackpad JSON backup and replace the current
+                    database contents.
                   </div>
                   <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
-                    Restoring signs out the current session and reloads the restored users, templates, inventory, IPAM, and audit data.
+                    Restoring signs out the current session and reloads the
+                    restored users, templates, inventory, IPAM, and audit data.
                   </div>
                   <div className="mt-3 flex flex-col gap-3 md:flex-row md:items-center">
                     <input
                       type="file"
                       accept="application/json"
                       onChange={(event) => {
-                        setRestoreFile(event.target.files?.[0] ?? null)
-                        setRestoreError('')
+                        setRestoreFile(event.target.files?.[0] ?? null);
+                        setRestoreError("");
                       }}
                       className="block w-full text-sm text-[var(--color-fg-subtle)] file:mr-3 file:rounded-[var(--radius-xs)] file:border file:border-[var(--color-line)] file:bg-[var(--color-surface)] file:px-3 file:py-1.5 file:text-sm file:text-[var(--color-fg)]"
                     />
-                    <Button size="sm" onClick={() => void handleRestore()} disabled={restoring || !restoreFile}>
+                    <Button
+                      size="sm"
+                      onClick={() => void handleRestore()}
+                      disabled={restoring || !restoreFile}
+                    >
                       <Upload className="size-3.5" />
-                      {restoring ? 'Restoring...' : 'Restore backup'}
+                      {restoring ? "Restoring..." : "Restore backup"}
                     </Button>
                   </div>
                   {restoreFile && (
@@ -558,11 +697,16 @@ export default function UsersPage() {
 
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-xs text-[var(--color-fg-subtle)]">
-                    Use this before Docker updates or test-database resets so you have a clean checkpoint.
+                    Use this before Docker updates or test-database resets so
+                    you have a clean checkpoint.
                   </div>
-                  <Button size="sm" onClick={() => void handleExport()} disabled={exporting}>
+                  <Button
+                    size="sm"
+                    onClick={() => void handleExport()}
+                    disabled={exporting}
+                  >
                     <Download className="size-3.5" />
-                    {exporting ? 'Preparing...' : 'Download backup'}
+                    {exporting ? "Preparing..." : "Download backup"}
                   </Button>
                 </div>
               </CardBody>
@@ -581,14 +725,20 @@ export default function UsersPage() {
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="text-sm text-[var(--color-fg-subtle)]">
-                  Rackpad can alert when targets go down, when they recover, and when they stay offline long enough to need another reminder.
+                  Rackpad can alert when targets go down, when they recover, and
+                  when they stay offline long enough to need another reminder.
                 </div>
 
                 <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
                   <input
                     type="checkbox"
                     checked={alertSettings.enabled}
-                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, enabled: event.target.checked }))}
+                    onChange={(event) =>
+                      setAlertSettings((prev) => ({
+                        ...prev,
+                        enabled: event.target.checked,
+                      }))
+                    }
                     disabled={alertsLoading}
                   />
                   Enable notifications
@@ -598,7 +748,12 @@ export default function UsersPage() {
                   <input
                     type="checkbox"
                     checked={alertSettings.notifyOnDown}
-                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, notifyOnDown: event.target.checked }))}
+                    onChange={(event) =>
+                      setAlertSettings((prev) => ({
+                        ...prev,
+                        notifyOnDown: event.target.checked,
+                      }))
+                    }
                     disabled={alertsLoading}
                   />
                   Notify when a device or monitor target goes down
@@ -608,7 +763,12 @@ export default function UsersPage() {
                   <input
                     type="checkbox"
                     checked={alertSettings.notifyOnRecovery}
-                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, notifyOnRecovery: event.target.checked }))}
+                    onChange={(event) =>
+                      setAlertSettings((prev) => ({
+                        ...prev,
+                        notifyOnRecovery: event.target.checked,
+                      }))
+                    }
                     disabled={alertsLoading}
                   />
                   Notify again when a device recovers
@@ -619,7 +779,12 @@ export default function UsersPage() {
                     <input
                       type="checkbox"
                       checked={alertSettings.repeatWhileOffline}
-                      onChange={(event) => setAlertSettings((prev) => ({ ...prev, repeatWhileOffline: event.target.checked }))}
+                      onChange={(event) =>
+                        setAlertSettings((prev) => ({
+                          ...prev,
+                          repeatWhileOffline: event.target.checked,
+                        }))
+                      }
                       disabled={alertsLoading}
                     />
                     Repeat reminders while a target stays offline
@@ -632,18 +797,28 @@ export default function UsersPage() {
                       onChange={(event) =>
                         setAlertSettings((prev) => ({
                           ...prev,
-                          repeatIntervalMinutes: Math.max(1, Number.parseInt(event.target.value, 10) || 60),
+                          repeatIntervalMinutes: Math.max(
+                            1,
+                            Number.parseInt(event.target.value, 10) || 60,
+                          ),
                         }))
                       }
-                      disabled={alertsLoading || !alertSettings.repeatWhileOffline}
+                      disabled={
+                        alertsLoading || !alertSettings.repeatWhileOffline
+                      }
                     />
                   </Field>
                 </div>
 
                 <Field label="Discord webhook URL">
                   <Input
-                    value={alertSettings.discordWebhookUrl ?? ''}
-                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, discordWebhookUrl: event.target.value || null }))}
+                    value={alertSettings.discordWebhookUrl ?? ""}
+                    onChange={(event) =>
+                      setAlertSettings((prev) => ({
+                        ...prev,
+                        discordWebhookUrl: event.target.value || null,
+                      }))
+                    }
                     placeholder="https://discord.com/api/webhooks/..."
                     disabled={alertsLoading}
                   />
@@ -652,16 +827,26 @@ export default function UsersPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <Field label="Telegram bot token">
                     <Input
-                      value={alertSettings.telegramBotToken ?? ''}
-                      onChange={(event) => setAlertSettings((prev) => ({ ...prev, telegramBotToken: event.target.value || null }))}
+                      value={alertSettings.telegramBotToken ?? ""}
+                      onChange={(event) =>
+                        setAlertSettings((prev) => ({
+                          ...prev,
+                          telegramBotToken: event.target.value || null,
+                        }))
+                      }
                       placeholder="123456:ABCDEF..."
                       disabled={alertsLoading}
                     />
                   </Field>
                   <Field label="Telegram chat ID">
                     <Input
-                      value={alertSettings.telegramChatId ?? ''}
-                      onChange={(event) => setAlertSettings((prev) => ({ ...prev, telegramChatId: event.target.value || null }))}
+                      value={alertSettings.telegramChatId ?? ""}
+                      onChange={(event) =>
+                        setAlertSettings((prev) => ({
+                          ...prev,
+                          telegramChatId: event.target.value || null,
+                        }))
+                      }
                       placeholder="-1001234567890"
                       disabled={alertsLoading}
                     />
@@ -682,7 +867,12 @@ export default function UsersPage() {
                       <input
                         type="checkbox"
                         checked={alertSettings.smtpSecure}
-                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpSecure: event.target.checked }))}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpSecure: event.target.checked,
+                          }))
+                        }
                         disabled={alertsLoading}
                       />
                       SSL/TLS
@@ -692,8 +882,13 @@ export default function UsersPage() {
                   <div className="grid gap-4 md:grid-cols-2">
                     <Field label="SMTP host">
                       <Input
-                        value={alertSettings.smtpHost ?? ''}
-                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpHost: event.target.value || null }))}
+                        value={alertSettings.smtpHost ?? ""}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpHost: event.target.value || null,
+                          }))
+                        }
                         placeholder="smtp.example.com"
                         disabled={alertsLoading}
                       />
@@ -707,7 +902,8 @@ export default function UsersPage() {
                         onChange={(event) =>
                           setAlertSettings((prev) => ({
                             ...prev,
-                            smtpPort: Number.parseInt(event.target.value, 10) || null,
+                            smtpPort:
+                              Number.parseInt(event.target.value, 10) || null,
                           }))
                         }
                         placeholder="587"
@@ -719,8 +915,13 @@ export default function UsersPage() {
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <Field label="SMTP username">
                       <Input
-                        value={alertSettings.smtpUsername ?? ''}
-                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpUsername: event.target.value || null }))}
+                        value={alertSettings.smtpUsername ?? ""}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpUsername: event.target.value || null,
+                          }))
+                        }
                         placeholder="username"
                         disabled={alertsLoading}
                       />
@@ -728,8 +929,13 @@ export default function UsersPage() {
                     <Field label="SMTP password">
                       <Input
                         type="password"
-                        value={alertSettings.smtpPassword ?? ''}
-                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpPassword: event.target.value || null }))}
+                        value={alertSettings.smtpPassword ?? ""}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpPassword: event.target.value || null,
+                          }))
+                        }
                         placeholder="password or app password"
                         disabled={alertsLoading}
                       />
@@ -739,17 +945,27 @@ export default function UsersPage() {
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <Field label="From address">
                       <Input
-                        value={alertSettings.smtpFrom ?? ''}
-                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpFrom: event.target.value || null }))}
+                        value={alertSettings.smtpFrom ?? ""}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpFrom: event.target.value || null,
+                          }))
+                        }
                         placeholder="rackpad@example.com"
                         disabled={alertsLoading}
                       />
                     </Field>
                     <Field label="Recipients">
                       <textarea
-                        value={alertSettings.smtpTo ?? ''}
-                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpTo: event.target.value || null }))}
-                        placeholder={'ops@example.com, noc@example.com'}
+                        value={alertSettings.smtpTo ?? ""}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpTo: event.target.value || null,
+                          }))
+                        }
+                        placeholder={"ops@example.com, noc@example.com"}
                         rows={3}
                         disabled={alertsLoading}
                         className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-faint)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
@@ -772,16 +988,26 @@ export default function UsersPage() {
 
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-xs text-[var(--color-fg-subtle)]">
-                    Configure at least one channel, then save before sending a test alert.
+                    Configure at least one channel, then save before sending a
+                    test alert.
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => void handleTestAlert()} disabled={alertsLoading || alertTesting}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleTestAlert()}
+                      disabled={alertsLoading || alertTesting}
+                    >
                       <BellRing className="size-3.5" />
-                      {alertTesting ? 'Sending...' : 'Send test'}
+                      {alertTesting ? "Sending..." : "Send test"}
                     </Button>
-                    <Button size="sm" onClick={() => void handleSaveAlerts()} disabled={alertsLoading || alertSaving}>
+                    <Button
+                      size="sm"
+                      onClick={() => void handleSaveAlerts()}
+                      disabled={alertsLoading || alertSaving}
+                    >
                       <Save className="size-3.5" />
-                      {alertSaving ? 'Saving...' : 'Save notifications'}
+                      {alertSaving ? "Saving..." : "Save notifications"}
                     </Button>
                   </div>
                 </div>
@@ -804,18 +1030,29 @@ export default function UsersPage() {
                 )}
 
                 {alertHistoryLoading ? (
-                  <div className="text-sm text-[var(--color-fg-subtle)]">Loading alert history...</div>
+                  <div className="text-sm text-[var(--color-fg-subtle)]">
+                    Loading alert history...
+                  </div>
                 ) : alertHistory.length === 0 ? (
-                  <div className="text-sm text-[var(--color-fg-subtle)]">No alert activity recorded yet.</div>
+                  <div className="text-sm text-[var(--color-fg-subtle)]">
+                    No alert activity recorded yet.
+                  </div>
                 ) : (
                   <ul className="divide-y divide-[var(--color-line)] rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)]">
                     {alertHistory.map((entry) => (
-                      <li key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                      <li
+                        key={entry.id}
+                        className="flex items-start justify-between gap-3 px-4 py-3"
+                      >
                         <div className="min-w-0 flex-1">
-                          <div className="text-sm text-[var(--color-fg)]">{entry.summary}</div>
+                          <div className="text-sm text-[var(--color-fg)]">
+                            {entry.summary}
+                          </div>
                           <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
                             {entry.action}
-                            <span className="mx-1.5 text-[var(--color-fg-faint)]">|</span>
+                            <span className="mx-1.5 text-[var(--color-fg-faint)]">
+                              |
+                            </span>
                             {entry.user}
                           </div>
                         </div>
@@ -832,7 +1069,7 @@ export default function UsersPage() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
@@ -843,27 +1080,27 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       </span>
       {children}
     </label>
-  )
+  );
 }
 
 function RolePicker({
   value,
   onChange,
 }: {
-  value: UserRole
-  onChange: (value: UserRole) => void
+  value: UserRole;
+  onChange: (value: UserRole) => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-2">
-      {(['viewer', 'editor', 'admin'] as const).map((role) => (
+      {(["viewer", "editor", "admin"] as const).map((role) => (
         <button
           key={role}
           type="button"
           onClick={() => onChange(role)}
           className={`rounded-[var(--radius-xs)] border px-2 py-2 text-xs capitalize transition-colors ${
             value === role
-              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-              : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+              ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+              : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
           }`}
         >
           <span className="inline-flex items-center gap-1">
@@ -873,7 +1110,7 @@ function RolePicker({
         </button>
       ))}
     </div>
-  )
+  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -884,5 +1121,5 @@ function Stat({ label, value }: { label: string; value: string }) {
       </div>
       <div className="mt-1 text-sm text-[var(--color-fg)]">{value}</div>
     </div>
-  )
+  );
 }

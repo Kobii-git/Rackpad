@@ -1,16 +1,20 @@
-import { motion } from 'motion/react'
-import type { Port, PortLink, Device } from '@/lib/types'
-import { cn, portTypeColor, portTypeLabel } from '@/lib/utils'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/Tooltip'
+import { motion } from "motion/react";
+import type { Device, Port, PortLink } from "@/lib/types";
+import { cn, portTypeColor, portTypeLabel } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/Tooltip";
 
 interface PortGridProps {
-  device: Device
-  ports: Port[]
-  links: Record<string, PortLink>
-  portsById: Record<string, Port>
-  devicesById: Record<string, Device>
-  onSelectPort?: (portId: string) => void
-  selectedPortId?: string
+  device: Device;
+  ports: Port[];
+  links: Record<string, PortLink>;
+  portsById: Record<string, Port>;
+  devicesById: Record<string, Device>;
+  onSelectPort?: (portId: string) => void;
+  selectedPortId?: string;
 }
 
 export function PortGrid({
@@ -22,31 +26,28 @@ export function PortGrid({
   onSelectPort,
   selectedPortId,
 }: PortGridProps) {
-  // Group ports by kind for visual sectioning
-  const sections = groupPortsByKind(ports)
+  const sections = groupPortsByKind(ports);
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Device chassis */}
-      <div className="rounded-[var(--radius-md)] border border-[var(--color-line-strong)] bg-[var(--color-surface)] overflow-hidden">
-        {/* Chassis label strip */}
-        <div className="flex items-center justify-between border-b border-[var(--color-line)] bg-[var(--color-bg-2)] px-3 py-1.5">
+      <div className="overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-strong)] bg-[var(--surface-2)] shadow-[var(--shadow-card)]">
+        <div className="flex items-center justify-between border-b border-[var(--border-default)] bg-[color-mix(in_srgb,var(--surface-1)_42%,transparent)] px-3 py-2">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
               {device.hostname}
             </span>
-            <span className="text-[10px] text-[var(--color-fg-faint)]">·</span>
-            <span className="font-mono text-[10px] text-[var(--color-fg-faint)]">
-              {device.manufacturer} {device.model}
+            <span className="text-[10px] text-[var(--text-muted)]">|</span>
+            <span className="font-mono text-[10px] text-[var(--text-muted)]">
+              {[device.manufacturer, device.model].filter(Boolean).join(" ") ||
+                "device view"}
             </span>
           </div>
-          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-faint)]">
+          <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             {ports.length} ports
           </span>
         </div>
 
-        {/* Port sections */}
-        <div className="flex flex-col gap-3 p-3 bg-[var(--color-bg-3)]">
+        <div className="flex flex-col gap-4 bg-[linear-gradient(180deg,rgb(255_255_255_/_0.02),transparent_16%),var(--surface-1)] p-4">
           {sections.map(({ kind, items }) => (
             <PortSection
               key={kind}
@@ -62,29 +63,20 @@ export function PortGrid({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function groupPortsByKind(ports: Port[]) {
-  const groups = new Map<string, Port[]>()
-  for (const p of ports) {
-    if (!groups.has(p.kind)) groups.set(p.kind, [])
-    groups.get(p.kind)!.push(p)
+  const groups = new Map<string, Port[]>();
+  for (const port of ports) {
+    if (!groups.has(port.kind)) groups.set(port.kind, []);
+    groups.get(port.kind)!.push(port);
   }
-  return Array.from(groups.entries()).map(([kind, items]) => ({
-    kind: kind as Port['kind'],
-    items: items.sort((a, b) => a.position - b.position),
-  }))
-}
 
-interface PortSectionProps {
-  kind: Port['kind']
-  items: Port[]
-  links: Record<string, PortLink>
-  portsById: Record<string, Port>
-  devicesById: Record<string, Device>
-  onSelectPort?: (portId: string) => void
-  selectedPortId?: string
+  return Array.from(groups.entries()).map(([kind, items]) => ({
+    kind: kind as Port["kind"],
+    items: items.sort((a, b) => a.position - b.position),
+  }));
 }
 
 function PortSection({
@@ -95,83 +87,95 @@ function PortSection({
   devicesById,
   onSelectPort,
   selectedPortId,
-}: PortSectionProps) {
-  // 2 rows like a real switch: odd on top, even on bottom
-  // For ≤8 ports, single row
-  const useTwoRows = items.length > 8
-  const top = useTwoRows ? items.filter((_, i) => i % 2 === 0) : items
-  const bottom = useTwoRows ? items.filter((_, i) => i % 2 === 1) : []
+}: {
+  kind: Port["kind"];
+  items: Port[];
+  links: Record<string, PortLink>;
+  portsById: Record<string, Port>;
+  devicesById: Record<string, Device>;
+  onSelectPort?: (portId: string) => void;
+  selectedPortId?: string;
+}) {
+  const useTwoRows = items.length > 8;
+  const top = useTwoRows ? items.filter((_, index) => index % 2 === 0) : items;
+  const bottom = useTwoRows ? items.filter((_, index) => index % 2 === 1) : [];
 
   return (
-    <div>
-      <div className="mb-2 flex items-center gap-2">
-        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-          {portTypeLabel[kind]}
-        </span>
+    <div className="rk-panel-inset rounded-[var(--radius-md)] p-3">
+      <div className="mb-3 flex items-center gap-2">
+        <span className="rk-kicker">{portTypeLabel[kind]}</span>
         <span
           className="h-px flex-1"
-          style={{ backgroundColor: portTypeColor[kind], opacity: 0.25 }}
+          style={{ backgroundColor: portTypeColor[kind], opacity: 0.26 }}
         />
-        <span className="font-mono text-[9px] text-[var(--color-fg-faint)]">{items.length}</span>
+        <span className="rounded-[999px] border border-[var(--border-subtle)] bg-[rgb(255_255_255_/_0.035)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--text-muted)]">
+          {items.length}
+        </span>
       </div>
 
-      <div className="space-y-1">
-        <div className="flex flex-wrap gap-1">
-          {top.map((p, idx) => (
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          {top.map((port, index) => (
             <PortCell
-              key={p.id}
-              port={p}
-              link={links[p.id]}
+              key={port.id}
+              port={port}
+              link={links[port.id]}
               portsById={portsById}
               devicesById={devicesById}
               onSelect={onSelectPort}
-              selected={selectedPortId === p.id}
-              delay={idx * 0.012}
+              selected={selectedPortId === port.id}
+              delay={index * 0.012}
             />
           ))}
         </div>
         {useTwoRows && (
-          <div className="flex flex-wrap gap-1">
-            {bottom.map((p, idx) => (
+          <div className="flex flex-wrap gap-1.5">
+            {bottom.map((port, index) => (
               <PortCell
-                key={p.id}
-                port={p}
-                link={links[p.id]}
+                key={port.id}
+                port={port}
+                link={links[port.id]}
                 portsById={portsById}
                 devicesById={devicesById}
                 onSelect={onSelectPort}
-                selected={selectedPortId === p.id}
-                delay={idx * 0.012 + 0.05}
+                selected={selectedPortId === port.id}
+                delay={index * 0.012 + 0.05}
               />
             ))}
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
 
-interface PortCellProps {
-  port: Port
-  link?: PortLink
-  portsById: Record<string, Port>
-  devicesById: Record<string, Device>
-  onSelect?: (portId: string) => void
-  selected?: boolean
-  delay?: number
-}
+function PortCell({
+  port,
+  link,
+  portsById,
+  devicesById,
+  onSelect,
+  selected,
+  delay = 0,
+}: {
+  port: Port;
+  link?: PortLink;
+  portsById: Record<string, Port>;
+  devicesById: Record<string, Device>;
+  onSelect?: (portId: string) => void;
+  selected?: boolean;
+  delay?: number;
+}) {
+  const isLinked = port.linkState === "up";
+  const baseColor = portTypeColor[port.kind];
 
-function PortCell({ port, link, portsById, devicesById, onSelect, selected, delay = 0 }: PortCellProps) {
-  const isLinked = port.linkState === 'up'
-  const baseColor = portTypeColor[port.kind]
-
-  // Resolve the other end of the link
-  let otherDevice: Device | undefined
-  let otherPort: Port | undefined
+  let otherDevice: Device | undefined;
+  let otherPort: Port | undefined;
   if (link) {
-    const otherPortId = link.fromPortId === port.id ? link.toPortId : link.fromPortId
-    otherPort = portsById[otherPortId]
-    if (otherPort) otherDevice = devicesById[otherPort.deviceId]
+    const otherPortId =
+      link.fromPortId === port.id ? link.toPortId : link.fromPortId;
+    otherPort = portsById[otherPortId];
+    if (otherPort) otherDevice = devicesById[otherPort.deviceId];
   }
 
   return (
@@ -183,75 +187,117 @@ function PortCell({ port, link, portsById, devicesById, onSelect, selected, dela
           transition={{ duration: 0.25, delay, ease: [0.22, 1, 0.36, 1] }}
           onClick={() => onSelect?.(port.id)}
           className={cn(
-            'relative flex flex-col items-center gap-0.5 px-1.5 py-1.5',
-            'border rounded-[var(--radius-xs)] transition-all',
-            'min-w-[40px]',
+            "relative flex min-w-[46px] flex-col items-center gap-1 border px-1.5 py-1.5 transition-[background-color,border-color,transform,box-shadow] duration-150",
+            port.kind === "rj45"
+              ? "rounded-[var(--radius-sm)]"
+              : 'rounded-[6px] before:absolute before:inset-x-[6px] before:top-[11px] before:h-[2px] before:bg-[rgb(0_0_0_/_0.18)] before:content-[""]',
             selected
-              ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/8'
-              : 'border-[var(--color-line-strong)] bg-[var(--color-bg)] hover:border-[var(--color-fg-subtle)] hover:bg-[var(--color-surface)]',
+              ? "border-[var(--border-selected)] bg-[var(--surface-selected)] shadow-[0_0_0_1px_var(--border-selected),0_10px_22px_rgb(0_0_0_/_0.24)]"
+              : "border-[var(--border-default)] bg-[var(--surface-2)] hover:-translate-y-px hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]",
           )}
         >
-          {/* Top: port name */}
-          <span className="font-mono text-[10px] leading-none text-[var(--color-fg)]">
-            {port.name}
-          </span>
-
-          {/* Middle: visual port glyph */}
           <span
-            className="relative block h-1.5 w-7 rounded-[1px]"
+            className="absolute inset-x-1 top-1 h-px rounded-full opacity-70"
             style={{
-              backgroundColor: baseColor,
-              opacity: isLinked ? 1 : 0.35,
+              background: `linear-gradient(90deg, transparent, ${baseColor}, transparent)`,
             }}
             aria-hidden
           />
 
-          {/* Bottom: link LED */}
-          <span
-            className={cn(
-              'block size-1 rounded-full transition-colors',
-              isLinked ? 'animate-pulse-slow' : '',
-            )}
-            style={{
-              backgroundColor: isLinked ? 'var(--color-cyan)' : 'var(--color-fg-faint)',
-              boxShadow: isLinked ? '0 0 4px var(--color-cyan-glow)' : 'none',
-            }}
-          />
+          <span className="font-mono text-[10px] leading-none text-[var(--text-primary)]">
+            {port.name}
+          </span>
+
+          {port.kind === "rj45" ? (
+            <span
+              className="relative block h-4 w-7 overflow-hidden rounded-[3px] border border-[rgb(255_255_255_/_0.06)]"
+              style={{
+                background: `linear-gradient(180deg, rgb(255 255 255 / 0.08), transparent 45%), ${baseColor}20`,
+                boxShadow: isLinked
+                  ? `0 0 0 1px ${baseColor}55 inset`
+                  : "0 0 0 1px rgb(255 255 255 / 0.04) inset",
+              }}
+            >
+              <span className="absolute inset-x-1 top-1 h-[5px] rounded-[2px] bg-[rgb(7_10_15_/_0.5)]" />
+              <span className="absolute inset-x-2 bottom-[3px] h-[2px] rounded-full bg-[rgb(255_255_255_/_0.2)]" />
+            </span>
+          ) : (
+            <span
+              className="relative block h-4 w-8 overflow-hidden rounded-[2px] border border-[rgb(255_255_255_/_0.05)]"
+              style={{
+                background: `linear-gradient(180deg, rgb(255 255 255 / 0.08), transparent 50%), ${baseColor}16`,
+                boxShadow: isLinked
+                  ? `0 0 0 1px ${baseColor}55 inset`
+                  : "0 0 0 1px rgb(255 255 255 / 0.04) inset",
+              }}
+            >
+              <span className="absolute inset-x-1 top-1.5 h-[3px] rounded-[1px] bg-[rgb(7_10_15_/_0.55)]" />
+            </span>
+          )}
+
+          <div className="flex items-center gap-1">
+            <span
+              className={cn(
+                "block size-1.5 rounded-full transition-colors",
+                isLinked ? "animate-pulse-slow" : "",
+              )}
+              style={{
+                backgroundColor: isLinked
+                  ? "var(--accent-secondary)"
+                  : "var(--text-muted)",
+                boxShadow: isLinked
+                  ? "0 0 6px var(--accent-secondary-glow)"
+                  : "none",
+              }}
+            />
+            <span className="font-mono text-[9px] text-[var(--text-muted)]">
+              {port.speed ?? "n/a"}
+            </span>
+          </div>
         </motion.button>
       </TooltipTrigger>
       <TooltipContent side="top">
-        <div className="flex flex-col gap-0.5 text-[11px]">
+        <div className="flex flex-col gap-1 text-[11px]">
           <div className="flex items-center gap-2">
             <span className="font-medium">{port.name}</span>
-            <span className="text-[var(--color-fg-subtle)]">
-              {portTypeLabel[port.kind]} · {port.speed ?? 'n/a'}
+            <span className="text-[var(--text-tertiary)]">
+              {portTypeLabel[port.kind]} | {port.speed ?? "n/a"}
             </span>
           </div>
-          <span className="text-[var(--color-fg-subtle)]">{formatPortNetworkSummary(port)}</span>
+          <span className="text-[var(--text-tertiary)]">
+            {formatPortNetworkSummary(port)}
+          </span>
           {isLinked && otherDevice && otherPort ? (
-            <span className="text-[var(--color-cyan)]">
-              ↔ {otherDevice.hostname}:{otherPort.name}
+            <span className="text-[var(--accent-secondary)]">
+              linked to {otherDevice.hostname}:{otherPort.name}
             </span>
           ) : (
-            <span className="text-[var(--color-fg-faint)]">no link</span>
+            <span className="text-[var(--text-muted)]">no link</span>
           )}
           {link && (
-            <span className="text-[var(--color-fg-subtle)]">
-              {link.cableType} · {link.cableLength}
+            <span className="text-[var(--text-tertiary)]">
+              {link.cableType || "cable"}{" "}
+              {link.cableLength ? `| ${link.cableLength}` : ""}
             </span>
           )}
         </div>
       </TooltipContent>
     </Tooltip>
-  )
+  );
 }
 
 function formatPortNetworkSummary(port: Port) {
-  if (port.mode === 'trunk') {
-    const taggedCount = port.allowedVlanIds?.length ?? 0
-    const nativeLabel = port.vlanId ? `native ${port.vlanId}` : 'no native VLAN'
-    return taggedCount > 0 ? `Trunk · ${nativeLabel} · ${taggedCount} tagged` : `Trunk · ${nativeLabel}`
+  if (port.mode === "trunk") {
+    const taggedCount = port.allowedVlanIds?.length ?? 0;
+    const nativeLabel = port.vlanId
+      ? `native ${port.vlanId}`
+      : "no native vlan";
+    return taggedCount > 0
+      ? `Trunk | ${nativeLabel} | ${taggedCount} tagged`
+      : `Trunk | ${nativeLabel}`;
   }
 
-  return port.vlanId ? `Access · VLAN ${port.vlanId}` : 'Access · unassigned VLAN'
+  return port.vlanId
+    ? `Access | VLAN ${port.vlanId}`
+    : "Access | unassigned vlan";
 }

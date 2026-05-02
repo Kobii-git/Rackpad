@@ -1,45 +1,52 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { bootstrapAdmin, initializeApp, login, useStore } from '@/lib/store'
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { bootstrapAdmin, initializeApp, login, useStore } from "@/lib/store";
 
-type Mode = 'login' | 'bootstrap'
+type Mode = "login" | "bootstrap";
 
 export function AuthScreen() {
-  const navigate = useNavigate()
-  const needsBootstrap = useStore((s) => s.needsBootstrap)
-  const authLoading = useStore((s) => s.authLoading)
-  const authError = useStore((s) => s.authError)
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' })
+  const navigate = useNavigate();
+  const needsBootstrap = useStore((s) => s.needsBootstrap);
+  const authLoading = useStore((s) => s.authLoading);
+  const authError = useStore((s) => s.authError);
+  const [loginForm, setLoginForm] = useState({ username: "", password: "" });
   const [bootstrapForm, setBootstrapForm] = useState({
-    username: '',
-    displayName: '',
-    password: '',
+    username: "",
+    displayName: "",
+    password: "",
     loadDemoData: false,
-  })
-  const mode: Mode = needsBootstrap ? 'bootstrap' : 'login'
+  });
+  const mode: Mode = needsBootstrap ? "bootstrap" : "login";
 
   async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
+    event.preventDefault();
 
-    if (mode === 'bootstrap') {
+    if (mode === "bootstrap") {
       await bootstrapAdmin({
         username: bootstrapForm.username.trim(),
         displayName: bootstrapForm.displayName.trim() || undefined,
         password: bootstrapForm.password,
         loadDemoData: bootstrapForm.loadDemoData,
-      })
-      navigate('/', { replace: true })
-      return
+      });
+      navigate("/", { replace: true });
+      return;
     }
 
     await login({
       username: loginForm.username.trim(),
       password: loginForm.password,
-    })
-    navigate('/', { replace: true })
+    });
+    navigate("/", { replace: true });
   }
 
   return (
@@ -48,23 +55,37 @@ export function AuthScreen() {
         <div className="h-1 bg-gradient-to-r from-[var(--color-accent)] via-[var(--color-cyan)] to-[var(--color-ok)]" />
         <CardHeader className="border-b border-[var(--color-line)]">
           <CardTitle>
-            <CardLabel>{mode === 'bootstrap' ? 'First Run' : 'Authentication'}</CardLabel>
-            <CardHeading>{mode === 'bootstrap' ? 'Create the initial admin account' : 'Sign in to Rackpad'}</CardHeading>
+            <CardLabel>
+              {mode === "bootstrap" ? "First Run" : "Authentication"}
+            </CardLabel>
+            <CardHeading>
+              {mode === "bootstrap"
+                ? "Create the initial admin account"
+                : "Sign in to Rackpad"}
+            </CardHeading>
           </CardTitle>
           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--color-fg-faint)]">
-            {mode === 'bootstrap' ? 'SQLite is ready. The app needs its first operator.' : 'All inventory changes require an authenticated session.'}
+            {mode === "bootstrap"
+              ? "SQLite is ready. The app needs its first operator."
+              : "All inventory changes require an authenticated session."}
           </div>
         </CardHeader>
         <CardBody>
-          <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4">
-            {mode === 'bootstrap' ? (
+          <form
+            onSubmit={(event) => void handleSubmit(event)}
+            className="space-y-4"
+          >
+            {mode === "bootstrap" ? (
               <>
                 <Field label="Username">
                   <Input
                     autoFocus
                     value={bootstrapForm.username}
                     onChange={(event) =>
-                      setBootstrapForm((prev) => ({ ...prev, username: event.target.value }))
+                      setBootstrapForm((prev) => ({
+                        ...prev,
+                        username: event.target.value,
+                      }))
                     }
                     placeholder="admin"
                   />
@@ -73,7 +94,10 @@ export function AuthScreen() {
                   <Input
                     value={bootstrapForm.displayName}
                     onChange={(event) =>
-                      setBootstrapForm((prev) => ({ ...prev, displayName: event.target.value }))
+                      setBootstrapForm((prev) => ({
+                        ...prev,
+                        displayName: event.target.value,
+                      }))
                     }
                     placeholder="Home Lab Admin"
                   />
@@ -83,7 +107,10 @@ export function AuthScreen() {
                     type="password"
                     value={bootstrapForm.password}
                     onChange={(event) =>
-                      setBootstrapForm((prev) => ({ ...prev, password: event.target.value }))
+                      setBootstrapForm((prev) => ({
+                        ...prev,
+                        password: event.target.value,
+                      }))
                     }
                     placeholder="At least 10 characters"
                   />
@@ -93,33 +120,42 @@ export function AuthScreen() {
                     <button
                       type="button"
                       onClick={() =>
-                        setBootstrapForm((prev) => ({ ...prev, loadDemoData: false }))
+                        setBootstrapForm((prev) => ({
+                          ...prev,
+                          loadDemoData: false,
+                        }))
                       }
                       className={`rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors ${
                         !bootstrapForm.loadDemoData
-                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-fg)]'
-                          : 'border-[var(--color-line)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)] hover:border-[var(--color-line-strong)]'
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-fg)]"
+                          : "border-[var(--color-line)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)] hover:border-[var(--color-line-strong)]"
                       }`}
                     >
                       <div className="font-medium">Start empty</div>
                       <div className="mt-1 text-xs">
-                        Create a clean lab with no sample racks, devices, VLANs, or IPAM data.
+                        Create a clean lab with no sample racks, devices, VLANs,
+                        or IPAM data.
                       </div>
                     </button>
                     <button
                       type="button"
                       onClick={() =>
-                        setBootstrapForm((prev) => ({ ...prev, loadDemoData: true }))
+                        setBootstrapForm((prev) => ({
+                          ...prev,
+                          loadDemoData: true,
+                        }))
                       }
                       className={`rounded-[var(--radius-sm)] border px-3 py-3 text-left transition-colors ${
                         bootstrapForm.loadDemoData
-                          ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-fg)]'
-                          : 'border-[var(--color-line)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)] hover:border-[var(--color-line-strong)]'
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-fg)]"
+                          : "border-[var(--color-line)] bg-[var(--color-bg)] text-[var(--color-fg-subtle)] hover:border-[var(--color-line-strong)]"
                       }`}
                     >
                       <div className="font-medium">Load demo data</div>
                       <div className="mt-1 text-xs">
-                        Preload a complete sample environment with multiple labs, racks, WiFi, discovery findings, VMs, and monitoring targets.
+                        Preload a complete sample environment with multiple
+                        labs, racks, WiFi, discovery findings, VMs, and
+                        monitoring targets.
                       </div>
                     </button>
                   </div>
@@ -132,7 +168,10 @@ export function AuthScreen() {
                     autoFocus
                     value={loginForm.username}
                     onChange={(event) =>
-                      setLoginForm((prev) => ({ ...prev, username: event.target.value }))
+                      setLoginForm((prev) => ({
+                        ...prev,
+                        username: event.target.value,
+                      }))
                     }
                     placeholder="admin"
                   />
@@ -142,7 +181,10 @@ export function AuthScreen() {
                     type="password"
                     value={loginForm.password}
                     onChange={(event) =>
-                      setLoginForm((prev) => ({ ...prev, password: event.target.value }))
+                      setLoginForm((prev) => ({
+                        ...prev,
+                        password: event.target.value,
+                      }))
                     }
                     placeholder="Your account password"
                   />
@@ -162,31 +204,33 @@ export function AuthScreen() {
                 onClick={() => void initializeApp(true)}
                 className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
               >
-                {mode === 'bootstrap' ? 'Go to sign in' : 'Recheck server state'}
+                {mode === "bootstrap"
+                  ? "Go to sign in"
+                  : "Recheck server state"}
               </button>
               <Button type="submit" disabled={authLoading}>
                 {authLoading
-                  ? mode === 'bootstrap'
-                    ? 'Creating account...'
-                    : 'Signing in...'
-                  : mode === 'bootstrap'
-                    ? 'Create admin account'
-                    : 'Sign in'}
+                  ? mode === "bootstrap"
+                    ? "Creating account..."
+                    : "Signing in..."
+                  : mode === "bootstrap"
+                    ? "Create admin account"
+                    : "Sign in"}
               </Button>
             </div>
           </form>
         </CardBody>
       </Card>
     </div>
-  )
+  );
 }
 
 function Field({
   label,
   children,
 }: {
-  label: string
-  children: React.ReactNode
+  label: string;
+  children: React.ReactNode;
 }) {
   return (
     <label className="block">
@@ -195,5 +239,5 @@ function Field({
       </span>
       {children}
     </label>
-  )
+  );
 }

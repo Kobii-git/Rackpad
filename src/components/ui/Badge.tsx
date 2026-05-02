@@ -1,32 +1,39 @@
-import * as React from 'react'
-import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@/lib/utils'
+import * as React from "react";
+import { cva, type VariantProps } from "class-variance-authority";
+import { cn } from "@/lib/utils";
 
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider rounded-[var(--radius-xs)] border',
+  "inline-flex items-center gap-1.5 rounded-[999px] border px-2 py-1 font-mono text-[10px] font-medium uppercase tracking-[0.14em] shadow-[0_1px_0_rgb(255_255_255_/_0.04)_inset]",
   {
     variants: {
       tone: {
-        neutral: 'border-[var(--color-line-strong)] bg-[var(--color-surface)] text-[var(--color-fg-muted)]',
-        accent: 'border-[var(--color-accent-soft)]/40 bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]',
-        ok: 'border-[var(--color-ok)]/30 bg-[var(--color-ok)]/10 text-[var(--color-ok)]',
-        warn: 'border-[var(--color-warn)]/30 bg-[var(--color-warn)]/10 text-[var(--color-warn)]',
-        err: 'border-[var(--color-err)]/30 bg-[var(--color-err)]/10 text-[var(--color-err)]',
-        info: 'border-[var(--color-info)]/30 bg-[var(--color-info)]/10 text-[var(--color-info)]',
-        cyan: 'border-[var(--color-cyan)]/30 bg-[var(--color-cyan)]/10 text-[var(--color-cyan)]',
+        neutral:
+          "border-[var(--neutral-border)] bg-[var(--neutral-soft)] text-[var(--neutral)]",
+        accent:
+          "border-[var(--accent-primary-border)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary-hover)]",
+        ok: "border-[var(--success-border)] bg-[var(--success-soft)] text-[var(--success)]",
+        warn: "border-[var(--warning-border)] bg-[var(--warning-soft)] text-[var(--warning)]",
+        err: "border-[var(--danger-border)] bg-[var(--danger-soft)] text-[var(--danger)]",
+        info: "border-[var(--info-border)] bg-[var(--info-soft)] text-[var(--info)]",
+        cyan: "border-[var(--accent-secondary-border)] bg-[var(--accent-secondary-soft)] text-[var(--accent-secondary)]",
       },
     },
-    defaultVariants: { tone: 'neutral' },
+    defaultVariants: { tone: "neutral" },
   },
-)
+);
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
+  extends
+    React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, tone, ...props }, ref) => (
-    <span ref={ref} className={cn(badgeVariants({ tone }), className)} {...props} />
+    <span
+      ref={ref}
+      className={cn(badgeVariants({ tone }), className)}
+      {...props}
+    />
   ),
-)
-Badge.displayName = 'Badge'
+);
+Badge.displayName = "Badge";

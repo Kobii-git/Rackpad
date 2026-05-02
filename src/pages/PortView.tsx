@@ -1,14 +1,21 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { TopBar } from '@/components/layout/TopBar'
-import { PortGrid } from '@/components/ports/PortGrid'
-import { PortList } from '@/components/ports/PortList'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Badge } from '@/components/ui/Badge'
-import { Mono } from '@/components/shared/Mono'
-import { StatusDot } from '@/components/shared/StatusDot'
-import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { TopBar } from "@/components/layout/TopBar";
+import { PortGrid } from "@/components/ports/PortGrid";
+import { PortList } from "@/components/ports/PortList";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Badge } from "@/components/ui/Badge";
+import { Mono } from "@/components/shared/Mono";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { DeviceTypeIcon } from "@/components/shared/DeviceTypeIcon";
 import {
   canEditInventory,
   createPortRecord,
@@ -18,85 +25,101 @@ import {
   updatePort,
   updatePortTemplateRecord,
   useStore,
-} from '@/lib/store'
-import type { Device, DeviceType, Port, PortLink, PortTemplate } from '@/lib/types'
-import { ArrowRight, Network, Plus, Save, Trash2 } from 'lucide-react'
+} from "@/lib/store";
+import type {
+  Device,
+  DeviceType,
+  Port,
+  PortLink,
+  PortTemplate,
+} from "@/lib/types";
+import { ArrowRight, Network, Plus, Save, Trash2 } from "lucide-react";
 
-const PORT_BEARING: Device['deviceType'][] = [
-  'switch',
-  'router',
-  'firewall',
-  'ap',
-  'endpoint',
-  'vm',
-  'patch_panel',
-  'server',
-  'storage',
-  'pdu',
-  'ups',
-  'kvm',
-  'other',
-]
+const PORT_BEARING: Device["deviceType"][] = [
+  "switch",
+  "router",
+  "firewall",
+  "ap",
+  "endpoint",
+  "vm",
+  "patch_panel",
+  "server",
+  "storage",
+  "pdu",
+  "ups",
+  "kvm",
+  "other",
+];
 
 const TEMPLATE_DEVICE_TYPES: DeviceType[] = [
-  'switch',
-  'router',
-  'firewall',
-  'ap',
-  'endpoint',
-  'vm',
-  'server',
-  'storage',
-  'patch_panel',
-  'pdu',
-  'ups',
-  'kvm',
-  'other',
-]
+  "switch",
+  "router",
+  "firewall",
+  "ap",
+  "endpoint",
+  "vm",
+  "server",
+  "storage",
+  "patch_panel",
+  "pdu",
+  "ups",
+  "kvm",
+  "other",
+];
 
-const LINK_STATES: Port['linkState'][] = ['up', 'down', 'disabled', 'unknown']
-const PORT_KINDS: Port['kind'][] = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb', 'virtual']
-const PORT_MODES: NonNullable<Port['mode']>[] = ['access', 'trunk']
+const LINK_STATES: Port["linkState"][] = ["up", "down", "disabled", "unknown"];
+const PORT_KINDS: Port["kind"][] = [
+  "rj45",
+  "sfp",
+  "sfp_plus",
+  "qsfp",
+  "fiber",
+  "power",
+  "console",
+  "usb",
+  "virtual",
+];
+const PORT_MODES: NonNullable<Port["mode"]>[] = ["access", "trunk"];
 
 interface PortFormState {
-  name: string
-  kind: Port['kind']
-  speed: string
-  linkState: Port['linkState']
-  mode: NonNullable<Port['mode']>
-  vlanId: string
-  allowedVlanIds: string[]
-  description: string
-  face: NonNullable<Port['face']>
+  name: string;
+  kind: Port["kind"];
+  speed: string;
+  linkState: Port["linkState"];
+  mode: NonNullable<Port["mode"]>;
+  vlanId: string;
+  allowedVlanIds: string[];
+  description: string;
+  face: NonNullable<Port["face"]>;
 }
 
 interface TemplatePortFormState {
-  name: string
-  kind: Port['kind']
-  speed: string
-  mode: NonNullable<Port['mode']>
-  face: NonNullable<Port['face']>
+  name: string;
+  kind: Port["kind"];
+  speed: string;
+  mode: NonNullable<Port["mode"]>;
+  face: NonNullable<Port["face"]>;
 }
 
 interface TemplateFormState {
-  name: string
-  description: string
-  deviceTypes: DeviceType[]
-  ports: TemplatePortFormState[]
+  name: string;
+  description: string;
+  deviceTypes: DeviceType[];
+  ports: TemplatePortFormState[];
 }
 
 function portToForm(port: Port): PortFormState {
   return {
     name: port.name,
     kind: port.kind,
-    speed: port.speed ?? '',
+    speed: port.speed ?? "",
     linkState: port.linkState,
-    mode: port.mode ?? 'access',
-    vlanId: port.vlanId ?? '',
+    mode: port.mode ?? "access",
+    vlanId: port.vlanId ?? "",
     allowedVlanIds: port.allowedVlanIds ?? [],
-    description: port.description ?? '',
-    face: port.face ?? 'front',
-  }
+    description: port.description ?? "",
+    face: port.face ?? "front",
+  };
 }
 
 function templateToForm(template: PortTemplate): TemplateFormState {
@@ -104,177 +127,204 @@ function templateToForm(template: PortTemplate): TemplateFormState {
     name: template.name,
     description: template.description,
     deviceTypes: template.deviceTypes,
-      ports: template.ports.map((port) => ({
-        name: port.name,
-        kind: port.kind,
-        speed: port.speed ?? '',
-        mode: port.mode ?? 'access',
-        face: port.face ?? 'front',
-      })),
-  }
+    ports: template.ports.map((port) => ({
+      name: port.name,
+      kind: port.kind,
+      speed: port.speed ?? "",
+      mode: port.mode ?? "access",
+      face: port.face ?? "front",
+    })),
+  };
 }
 
-function blankTemplateForm(deviceType: DeviceType = 'switch'): TemplateFormState {
-  const defaultKind: Port['kind'] = deviceType === 'vm' ? 'virtual' : 'rj45'
-  const defaultSpeed = deviceType === 'vm' ? 'virtio' : ''
+function blankTemplateForm(
+  deviceType: DeviceType = "switch",
+): TemplateFormState {
+  const defaultKind: Port["kind"] = deviceType === "vm" ? "virtual" : "rj45";
+  const defaultSpeed = deviceType === "vm" ? "virtio" : "";
   return {
-    name: '',
-    description: '',
+    name: "",
+    description: "",
     deviceTypes: [deviceType],
     ports: [
       {
-        name: '',
+        name: "",
         kind: defaultKind,
         speed: defaultSpeed,
-        mode: 'access',
-        face: 'front',
+        mode: "access",
+        face: "front",
       },
     ],
-  }
+  };
 }
 
 function blankPortForm(device?: Device): PortFormState {
-  const isVirtualDevice = device?.deviceType === 'vm'
+  const isVirtualDevice = device?.deviceType === "vm";
   return {
-    name: '',
-    kind: isVirtualDevice ? 'virtual' : 'rj45',
-    speed: isVirtualDevice ? 'virtio' : '',
-    linkState: 'down',
-    mode: 'access',
-    vlanId: '',
+    name: "",
+    kind: isVirtualDevice ? "virtual" : "rj45",
+    speed: isVirtualDevice ? "virtio" : "",
+    linkState: "down",
+    mode: "access",
+    vlanId: "",
     allowedVlanIds: [],
-    description: '',
-    face: 'front',
-  }
+    description: "",
+    face: "front",
+  };
 }
 
 export default function PortView() {
-  const currentUser = useStore((s) => s.currentUser)
-  const devices = useStore((s) => s.devices)
-  const ports = useStore((s) => s.ports)
-  const portLinks = useStore((s) => s.portLinks)
-  const portTemplates = useStore((s) => s.portTemplates)
-  const vlans = useStore((s) => s.vlans)
-  const canEdit = canEditInventory(currentUser)
-  const portBearingDevices = devices.filter((device) => PORT_BEARING.includes(device.deviceType))
-  const [selectedDeviceId, setSelectedDeviceId] = useState('')
-  const [selectedPortId, setSelectedPortId] = useState<string | undefined>()
-  const [form, setForm] = useState<PortFormState | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [creating, setCreating] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState('')
+  const currentUser = useStore((s) => s.currentUser);
+  const devices = useStore((s) => s.devices);
+  const ports = useStore((s) => s.ports);
+  const portLinks = useStore((s) => s.portLinks);
+  const portTemplates = useStore((s) => s.portTemplates);
+  const vlans = useStore((s) => s.vlans);
+  const canEdit = canEditInventory(currentUser);
+  const portBearingDevices = devices.filter((device) =>
+    PORT_BEARING.includes(device.deviceType),
+  );
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [selectedPortId, setSelectedPortId] = useState<string | undefined>();
+  const [form, setForm] = useState<PortFormState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>()
-  const [creatingTemplate, setCreatingTemplate] = useState(false)
-  const [templateForm, setTemplateForm] = useState<TemplateFormState>(blankTemplateForm())
-  const [templateSaving, setTemplateSaving] = useState(false)
-  const [templateDeleting, setTemplateDeleting] = useState(false)
-  const [templateError, setTemplateError] = useState('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState<
+    string | undefined
+  >();
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [templateForm, setTemplateForm] =
+    useState<TemplateFormState>(blankTemplateForm());
+  const [templateSaving, setTemplateSaving] = useState(false);
+  const [templateDeleting, setTemplateDeleting] = useState(false);
+  const [templateError, setTemplateError] = useState("");
 
   useEffect(() => {
-    if (!portBearingDevices.length) return
-    if (!selectedDeviceId || !portBearingDevices.some((device) => device.id === selectedDeviceId)) {
-      setSelectedDeviceId(portBearingDevices[0].id)
-      setSelectedPortId(undefined)
+    if (!portBearingDevices.length) return;
+    if (
+      !selectedDeviceId ||
+      !portBearingDevices.some((device) => device.id === selectedDeviceId)
+    ) {
+      setSelectedDeviceId(portBearingDevices[0].id);
+      setSelectedPortId(undefined);
     }
-  }, [portBearingDevices, selectedDeviceId])
+  }, [portBearingDevices, selectedDeviceId]);
 
   const deviceById = useMemo(() => {
     return devices.reduce<Record<string, Device>>((acc, device) => {
-      acc[device.id] = device
-      return acc
-    }, {})
-  }, [devices])
+      acc[device.id] = device;
+      return acc;
+    }, {});
+  }, [devices]);
 
   const portsByDeviceId = useMemo(() => {
     return ports.reduce<Record<string, Port[]>>((acc, port) => {
-      ;(acc[port.deviceId] ??= []).push(port)
-      return acc
-    }, {})
-  }, [ports])
+      (acc[port.deviceId] ??= []).push(port);
+      return acc;
+    }, {});
+  }, [ports]);
 
   const portById = useMemo(() => {
     return ports.reduce<Record<string, Port>>((acc, port) => {
-      acc[port.id] = port
-      return acc
-    }, {})
-  }, [ports])
+      acc[port.id] = port;
+      return acc;
+    }, {});
+  }, [ports]);
 
   const linkByPortId = useMemo(() => {
     return portLinks.reduce<Record<string, PortLink>>((acc, link) => {
-      acc[link.fromPortId] = link
-      acc[link.toPortId] = link
-      return acc
-    }, {})
-  }, [portLinks])
+      acc[link.fromPortId] = link;
+      acc[link.toPortId] = link;
+      return acc;
+    }, {});
+  }, [portLinks]);
 
-  const device = deviceById[selectedDeviceId]
-  const devicePorts = portsByDeviceId[selectedDeviceId] ?? []
+  const device = deviceById[selectedDeviceId];
+  const devicePorts = portsByDeviceId[selectedDeviceId] ?? [];
 
   useEffect(() => {
     if (!devicePorts.length) {
-      setSelectedPortId(undefined)
-      return
+      setSelectedPortId(undefined);
+      return;
     }
-    if (!selectedPortId || !devicePorts.some((port) => port.id === selectedPortId)) {
-      setSelectedPortId(devicePorts[0].id)
+    if (
+      !selectedPortId ||
+      !devicePorts.some((port) => port.id === selectedPortId)
+    ) {
+      setSelectedPortId(devicePorts[0].id);
     }
-  }, [devicePorts, selectedPortId])
+  }, [devicePorts, selectedPortId]);
 
   useEffect(() => {
     if (!portTemplates.length) {
-      setSelectedTemplateId(undefined)
-      return
+      setSelectedTemplateId(undefined);
+      return;
     }
-    if (!selectedTemplateId || !portTemplates.some((template) => template.id === selectedTemplateId)) {
+    if (
+      !selectedTemplateId ||
+      !portTemplates.some((template) => template.id === selectedTemplateId)
+    ) {
       const preferred = device
-        ? portTemplates.find((template) => template.deviceTypes.includes(device.deviceType))
-        : portTemplates[0]
-      setSelectedTemplateId(preferred?.id ?? portTemplates[0].id)
+        ? portTemplates.find((template) =>
+            template.deviceTypes.includes(device.deviceType),
+          )
+        : portTemplates[0];
+      setSelectedTemplateId(preferred?.id ?? portTemplates[0].id);
     }
-  }, [device, portTemplates, selectedTemplateId])
+  }, [device, portTemplates, selectedTemplateId]);
 
-  const selectedPort = !creating && selectedPortId ? portById[selectedPortId] : undefined
-  const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
-  const peerPortId = selectedPort && selectedLink
-    ? (selectedLink.fromPortId === selectedPort.id ? selectedLink.toPortId : selectedLink.fromPortId)
-    : undefined
-  const peerPort = peerPortId ? portById[peerPortId] : undefined
-  const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined
-  const selectedTemplate = !creatingTemplate && selectedTemplateId
-    ? portTemplates.find((template) => template.id === selectedTemplateId)
-    : undefined
+  const selectedPort =
+    !creating && selectedPortId ? portById[selectedPortId] : undefined;
+  const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined;
+  const peerPortId =
+    selectedPort && selectedLink
+      ? selectedLink.fromPortId === selectedPort.id
+        ? selectedLink.toPortId
+        : selectedLink.fromPortId
+      : undefined;
+  const peerPort = peerPortId ? portById[peerPortId] : undefined;
+  const peerDevice = peerPort ? deviceById[peerPort.deviceId] : undefined;
+  const selectedTemplate =
+    !creatingTemplate && selectedTemplateId
+      ? portTemplates.find((template) => template.id === selectedTemplateId)
+      : undefined;
 
   useEffect(() => {
     if (creating) {
-      setForm(blankPortForm(device))
-      setError('')
-      return
+      setForm(blankPortForm(device));
+      setError("");
+      return;
     }
-    setForm(selectedPort ? portToForm(selectedPort) : null)
-    setError('')
-  }, [creating, device, selectedPort])
+    setForm(selectedPort ? portToForm(selectedPort) : null);
+    setError("");
+  }, [creating, device, selectedPort]);
 
   useEffect(() => {
-    if (creatingTemplate) return
-    if (!selectedTemplate) return
-    setTemplateForm(templateToForm(selectedTemplate))
-    setTemplateError('')
-  }, [creatingTemplate, selectedTemplate])
+    if (creatingTemplate) return;
+    if (!selectedTemplate) return;
+    setTemplateForm(templateToForm(selectedTemplate));
+    setTemplateError("");
+  }, [creatingTemplate, selectedTemplate]);
 
   const isVisualGrid =
     device &&
-    (device.deviceType === 'switch' || device.deviceType === 'patch_panel' || device.deviceType === 'router')
+    (device.deviceType === "switch" ||
+      device.deviceType === "patch_panel" ||
+      device.deviceType === "router");
 
-  const linkedCount = devicePorts.filter((port) => port.linkState === 'up').length
-  const totalCableCount = portLinks.length
+  const linkedCount = devicePorts.filter(
+    (port) => port.linkState === "up",
+  ).length;
+  const totalCableCount = portLinks.length;
 
   async function handleSave() {
-    if (!device || !form) return
+    if (!device || !form) return;
 
-    setSaving(true)
-    setError('')
+    setSaving(true);
+    setError("");
     try {
       if (creating) {
         const created = await createPortRecord({
@@ -285,13 +335,14 @@ export default function PortView() {
           linkState: form.linkState,
           mode: form.mode,
           vlanId: form.vlanId || undefined,
-          allowedVlanIds: form.mode === 'trunk' ? form.allowedVlanIds : undefined,
+          allowedVlanIds:
+            form.mode === "trunk" ? form.allowedVlanIds : undefined,
           description: form.description.trim() || undefined,
           face: form.face,
           position: (devicePorts.at(-1)?.position ?? 0) + 1,
-        })
-        setCreating(false)
-        setSelectedPortId(created.id)
+        });
+        setCreating(false);
+        setSelectedPortId(created.id);
       } else if (selectedPort) {
         await updatePort(selectedPort.id, {
           name: form.name.trim(),
@@ -300,65 +351,66 @@ export default function PortView() {
           linkState: form.linkState,
           mode: form.mode,
           vlanId: form.vlanId || undefined,
-          allowedVlanIds: form.mode === 'trunk' ? form.allowedVlanIds : undefined,
+          allowedVlanIds:
+            form.mode === "trunk" ? form.allowedVlanIds : undefined,
           description: form.description.trim() || undefined,
           face: form.face,
-        })
+        });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update port.')
+      setError(err instanceof Error ? err.message : "Failed to update port.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleDelete() {
-    if (!selectedPort) return
-    if (!window.confirm(`Delete port ${selectedPort.name}?`)) return
+    if (!selectedPort) return;
+    if (!window.confirm(`Delete port ${selectedPort.name}?`)) return;
 
-    setDeleting(true)
-    setError('')
+    setDeleting(true);
+    setError("");
     try {
-      await deletePortRecord(selectedPort.id)
-      setSelectedPortId(undefined)
+      await deletePortRecord(selectedPort.id);
+      setSelectedPortId(undefined);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete port.')
+      setError(err instanceof Error ? err.message : "Failed to delete port.");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
   function beginBlankTemplate() {
-    setCreatingTemplate(true)
-    setSelectedTemplateId(undefined)
-    setTemplateForm(blankTemplateForm(device?.deviceType ?? 'switch'))
-    setTemplateError('')
+    setCreatingTemplate(true);
+    setSelectedTemplateId(undefined);
+    setTemplateForm(blankTemplateForm(device?.deviceType ?? "switch"));
+    setTemplateError("");
   }
 
   function beginTemplateFromDevice() {
     if (!device) {
-      beginBlankTemplate()
-      return
+      beginBlankTemplate();
+      return;
     }
 
-    setCreatingTemplate(true)
-    setSelectedTemplateId(undefined)
+    setCreatingTemplate(true);
+    setSelectedTemplateId(undefined);
     setTemplateForm({
       name: `${device.hostname} template`,
       description: `Template captured from ${device.hostname}`,
       deviceTypes: [device.deviceType],
-            ports:
+      ports:
         devicePorts.length > 0
           ? devicePorts.map((port) => ({
               name: port.name,
               kind: port.kind,
-              speed: port.speed ?? '',
-              mode: port.mode ?? 'access',
-              face: port.face ?? 'front',
+              speed: port.speed ?? "",
+              mode: port.mode ?? "access",
+              face: port.face ?? "front",
             }))
           : blankTemplateForm(device.deviceType).ports,
-    })
-    setTemplateError('')
+    });
+    setTemplateError("");
   }
 
   async function handleSaveTemplate() {
@@ -370,27 +422,27 @@ export default function PortView() {
         mode: port.mode,
         face: port.face,
       }))
-      .filter((port) => port.name)
+      .filter((port) => port.name);
 
     if (!templateForm.name.trim()) {
-      setTemplateError('Template name is required.')
-      return
+      setTemplateError("Template name is required.");
+      return;
     }
     if (!templateForm.description.trim()) {
-      setTemplateError('Template description is required.')
-      return
+      setTemplateError("Template description is required.");
+      return;
     }
     if (templateForm.deviceTypes.length === 0) {
-      setTemplateError('Select at least one device type.')
-      return
+      setTemplateError("Select at least one device type.");
+      return;
     }
     if (normalizedPorts.length === 0) {
-      setTemplateError('Add at least one named port.')
-      return
+      setTemplateError("Add at least one named port.");
+      return;
     }
 
-    setTemplateSaving(true)
-    setTemplateError('')
+    setTemplateSaving(true);
+    setTemplateError("");
     try {
       if (creatingTemplate) {
         const created = await createPortTemplateRecord({
@@ -401,15 +453,15 @@ export default function PortView() {
             ...port,
             position: index + 1,
           })),
-        })
-        setCreatingTemplate(false)
-        setSelectedTemplateId(created.id)
-        return
+        });
+        setCreatingTemplate(false);
+        setSelectedTemplateId(created.id);
+        return;
       }
 
       if (!selectedTemplate || selectedTemplate.builtIn) {
-        setTemplateError('Built-in templates cannot be modified.')
-        return
+        setTemplateError("Built-in templates cannot be modified.");
+        return;
       }
 
       await updatePortTemplateRecord(selectedTemplate.id, {
@@ -420,28 +472,33 @@ export default function PortView() {
           ...port,
           position: index + 1,
         })),
-      })
+      });
     } catch (err) {
-      setTemplateError(err instanceof Error ? err.message : 'Failed to save port template.')
+      setTemplateError(
+        err instanceof Error ? err.message : "Failed to save port template.",
+      );
     } finally {
-      setTemplateSaving(false)
+      setTemplateSaving(false);
     }
   }
 
   async function handleDeleteTemplate() {
-    if (!selectedTemplate || selectedTemplate.builtIn) return
-    if (!window.confirm(`Delete port template ${selectedTemplate.name}?`)) return
+    if (!selectedTemplate || selectedTemplate.builtIn) return;
+    if (!window.confirm(`Delete port template ${selectedTemplate.name}?`))
+      return;
 
-    setTemplateDeleting(true)
-    setTemplateError('')
+    setTemplateDeleting(true);
+    setTemplateError("");
     try {
-      await deletePortTemplateRecord(selectedTemplate.id)
-      setSelectedTemplateId(undefined)
-      setCreatingTemplate(false)
+      await deletePortTemplateRecord(selectedTemplate.id);
+      setSelectedTemplateId(undefined);
+      setCreatingTemplate(false);
     } catch (err) {
-      setTemplateError(err instanceof Error ? err.message : 'Failed to delete port template.')
+      setTemplateError(
+        err instanceof Error ? err.message : "Failed to delete port template.",
+      );
     } finally {
-      setTemplateDeleting(false)
+      setTemplateDeleting(false);
     }
   }
 
@@ -464,9 +521,9 @@ export default function PortView() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setCreating(true)
-                setSelectedPortId(undefined)
-                setForm(blankPortForm(device))
+                setCreating(true);
+                setSelectedPortId(undefined);
+                setForm(blankPortForm(device));
               }}
             >
               <Plus className="size-3.5" />
@@ -485,33 +542,40 @@ export default function PortView() {
           </div>
           <div className="flex-1 overflow-y-auto py-1">
             {portBearingDevices.map((entry) => {
-              const entryPorts = portsByDeviceId[entry.id] ?? []
-              const linked = entryPorts.filter((port) => port.linkState === 'up').length
-              const isActive = entry.id === selectedDeviceId
+              const entryPorts = portsByDeviceId[entry.id] ?? [];
+              const linked = entryPorts.filter(
+                (port) => port.linkState === "up",
+              ).length;
+              const isActive = entry.id === selectedDeviceId;
               return (
                 <button
                   key={entry.id}
                   onClick={() => {
-                    setSelectedDeviceId(entry.id)
-                    setSelectedPortId(undefined)
-                    setCreating(false)
+                    setSelectedDeviceId(entry.id);
+                    setSelectedPortId(undefined);
+                    setCreating(false);
                   }}
                   className={`flex w-full items-center gap-2.5 border-l-2 px-4 py-2 text-left transition-colors ${
                     isActive
-                      ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
-                      : 'border-transparent hover:bg-[var(--color-surface)]/40'
+                      ? "border-[var(--color-accent)] bg-[var(--color-surface)]"
+                      : "border-transparent hover:bg-[var(--color-surface)]/40"
                   }`}
                 >
-                  <DeviceTypeIcon type={entry.deviceType} className="size-3.5 shrink-0 text-[var(--color-fg-muted)]" />
+                  <DeviceTypeIcon
+                    type={entry.deviceType}
+                    className="size-3.5 shrink-0 text-[var(--color-fg-muted)]"
+                  />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-xs font-medium text-[var(--color-fg)]">{entry.hostname}</div>
+                    <div className="truncate text-xs font-medium text-[var(--color-fg)]">
+                      {entry.hostname}
+                    </div>
                     <div className="font-mono text-[10px] text-[var(--color-fg-subtle)]">
                       {linked}/{entryPorts.length} linked
                     </div>
                   </div>
                   <StatusDot status={entry.status} />
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -524,17 +588,24 @@ export default function PortView() {
               <div className="col-span-12 xl:col-span-8">
                 <div className="mb-5">
                   <div className="mb-1 flex items-center gap-2">
-                    <DeviceTypeIcon type={device.deviceType} className="size-4 text-[var(--color-accent)]" />
+                    <DeviceTypeIcon
+                      type={device.deviceType}
+                      className="size-4 text-[var(--color-accent)]"
+                    />
                     <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-                      {device.deviceType.replace('_', ' ')}
+                      {device.deviceType.replace("_", " ")}
                     </span>
                   </div>
-                  <h2 className="text-lg font-semibold tracking-tight">{device.hostname}</h2>
+                  <h2 className="text-lg font-semibold tracking-tight">
+                    {device.hostname}
+                  </h2>
                   <div className="mt-0.5 text-xs text-[var(--color-fg-subtle)]">
                     {device.manufacturer} {device.model}
                     {device.managementIp && (
                       <>
-                        <span className="mx-1.5 text-[var(--color-fg-faint)]">|</span>
+                        <span className="mx-1.5 text-[var(--color-fg-faint)]">
+                          |
+                        </span>
                         <span className="font-mono">{device.managementIp}</span>
                       </>
                     )}
@@ -579,10 +650,16 @@ export default function PortView() {
                     <CardTitle>
                       <CardLabel>Inspector</CardLabel>
                       <CardHeading>
-                        {creating ? 'New port' : selectedPort ? selectedPort.name : 'Select a port'}
+                        {creating
+                          ? "New port"
+                          : selectedPort
+                            ? selectedPort.name
+                            : "Select a port"}
                       </CardHeading>
                     </CardTitle>
-                    {(selectedPort || creating) && <Badge tone="cyan">{form?.kind ?? 'port'}</Badge>}
+                    {(selectedPort || creating) && (
+                      <Badge tone="cyan">{form?.kind ?? "port"}</Badge>
+                    )}
                   </CardHeader>
                   <CardBody>
                     {!form ? (
@@ -595,13 +672,25 @@ export default function PortView() {
                           <Field label="Port name">
                             <Input
                               value={form.name}
-                              onChange={(event) => setForm((prev) => (prev ? { ...prev, name: event.target.value } : prev))}
+                              onChange={(event) =>
+                                setForm((prev) =>
+                                  prev
+                                    ? { ...prev, name: event.target.value }
+                                    : prev,
+                                )
+                              }
                             />
                           </Field>
                           <Field label="Kind">
                             <Select
                               value={form.kind}
-                              onChange={(value) => setForm((prev) => (prev ? { ...prev, kind: value as Port['kind'] } : prev))}
+                              onChange={(value) =>
+                                setForm((prev) =>
+                                  prev
+                                    ? { ...prev, kind: value as Port["kind"] }
+                                    : prev,
+                                )
+                              }
                             >
                               {PORT_KINDS.map((kind) => (
                                 <option key={kind} value={kind}>
@@ -616,14 +705,29 @@ export default function PortView() {
                           <Field label="Speed">
                             <Input
                               value={form.speed}
-                              onChange={(event) => setForm((prev) => (prev ? { ...prev, speed: event.target.value } : prev))}
+                              onChange={(event) =>
+                                setForm((prev) =>
+                                  prev
+                                    ? { ...prev, speed: event.target.value }
+                                    : prev,
+                                )
+                              }
                               placeholder="e.g. 10G"
                             />
                           </Field>
                           <Field label="Face">
                             <Select
                               value={form.face}
-                              onChange={(value) => setForm((prev) => (prev ? { ...prev, face: value as PortFormState['face'] } : prev))}
+                              onChange={(value) =>
+                                setForm((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        face: value as PortFormState["face"],
+                                      }
+                                    : prev,
+                                )
+                              }
                             >
                               <option value="front">Front</option>
                               <option value="rear">Rear</option>
@@ -635,7 +739,16 @@ export default function PortView() {
                           <Field label="Link state">
                             <Select
                               value={form.linkState}
-                              onChange={(value) => setForm((prev) => (prev ? { ...prev, linkState: value as Port['linkState'] } : prev))}
+                              onChange={(value) =>
+                                setForm((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        linkState: value as Port["linkState"],
+                                      }
+                                    : prev,
+                                )
+                              }
                             >
                               {LINK_STATES.map((state) => (
                                 <option key={state} value={state}>
@@ -648,15 +761,18 @@ export default function PortView() {
                             <Select
                               value={form.mode}
                               onChange={(value) =>
-                                setForm((prev) => (
+                                setForm((prev) =>
                                   prev
                                     ? {
                                         ...prev,
-                                        mode: value as PortFormState['mode'],
-                                        allowedVlanIds: value === 'trunk' ? prev.allowedVlanIds : [],
+                                        mode: value as PortFormState["mode"],
+                                        allowedVlanIds:
+                                          value === "trunk"
+                                            ? prev.allowedVlanIds
+                                            : [],
                                       }
-                                    : prev
-                                ))
+                                    : prev,
+                                )
                               }
                             >
                               {PORT_MODES.map((mode) => (
@@ -668,13 +784,29 @@ export default function PortView() {
                           </Field>
                         </div>
 
-                        <div className={`grid gap-3 ${form.mode === 'trunk' ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                          <Field label={form.mode === 'trunk' ? 'Native VLAN' : 'Access VLAN'}>
+                        <div
+                          className={`grid gap-3 ${form.mode === "trunk" ? "grid-cols-2" : "grid-cols-1"}`}
+                        >
+                          <Field
+                            label={
+                              form.mode === "trunk"
+                                ? "Native VLAN"
+                                : "Access VLAN"
+                            }
+                          >
                             <Select
                               value={form.vlanId}
-                              onChange={(value) => setForm((prev) => (prev ? { ...prev, vlanId: value } : prev))}
+                              onChange={(value) =>
+                                setForm((prev) =>
+                                  prev ? { ...prev, vlanId: value } : prev,
+                                )
+                              }
                             >
-                              <option value="">{form.mode === 'trunk' ? 'No native VLAN' : 'Unassigned'}</option>
+                              <option value="">
+                                {form.mode === "trunk"
+                                  ? "No native VLAN"
+                                  : "Unassigned"}
+                              </option>
                               {vlans.map((vlan) => (
                                 <option key={vlan.id} value={vlan.id}>
                                   {vlan.vlanId} - {vlan.name}
@@ -682,38 +814,43 @@ export default function PortView() {
                               ))}
                             </Select>
                           </Field>
-                          {form.mode === 'trunk' && (
+                          {form.mode === "trunk" && (
                             <Field label="Add tagged VLAN">
                               <Select
                                 value=""
                                 onChange={(value) => {
-                                  if (!value) return
-                                  setForm((prev) => (
+                                  if (!value) return;
+                                  setForm((prev) =>
                                     prev
                                       ? {
                                           ...prev,
-                                          allowedVlanIds: prev.allowedVlanIds.includes(value)
-                                            ? prev.allowedVlanIds
-                                            : [...prev.allowedVlanIds, value],
+                                          allowedVlanIds:
+                                            prev.allowedVlanIds.includes(value)
+                                              ? prev.allowedVlanIds
+                                              : [...prev.allowedVlanIds, value],
                                         }
-                                      : prev
-                                  ))
+                                      : prev,
+                                  );
                                 }}
                               >
                                 <option value="">Add tagged VLAN...</option>
                                 {vlans
-                                  .filter((vlan) => vlan.id !== form.vlanId && !form.allowedVlanIds.includes(vlan.id))
+                                  .filter(
+                                    (vlan) =>
+                                      vlan.id !== form.vlanId &&
+                                      !form.allowedVlanIds.includes(vlan.id),
+                                  )
                                   .map((vlan) => (
                                     <option key={vlan.id} value={vlan.id}>
                                       {vlan.vlanId} - {vlan.name}
                                     </option>
-                                ))}
+                                  ))}
                               </Select>
                             </Field>
                           )}
                         </div>
 
-                        {form.mode === 'trunk' && (
+                        {form.mode === "trunk" && (
                           <>
                             <Field label="Tagged VLANs">
                               <div className="flex flex-wrap gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-2">
@@ -723,23 +860,35 @@ export default function PortView() {
                                   </div>
                                 ) : (
                                   form.allowedVlanIds.map((vlanId) => {
-                                    const vlan = vlans.find((entry) => entry.id === vlanId)
+                                    const vlan = vlans.find(
+                                      (entry) => entry.id === vlanId,
+                                    );
                                     return (
                                       <button
                                         key={vlanId}
                                         type="button"
                                         onClick={() =>
-                                          setForm((prev) => (
+                                          setForm((prev) =>
                                             prev
-                                              ? { ...prev, allowedVlanIds: prev.allowedVlanIds.filter((entry) => entry !== vlanId) }
-                                              : prev
-                                          ))
+                                              ? {
+                                                  ...prev,
+                                                  allowedVlanIds:
+                                                    prev.allowedVlanIds.filter(
+                                                      (entry) =>
+                                                        entry !== vlanId,
+                                                    ),
+                                                }
+                                              : prev,
+                                          )
                                         }
                                         className="rounded-[var(--radius-xs)] border border-[var(--color-accent-soft)]/40 bg-[var(--color-accent)]/10 px-2 py-1 text-xs text-[var(--color-fg)] transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/15"
                                       >
-                                        {vlan ? `${vlan.vlanId} - ${vlan.name}` : vlanId} ×
+                                        {vlan
+                                          ? `${vlan.vlanId} - ${vlan.name}`
+                                          : vlanId}{" "}
+                                        ×
                                       </button>
-                                    )
+                                    );
                                   })
                                 )}
                               </div>
@@ -750,7 +899,13 @@ export default function PortView() {
                         <Field label="Description">
                           <textarea
                             value={form.description}
-                            onChange={(event) => setForm((prev) => (prev ? { ...prev, description: event.target.value } : prev))}
+                            onChange={(event) =>
+                              setForm((prev) =>
+                                prev
+                                  ? { ...prev, description: event.target.value }
+                                  : prev,
+                              )
+                            }
                             rows={3}
                             className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
                           />
@@ -765,38 +920,67 @@ export default function PortView() {
                               <div className="inline-flex items-center gap-1.5">
                                 <ArrowRight className="size-3 text-[var(--color-cyan)]" />
                                 <span>{peerDevice.hostname}</span>
-                                <span className="text-[var(--color-fg-faint)]">:</span>
-                                <Mono className="text-[var(--color-cyan)]">{peerPort.name}</Mono>
+                                <span className="text-[var(--color-fg-faint)]">
+                                  :
+                                </span>
+                                <Mono className="text-[var(--color-cyan)]">
+                                  {peerPort.name}
+                                </Mono>
                               </div>
                               <div className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
-                                {selectedLink.cableType ?? 'Cable'} | {selectedLink.cableLength ?? 'length n/a'}
+                                {selectedLink.cableType ?? "Cable"} |{" "}
+                                {selectedLink.cableLength ?? "length n/a"}
                               </div>
                             </div>
                           ) : (
                             <div className="text-xs text-[var(--color-fg-subtle)]">
-                              {creating ? 'Save the port first before cabling it.' : 'No linked cable.'}
+                              {creating
+                                ? "Save the port first before cabling it."
+                                : "No linked cable."}
                             </div>
                           )}
                         </div>
 
-                        {error && <div className="text-xs text-[var(--color-err)]">{error}</div>}
+                        {error && (
+                          <div className="text-xs text-[var(--color-err)]">
+                            {error}
+                          </div>
+                        )}
 
                         <div className="flex items-center justify-between gap-3">
                           {!creating && canEdit && selectedPort && (
-                            <Button variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={deleting}>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void handleDelete()}
+                              disabled={deleting}
+                            >
                               <Trash2 className="size-3.5" />
-                              {deleting ? 'Deleting...' : 'Delete port'}
+                              {deleting ? "Deleting..." : "Delete port"}
                             </Button>
                           )}
                           <div className="ml-auto flex items-center gap-2">
                             {creating && (
-                              <Button variant="ghost" size="sm" onClick={() => setCreating(false)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCreating(false)}
+                              >
                                 Cancel
                               </Button>
                             )}
-                            <Button variant="default" size="sm" disabled={saving || !canEdit} onClick={() => void handleSave()}>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              disabled={saving || !canEdit}
+                              onClick={() => void handleSave()}
+                            >
                               <Save className="size-3.5" />
-                              {saving ? 'Saving...' : creating ? 'Create port' : 'Save port'}
+                              {saving
+                                ? "Saving..."
+                                : creating
+                                  ? "Create port"
+                                  : "Save port"}
                             </Button>
                           </div>
                         </div>
@@ -810,22 +994,38 @@ export default function PortView() {
                     <CardTitle>
                       <CardLabel>Templates</CardLabel>
                       <CardHeading>
-                        {creatingTemplate ? 'New template' : selectedTemplate?.name ?? 'Port templates'}
+                        {creatingTemplate
+                          ? "New template"
+                          : (selectedTemplate?.name ?? "Port templates")}
                       </CardHeading>
                     </CardTitle>
-                    <Badge tone={selectedTemplate?.builtIn ? 'neutral' : 'accent'}>
+                    <Badge
+                      tone={selectedTemplate?.builtIn ? "neutral" : "accent"}
+                    >
                       <Network className="size-3" />
-                      {creatingTemplate ? 'custom' : selectedTemplate?.builtIn ? 'built-in' : 'custom'}
+                      {creatingTemplate
+                        ? "custom"
+                        : selectedTemplate?.builtIn
+                          ? "built-in"
+                          : "custom"}
                     </Badge>
                   </CardHeader>
                   <CardBody className="space-y-4">
                     {canEdit && (
                       <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" onClick={beginTemplateFromDevice}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={beginTemplateFromDevice}
+                        >
                           <Plus className="size-3.5" />
                           From device
                         </Button>
-                        <Button variant="outline" size="sm" onClick={beginBlankTemplate}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={beginBlankTemplate}
+                        >
                           <Plus className="size-3.5" />
                           Blank template
                         </Button>
@@ -834,30 +1034,34 @@ export default function PortView() {
 
                     <div className="flex flex-wrap gap-2">
                       {portTemplates.map((template) => {
-                        const active = !creatingTemplate && template.id === selectedTemplateId
-                        const appliesToCurrent = device ? template.deviceTypes.includes(device.deviceType) : false
+                        const active =
+                          !creatingTemplate &&
+                          template.id === selectedTemplateId;
+                        const appliesToCurrent = device
+                          ? template.deviceTypes.includes(device.deviceType)
+                          : false;
                         return (
                           <button
                             key={template.id}
                             type="button"
                             onClick={() => {
-                              setCreatingTemplate(false)
-                              setSelectedTemplateId(template.id)
-                              setTemplateError('')
+                              setCreatingTemplate(false);
+                              setSelectedTemplateId(template.id);
+                              setTemplateError("");
                             }}
                             className={`rounded-[var(--radius-xs)] border px-2.5 py-1 text-left text-xs transition-colors ${
                               active
-                                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-                                : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+                                : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
                             }`}
                           >
                             <div className="font-medium">{template.name}</div>
                             <div className="font-mono text-[10px] uppercase tracking-[0.12em]">
                               {template.ports.length} ports
-                              {appliesToCurrent ? ' | matches device' : ''}
+                              {appliesToCurrent ? " | matches device" : ""}
                             </div>
                           </button>
-                        )
+                        );
                       })}
                     </div>
 
@@ -867,7 +1071,12 @@ export default function PortView() {
                           <Field label="Template name">
                             <Input
                               value={templateForm.name}
-                              onChange={(event) => setTemplateForm((prev) => ({ ...prev, name: event.target.value }))}
+                              onChange={(event) =>
+                                setTemplateForm((prev) => ({
+                                  ...prev,
+                                  name: event.target.value,
+                                }))
+                              }
                               disabled={Boolean(selectedTemplate?.builtIn)}
                               placeholder="48-port access switch"
                             />
@@ -875,7 +1084,12 @@ export default function PortView() {
                           <Field label="Description">
                             <Input
                               value={templateForm.description}
-                              onChange={(event) => setTemplateForm((prev) => ({ ...prev, description: event.target.value }))}
+                              onChange={(event) =>
+                                setTemplateForm((prev) => ({
+                                  ...prev,
+                                  description: event.target.value,
+                                }))
+                              }
                               disabled={Boolean(selectedTemplate?.builtIn)}
                               placeholder="Common layout for edge switches"
                             />
@@ -885,7 +1099,8 @@ export default function PortView() {
                         <Field label="Applies to">
                           <div className="flex flex-wrap gap-2">
                             {TEMPLATE_DEVICE_TYPES.map((deviceType) => {
-                              const selected = templateForm.deviceTypes.includes(deviceType)
+                              const selected =
+                                templateForm.deviceTypes.includes(deviceType);
                               return (
                                 <button
                                   key={deviceType}
@@ -895,19 +1110,21 @@ export default function PortView() {
                                     setTemplateForm((prev) => ({
                                       ...prev,
                                       deviceTypes: selected
-                                        ? prev.deviceTypes.filter((entry) => entry !== deviceType)
+                                        ? prev.deviceTypes.filter(
+                                            (entry) => entry !== deviceType,
+                                          )
                                         : [...prev.deviceTypes, deviceType],
                                     }))
                                   }
                                   className={`rounded-[var(--radius-xs)] border px-2 py-1 text-xs capitalize transition-colors ${
                                     selected
-                                      ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-                                      : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                                      ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+                                      : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
                                   } disabled:cursor-default disabled:opacity-70`}
                                 >
-                                  {deviceType.replace('_', ' ')}
+                                  {deviceType.replace("_", " ")}
                                 </button>
-                              )
+                              );
                             })}
                           </div>
                         </Field>
@@ -926,7 +1143,13 @@ export default function PortView() {
                                     ...prev,
                                     ports: [
                                       ...prev.ports,
-                                      { name: '', kind: 'rj45', speed: '', mode: 'access', face: 'front' },
+                                      {
+                                        name: "",
+                                        kind: "rj45",
+                                        speed: "",
+                                        mode: "access",
+                                        face: "front",
+                                      },
                                     ],
                                   }))
                                 }
@@ -939,17 +1162,28 @@ export default function PortView() {
 
                           <div className="space-y-2">
                             {templateForm.ports.map((port, index) => (
-                              <div key={`${index}-${port.name}`} className="grid grid-cols-12 gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] p-2">
+                              <div
+                                key={`${index}-${port.name}`}
+                                className="grid grid-cols-12 gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] p-2"
+                              >
                                 <div className="col-span-3">
                                   <Field label={`Port ${index + 1}`}>
                                     <Input
                                       value={port.name}
-                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      disabled={Boolean(
+                                        selectedTemplate?.builtIn,
+                                      )}
                                       onChange={(event) =>
                                         setTemplateForm((prev) => ({
                                           ...prev,
-                                          ports: prev.ports.map((entry, entryIndex) =>
-                                            entryIndex === index ? { ...entry, name: event.target.value } : entry,
+                                          ports: prev.ports.map(
+                                            (entry, entryIndex) =>
+                                              entryIndex === index
+                                                ? {
+                                                    ...entry,
+                                                    name: event.target.value,
+                                                  }
+                                                : entry,
                                           ),
                                         }))
                                       }
@@ -961,12 +1195,20 @@ export default function PortView() {
                                   <Field label="Kind">
                                     <Select
                                       value={port.kind}
-                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      disabled={Boolean(
+                                        selectedTemplate?.builtIn,
+                                      )}
                                       onChange={(value) =>
                                         setTemplateForm((prev) => ({
                                           ...prev,
-                                          ports: prev.ports.map((entry, entryIndex) =>
-                                            entryIndex === index ? { ...entry, kind: value as Port['kind'] } : entry,
+                                          ports: prev.ports.map(
+                                            (entry, entryIndex) =>
+                                              entryIndex === index
+                                                ? {
+                                                    ...entry,
+                                                    kind: value as Port["kind"],
+                                                  }
+                                                : entry,
                                           ),
                                         }))
                                       }
@@ -983,12 +1225,20 @@ export default function PortView() {
                                   <Field label="Speed">
                                     <Input
                                       value={port.speed}
-                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      disabled={Boolean(
+                                        selectedTemplate?.builtIn,
+                                      )}
                                       onChange={(event) =>
                                         setTemplateForm((prev) => ({
                                           ...prev,
-                                          ports: prev.ports.map((entry, entryIndex) =>
-                                            entryIndex === index ? { ...entry, speed: event.target.value } : entry,
+                                          ports: prev.ports.map(
+                                            (entry, entryIndex) =>
+                                              entryIndex === index
+                                                ? {
+                                                    ...entry,
+                                                    speed: event.target.value,
+                                                  }
+                                                : entry,
                                           ),
                                         }))
                                       }
@@ -1000,12 +1250,20 @@ export default function PortView() {
                                   <Field label="Mode">
                                     <Select
                                       value={port.mode}
-                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      disabled={Boolean(
+                                        selectedTemplate?.builtIn,
+                                      )}
                                       onChange={(value) =>
                                         setTemplateForm((prev) => ({
                                           ...prev,
-                                          ports: prev.ports.map((entry, entryIndex) =>
-                                            entryIndex === index ? { ...entry, mode: value as TemplatePortFormState['mode'] } : entry,
+                                          ports: prev.ports.map(
+                                            (entry, entryIndex) =>
+                                              entryIndex === index
+                                                ? {
+                                                    ...entry,
+                                                    mode: value as TemplatePortFormState["mode"],
+                                                  }
+                                                : entry,
                                           ),
                                         }))
                                       }
@@ -1022,12 +1280,20 @@ export default function PortView() {
                                   <Field label="Face">
                                     <Select
                                       value={port.face}
-                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      disabled={Boolean(
+                                        selectedTemplate?.builtIn,
+                                      )}
                                       onChange={(value) =>
                                         setTemplateForm((prev) => ({
                                           ...prev,
-                                          ports: prev.ports.map((entry, entryIndex) =>
-                                            entryIndex === index ? { ...entry, face: value as TemplatePortFormState['face'] } : entry,
+                                          ports: prev.ports.map(
+                                            (entry, entryIndex) =>
+                                              entryIndex === index
+                                                ? {
+                                                    ...entry,
+                                                    face: value as TemplatePortFormState["face"],
+                                                  }
+                                                : entry,
                                           ),
                                         }))
                                       }
@@ -1048,7 +1314,10 @@ export default function PortView() {
                                           ports:
                                             prev.ports.length === 1
                                               ? prev.ports
-                                              : prev.ports.filter((_, entryIndex) => entryIndex !== index),
+                                              : prev.ports.filter(
+                                                  (_, entryIndex) =>
+                                                    entryIndex !== index,
+                                                ),
                                         }))
                                       }
                                       aria-label="Remove port"
@@ -1071,25 +1340,44 @@ export default function PortView() {
                         <div className="flex items-center justify-between gap-3">
                           <div className="text-xs text-[var(--color-fg-subtle)]">
                             {selectedTemplate?.builtIn
-                              ? 'Built-in templates are read-only but can still be applied to devices.'
-                              : 'Custom templates become available immediately in the device drawer.'}
+                              ? "Built-in templates are read-only but can still be applied to devices."
+                              : "Custom templates become available immediately in the device drawer."}
                           </div>
                           <div className="flex items-center gap-2">
                             {creatingTemplate && (
-                              <Button variant="ghost" size="sm" onClick={() => setCreatingTemplate(false)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCreatingTemplate(false)}
+                              >
                                 Cancel
                               </Button>
                             )}
-                            {!creatingTemplate && selectedTemplate && !selectedTemplate.builtIn && (
-                              <Button variant="destructive" size="sm" onClick={() => void handleDeleteTemplate()} disabled={templateDeleting}>
-                                <Trash2 className="size-3.5" />
-                                {templateDeleting ? 'Deleting...' : 'Delete'}
-                              </Button>
-                            )}
+                            {!creatingTemplate &&
+                              selectedTemplate &&
+                              !selectedTemplate.builtIn && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => void handleDeleteTemplate()}
+                                  disabled={templateDeleting}
+                                >
+                                  <Trash2 className="size-3.5" />
+                                  {templateDeleting ? "Deleting..." : "Delete"}
+                                </Button>
+                              )}
                             {!selectedTemplate?.builtIn && (
-                              <Button size="sm" onClick={() => void handleSaveTemplate()} disabled={templateSaving}>
+                              <Button
+                                size="sm"
+                                onClick={() => void handleSaveTemplate()}
+                                disabled={templateSaving}
+                              >
                                 <Save className="size-3.5" />
-                                {templateSaving ? 'Saving...' : creatingTemplate ? 'Create template' : 'Save template'}
+                                {templateSaving
+                                  ? "Saving..."
+                                  : creatingTemplate
+                                    ? "Create template"
+                                    : "Save template"}
                               </Button>
                             )}
                           </div>
@@ -1097,7 +1385,8 @@ export default function PortView() {
                       </div>
                     ) : (
                       <div className="text-xs text-[var(--color-fg-subtle)]">
-                        Select a template to inspect it, or create a custom one from the current device.
+                        Select a template to inspect it, or create a custom one
+                        from the current device.
                       </div>
                     )}
                   </CardBody>
@@ -1108,18 +1397,16 @@ export default function PortView() {
         </div>
       </div>
     </>
-  )
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
-        {label}
-      </span>
+      <span className="rk-field-label">{label}</span>
       {children}
     </label>
-  )
+  );
 }
 
 function Select({
@@ -1128,29 +1415,31 @@ function Select({
   children,
   disabled,
 }: {
-  value: string
-  onChange: (value: string) => void
-  children: ReactNode
-  disabled?: boolean
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <select
       value={value}
       disabled={disabled}
       onChange={(event) => onChange(event.target.value)}
-      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+      className="rk-control h-8 w-full px-2 text-sm text-[var(--text-primary)]"
     >
       {children}
     </select>
-  )
+  );
 }
 
 function EmptyDevice() {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="text-center">
-        <div className="text-sm text-[var(--color-fg-subtle)]">Select a device</div>
+        <div className="text-sm text-[var(--color-fg-subtle)]">
+          Select a device
+        </div>
       </div>
     </div>
-  )
+  );
 }

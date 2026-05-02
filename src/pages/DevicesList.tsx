@@ -1,56 +1,68 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { Link } from 'react-router-dom'
-import { DeviceDrawer } from '@/components/shared/DeviceDrawer'
-import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardBody } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Mono } from '@/components/shared/Mono'
-import { StatusDot } from '@/components/shared/StatusDot'
-import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
-import { canEditInventory, useStore } from '@/lib/store'
-import type { Device, DeviceType, Port, Rack } from '@/lib/types'
-import { ChevronRight, Filter, Plus } from 'lucide-react'
-import { statusLabel } from '@/lib/utils'
+import { useMemo, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { DeviceDrawer } from "@/components/shared/DeviceDrawer";
+import { TopBar } from "@/components/layout/TopBar";
+import { Card, CardBody } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Mono } from "@/components/shared/Mono";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { DeviceTypeIcon } from "@/components/shared/DeviceTypeIcon";
+import { canEditInventory, useStore } from "@/lib/store";
+import type { Device, DeviceType, Port, Rack } from "@/lib/types";
+import { ChevronRight, Filter, Plus } from "lucide-react";
+import { statusLabel } from "@/lib/utils";
 
-const TYPES: DeviceType[] = ['switch', 'router', 'firewall', 'server', 'ap', 'endpoint', 'vm', 'storage', 'patch_panel', 'pdu', 'ups']
+const TYPES: DeviceType[] = [
+  "switch",
+  "router",
+  "firewall",
+  "server",
+  "ap",
+  "endpoint",
+  "vm",
+  "storage",
+  "patch_panel",
+  "pdu",
+  "ups",
+];
 
 export default function DevicesList() {
-  const currentUser = useStore((s) => s.currentUser)
-  const devices = useStore((s) => s.devices)
-  const racks = useStore((s) => s.racks)
-  const ports = useStore((s) => s.ports)
-  const canEdit = canEditInventory(currentUser)
-  const [query, setQuery] = useState('')
-  const [type, setType] = useState<DeviceType | null>(null)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const currentUser = useStore((s) => s.currentUser);
+  const devices = useStore((s) => s.devices);
+  const racks = useStore((s) => s.racks);
+  const ports = useStore((s) => s.ports);
+  const canEdit = canEditInventory(currentUser);
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState<DeviceType | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const rackById = useMemo(() => {
     return racks.reduce<Record<string, Rack>>((acc, rack) => {
-      acc[rack.id] = rack
-      return acc
-    }, {})
-  }, [racks])
+      acc[rack.id] = rack;
+      return acc;
+    }, {});
+  }, [racks]);
 
   const deviceById = useMemo(() => {
     return devices.reduce<Record<string, Device>>((acc, device) => {
-      acc[device.id] = device
-      return acc
-    }, {})
-  }, [devices])
+      acc[device.id] = device;
+      return acc;
+    }, {});
+  }, [devices]);
 
   const portsByDeviceId = useMemo(() => {
     return ports.reduce<Record<string, Port[]>>((acc, port) => {
-      ;(acc[port.deviceId] ??= []).push(port)
-      return acc
-    }, {})
-  }, [ports])
+      (acc[port.deviceId] ??= []).push(port);
+      return acc;
+    }, {});
+  }, [ports]);
 
   const filtered = useMemo(() => {
     return devices
       .filter((device) => {
-        if (type && device.deviceType !== type) return false
-        if (!query) return true
+        if (type && device.deviceType !== type) return false;
+        if (!query) return true;
         const haystack = [
           device.hostname,
           device.displayName,
@@ -61,19 +73,19 @@ export default function DevicesList() {
           ...(device.tags ?? []),
         ]
           .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-        return haystack.includes(query.toLowerCase())
+          .join(" ")
+          .toLowerCase();
+        return haystack.includes(query.toLowerCase());
       })
-      .sort((a, b) => a.hostname.localeCompare(b.hostname))
-  }, [devices, query, type])
+      .sort((a, b) => a.hostname.localeCompare(b.hostname));
+  }, [devices, query, type]);
 
   const typeCounts = useMemo(() => {
     return devices.reduce<Record<string, number>>((acc, device) => {
-      acc[device.deviceType] = (acc[device.deviceType] ?? 0) + 1
-      return acc
-    }, {})
-  }, [devices])
+      acc[device.deviceType] = (acc[device.deviceType] ?? 0) + 1;
+      return acc;
+    }, {});
+  }, [devices]);
 
   return (
     <>
@@ -87,7 +99,11 @@ export default function DevicesList() {
         }
         actions={
           canEdit ? (
-            <Button variant="outline" size="sm" onClick={() => setDrawerOpen(true)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDrawerOpen(true)}
+            >
               <Plus className="size-3.5" />
               Add device
             </Button>
@@ -101,33 +117,35 @@ export default function DevicesList() {
             onClick={() => setType(null)}
             className={`rounded-[var(--radius-xs)] border px-2.5 py-1 transition-colors ${
               type === null
-                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-                : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+                : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
             }`}
           >
-            <span className="font-mono text-[10px] uppercase tracking-wider">All</span>
+            <span className="font-mono text-[10px] uppercase tracking-wider">
+              All
+            </span>
             <Mono className="ml-2 text-[10px]">{devices.length}</Mono>
           </button>
           {TYPES.map((entry) => {
-            const count = typeCounts[entry] ?? 0
-            if (count === 0) return null
+            const count = typeCounts[entry] ?? 0;
+            if (count === 0) return null;
             return (
               <button
                 key={entry}
                 onClick={() => setType(entry)}
                 className={`inline-flex items-center gap-1.5 rounded-[var(--radius-xs)] border px-2.5 py-1 transition-colors ${
                   type === entry
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-                    : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+                    : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
                 }`}
               >
                 <DeviceTypeIcon type={entry} className="size-3" />
                 <span className="font-mono text-[10px] uppercase tracking-wider capitalize">
-                  {entry.replace('_', ' ')}
+                  {entry.replace("_", " ")}
                 </span>
                 <Mono className="text-[10px]">{count}</Mono>
               </button>
-            )
+            );
           })}
         </div>
 
@@ -159,10 +177,16 @@ export default function DevicesList() {
               </thead>
               <tbody>
                 {filtered.map((device) => {
-                  const devicePorts = portsByDeviceId[device.id] ?? []
-                  const linked = devicePorts.filter((port) => port.linkState === 'up').length
-                  const rack = device.rackId ? rackById[device.rackId] : undefined
-                  const parentDevice = device.parentDeviceId ? deviceById[device.parentDeviceId] : undefined
+                  const devicePorts = portsByDeviceId[device.id] ?? [];
+                  const linked = devicePorts.filter(
+                    (port) => port.linkState === "up",
+                  ).length;
+                  const rack = device.rackId
+                    ? rackById[device.rackId]
+                    : undefined;
+                  const parentDevice = device.parentDeviceId
+                    ? deviceById[device.parentDeviceId]
+                    : undefined;
                   return (
                     <tr
                       key={device.id}
@@ -175,55 +199,84 @@ export default function DevicesList() {
                         />
                       </Td>
                       <Td>
-                        <Link to={`/devices/${device.id}`} className="font-medium text-[var(--color-fg)] hover:text-[var(--color-accent)]">
+                        <Link
+                          to={`/devices/${device.id}`}
+                          className="font-medium text-[var(--color-fg)] hover:text-[var(--color-accent)]"
+                        >
                           {device.hostname}
                         </Link>
                       </Td>
                       <Td>
                         <span className="text-xs capitalize text-[var(--color-fg-muted)]">
-                          {device.deviceType.replace('_', ' ')}
+                          {device.deviceType.replace("_", " ")}
                         </span>
                       </Td>
                       <Td>
                         <Mono className="text-[11px] text-[var(--color-fg-subtle)]">
-                          {device.manufacturer ? `${device.manufacturer} ${device.model}` : device.model ?? '-'}
+                          {device.manufacturer
+                            ? `${device.manufacturer} ${device.model}`
+                            : (device.model ?? "-")}
                         </Mono>
                       </Td>
                       <Td>
-                        <Mono className="text-[var(--color-fg)]">{device.managementIp ?? '-'}</Mono>
+                        <Mono className="text-[var(--color-fg)]">
+                          {device.managementIp ?? "-"}
+                        </Mono>
                       </Td>
                       <Td>
-                        {device.placement === 'virtual' ? (
+                        {device.placement === "virtual" ? (
                           <span className="text-xs">
-                            <span className="text-[var(--color-fg-muted)]">Virtual</span>
+                            <span className="text-[var(--color-fg-muted)]">
+                              Virtual
+                            </span>
                             {parentDevice && (
                               <>
-                                <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
-                                <span className="text-[var(--color-fg-subtle)]">{parentDevice.hostname}</span>
+                                <span className="mx-1 text-[var(--color-fg-faint)]">
+                                  |
+                                </span>
+                                <span className="text-[var(--color-fg-subtle)]">
+                                  {parentDevice.hostname}
+                                </span>
                               </>
                             )}
                           </span>
-                        ) : device.placement === 'wireless' ? (
+                        ) : device.placement === "wireless" ? (
                           <span className="text-xs">
-                            <span className="text-[var(--color-fg-muted)]">WiFi</span>
+                            <span className="text-[var(--color-fg-muted)]">
+                              WiFi
+                            </span>
                             {parentDevice && (
                               <>
-                                <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
-                                <span className="text-[var(--color-fg-subtle)]">{parentDevice.hostname}</span>
+                                <span className="mx-1 text-[var(--color-fg-faint)]">
+                                  |
+                                </span>
+                                <span className="text-[var(--color-fg-subtle)]">
+                                  {parentDevice.hostname}
+                                </span>
                               </>
                             )}
                           </span>
                         ) : rack && device.startU ? (
                           <span className="text-xs">
-                            <span className="text-[var(--color-fg-muted)]">{rack.name}</span>
-                            <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
+                            <span className="text-[var(--color-fg-muted)]">
+                              {rack.name}
+                            </span>
+                            <span className="mx-1 text-[var(--color-fg-faint)]">
+                              |
+                            </span>
                             <Mono className="text-[var(--color-fg-muted)]">
                               U{device.startU}
-                              {(device.heightU ?? 1) > 1 ? `-${device.startU + (device.heightU ?? 1) - 1}` : ''}
+                              {(device.heightU ?? 1) > 1
+                                ? `-${device.startU + (device.heightU ?? 1) - 1}`
+                                : ""}
                             </Mono>
                           </span>
                         ) : (
-                          <span className="text-[var(--color-fg-faint)]">{device.placement === 'rack' ? 'Pending placement' : 'Loose / room'}</span>
+                          <span className="text-[var(--color-fg-faint)]">
+                            {device.placement === "rack"
+                              ? "Pending placement"
+                              : "Loose / room"}
+                          </span>
                         )}
                       </Td>
                       <Td>
@@ -232,7 +285,9 @@ export default function DevicesList() {
                             {linked}/{devicePorts.length}
                           </Mono>
                         ) : (
-                          <span className="text-[var(--color-fg-faint)]">-</span>
+                          <span className="text-[var(--color-fg-faint)]">
+                            -
+                          </span>
                         )}
                       </Td>
                       <Td>
@@ -247,7 +302,7 @@ export default function DevicesList() {
                         <ChevronRight className="size-3.5 text-[var(--color-fg-faint)] opacity-0 transition-opacity group-hover:opacity-100" />
                       </Td>
                     </tr>
-                  )
+                  );
                 })}
               </tbody>
             </table>
@@ -260,9 +315,11 @@ export default function DevicesList() {
         </Card>
       </div>
 
-      {canEdit && <DeviceDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />}
+      {canEdit && (
+        <DeviceDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+      )}
     </>
-  )
+  );
 }
 
 function Th({ children }: { children?: ReactNode }) {
@@ -270,9 +327,17 @@ function Th({ children }: { children?: ReactNode }) {
     <th className="px-3 py-1.5 text-left font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
       {children}
     </th>
-  )
+  );
 }
 
-function Td({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={`px-3 py-2 align-middle ${className ?? ''}`}>{children}</td>
+function Td({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <td className={`px-3 py-2 align-middle ${className ?? ""}`}>{children}</td>
+  );
 }

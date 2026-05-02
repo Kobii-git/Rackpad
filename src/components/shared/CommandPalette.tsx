@@ -1,6 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'motion/react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
+import { useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "motion/react";
 import {
   Search,
   Server,
@@ -13,53 +19,109 @@ import {
   X,
   ChevronRight,
   Activity,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useStore } from '@/lib/store'
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useStore } from "@/lib/store";
 
 interface SearchResult {
-  id: string
-  group: 'Pages' | 'Devices' | 'VLANs' | 'IPs'
-  title: string
-  subtitle?: string
-  href: string
-  Icon: LucideIcon
-  accent?: string
+  id: string;
+  group: "Pages" | "Devices" | "VLANs" | "IPs";
+  title: string;
+  subtitle?: string;
+  href: string;
+  Icon: LucideIcon;
+  accent?: string;
 }
 
 const PAGES: SearchResult[] = [
-  { id: 'p-dash', group: 'Pages', title: 'Dashboard', subtitle: 'Overview', href: '/', Icon: LayoutDashboard },
-  { id: 'p-racks', group: 'Pages', title: 'Racks', subtitle: 'Physical layout', href: '/racks', Icon: Server },
-  { id: 'p-devices', group: 'Pages', title: 'Devices', subtitle: 'Inventory', href: '/devices', Icon: Boxes },
-  { id: 'p-monitoring', group: 'Pages', title: 'Monitoring', subtitle: 'Health overview', href: '/monitoring', Icon: Activity },
-  { id: 'p-ports', group: 'Pages', title: 'Ports', subtitle: 'Port management', href: '/ports', Icon: Cable },
-  { id: 'p-cables', group: 'Pages', title: 'Cables', subtitle: 'Connections', href: '/cables', Icon: Workflow },
-  { id: 'p-vlans', group: 'Pages', title: 'VLANs', subtitle: 'Layer 2 segmentation', href: '/vlans', Icon: Hash },
-  { id: 'p-ipam', group: 'Pages', title: 'IPAM', subtitle: 'Address management', href: '/ipam', Icon: Network },
-]
+  {
+    id: "p-dash",
+    group: "Pages",
+    title: "Dashboard",
+    subtitle: "Overview",
+    href: "/",
+    Icon: LayoutDashboard,
+  },
+  {
+    id: "p-racks",
+    group: "Pages",
+    title: "Racks",
+    subtitle: "Physical layout",
+    href: "/racks",
+    Icon: Server,
+  },
+  {
+    id: "p-devices",
+    group: "Pages",
+    title: "Devices",
+    subtitle: "Inventory",
+    href: "/devices",
+    Icon: Boxes,
+  },
+  {
+    id: "p-monitoring",
+    group: "Pages",
+    title: "Monitoring",
+    subtitle: "Health overview",
+    href: "/monitoring",
+    Icon: Activity,
+  },
+  {
+    id: "p-ports",
+    group: "Pages",
+    title: "Ports",
+    subtitle: "Port management",
+    href: "/ports",
+    Icon: Cable,
+  },
+  {
+    id: "p-cables",
+    group: "Pages",
+    title: "Cables",
+    subtitle: "Connections",
+    href: "/cables",
+    Icon: Workflow,
+  },
+  {
+    id: "p-vlans",
+    group: "Pages",
+    title: "VLANs",
+    subtitle: "Layer 2 segmentation",
+    href: "/vlans",
+    Icon: Hash,
+  },
+  {
+    id: "p-ipam",
+    group: "Pages",
+    title: "IPAM",
+    subtitle: "Address management",
+    href: "/ipam",
+    Icon: Network,
+  },
+];
 
 interface CommandPaletteProps {
-  open: boolean
-  onClose: () => void
+  open: boolean;
+  onClose: () => void;
 }
 
 export function CommandPalette({ open, onClose }: CommandPaletteProps) {
-  const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [activeIdx, setActiveIdx] = useState(0)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const listRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate();
+  const [query, setQuery] = useState("");
+  const [activeIdx, setActiveIdx] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const devices = useStore((s) => s.devices)
-  const vlans = useStore((s) => s.vlans)
-  const ipAssignments = useStore((s) => s.ipAssignments)
+  const devices = useStore((s) => s.devices);
+  const vlans = useStore((s) => s.vlans);
+  const ipAssignments = useStore((s) => s.ipAssignments);
 
   const results = useMemo<SearchResult[]>(() => {
-    const q = query.toLowerCase().trim()
-    if (!q) return PAGES
+    const q = query.toLowerCase().trim();
+    if (!q) return PAGES;
 
-    const out: SearchResult[] = []
+    const out: SearchResult[] = [];
 
     for (const device of devices) {
       const haystack = [
@@ -71,121 +133,136 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         ...(device.tags ?? []),
       ]
         .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
+        .join(" ")
+        .toLowerCase();
 
       if (haystack.includes(q)) {
         out.push({
           id: device.id,
-          group: 'Devices',
+          group: "Devices",
           title: device.hostname,
-          subtitle: [device.deviceType.replace('_', ' '), device.manufacturer, device.model]
+          subtitle: [
+            device.deviceType.replace("_", " "),
+            device.manufacturer,
+            device.model,
+          ]
             .filter(Boolean)
-            .join(' · '),
+            .join(" · "),
           href: `/devices/${device.id}`,
           Icon: Server,
-        })
+        });
       }
     }
 
     for (const vlan of vlans) {
       const haystack = [String(vlan.vlanId), vlan.name, vlan.description]
         .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
+        .join(" ")
+        .toLowerCase();
       if (haystack.includes(q)) {
         out.push({
           id: vlan.id,
-          group: 'VLANs',
+          group: "VLANs",
           title: `VLAN ${vlan.vlanId} · ${vlan.name}`,
           subtitle: vlan.description,
-          href: '/vlans',
+          href: "/vlans",
           Icon: Hash,
           accent: vlan.color,
-        })
+        });
       }
     }
 
     for (const assignment of ipAssignments) {
-      const haystack = [assignment.ipAddress, assignment.hostname, assignment.description]
+      const haystack = [
+        assignment.ipAddress,
+        assignment.hostname,
+        assignment.description,
+      ]
         .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
+        .join(" ")
+        .toLowerCase();
       if (haystack.includes(q)) {
         out.push({
           id: assignment.id,
-          group: 'IPs',
+          group: "IPs",
           title: assignment.ipAddress,
-          subtitle: [assignment.hostname, assignment.assignmentType].filter(Boolean).join(' · '),
-          href: '/ipam',
+          subtitle: [assignment.hostname, assignment.assignmentType]
+            .filter(Boolean)
+            .join(" · "),
+          href: "/ipam",
           Icon: Network,
-        })
+        });
       }
     }
 
     for (const page of PAGES) {
-      if (page.title.toLowerCase().includes(q)) out.push(page)
+      if (page.title.toLowerCase().includes(q)) out.push(page);
     }
 
-    return out
-  }, [devices, ipAssignments, query, vlans])
+    return out;
+  }, [devices, ipAssignments, query, vlans]);
 
   const grouped = useMemo(() => {
-    const groups: { label: string; items: { result: SearchResult; flatIdx: number }[] }[] = []
-    const seen = new Set<string>()
-    let flatIdx = 0
+    const groups: {
+      label: string;
+      items: { result: SearchResult; flatIdx: number }[];
+    }[] = [];
+    const seen = new Set<string>();
+    let flatIdx = 0;
 
     for (const result of results) {
       if (!seen.has(result.group)) {
-        seen.add(result.group)
-        groups.push({ label: result.group, items: [] })
+        seen.add(result.group);
+        groups.push({ label: result.group, items: [] });
       }
-      groups[groups.length - 1].items.push({ result, flatIdx })
-      flatIdx += 1
+      groups[groups.length - 1].items.push({ result, flatIdx });
+      flatIdx += 1;
     }
 
-    return groups
-  }, [results])
+    return groups;
+  }, [results]);
 
   useEffect(() => {
     if (open) {
-      setQuery('')
-      setActiveIdx(0)
-      const timer = setTimeout(() => inputRef.current?.focus(), 30)
-      return () => clearTimeout(timer)
+      setQuery("");
+      setActiveIdx(0);
+      const timer = setTimeout(() => inputRef.current?.focus(), 30);
+      return () => clearTimeout(timer);
     }
-  }, [open])
+  }, [open]);
 
   useEffect(() => {
-    setActiveIdx(0)
-  }, [results.length])
+    setActiveIdx(0);
+  }, [results.length]);
 
   useEffect(() => {
-    const el = listRef.current?.querySelector('[data-active="true"]') as HTMLElement | null
-    el?.scrollIntoView({ block: 'nearest' })
-  }, [activeIdx])
+    const el = listRef.current?.querySelector(
+      '[data-active="true"]',
+    ) as HTMLElement | null;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [activeIdx]);
 
   function select(result: SearchResult) {
-    navigate(result.href)
-    onClose()
+    navigate(result.href);
+    onClose();
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
     switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setActiveIdx((i) => Math.min(i + 1, results.length - 1))
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setActiveIdx((i) => Math.max(i - 1, 0))
-        break
-      case 'Enter':
-        if (results[activeIdx]) select(results[activeIdx])
-        break
-      case 'Escape':
-        onClose()
-        break
+      case "ArrowDown":
+        e.preventDefault();
+        setActiveIdx((i) => Math.min(i + 1, results.length - 1));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setActiveIdx((i) => Math.max(i - 1, 0));
+        break;
+      case "Enter":
+        if (results[activeIdx]) select(results[activeIdx]);
+        break;
+      case "Escape":
+        onClose();
+        break;
     }
   }
 
@@ -214,8 +291,9 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
             <div
               className="overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-line-strong)]"
               style={{
-                background: 'var(--color-bg-2)',
-                boxShadow: '0 24px 64px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.03) inset',
+                background: "var(--color-bg-2)",
+                boxShadow:
+                  "0 24px 64px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.03) inset",
               }}
             >
               <div className="flex items-center gap-3 border-b border-[var(--color-line)] px-4 py-3">
@@ -232,8 +310,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 {query ? (
                   <button
                     onClick={() => {
-                      setQuery('')
-                      inputRef.current?.focus()
+                      setQuery("");
+                      inputRef.current?.focus();
                     }}
                     className="text-[var(--color-fg-faint)] transition-colors hover:text-[var(--color-fg-subtle)]"
                     tabIndex={-1}
@@ -249,7 +327,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
               <div ref={listRef} className="max-h-[340px] overflow-y-auto">
                 {results.length === 0 ? (
                   <div className="px-4 py-8 text-center text-xs text-[var(--color-fg-subtle)]">
-                    No results for <span className="text-[var(--color-fg)]">"{query}"</span>
+                    No results for{" "}
+                    <span className="text-[var(--color-fg)]">"{query}"</span>
                   </div>
                 ) : (
                   <div className="py-1.5">
@@ -263,7 +342,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                         </div>
 
                         {group.items.map(({ result, flatIdx }) => {
-                          const isActive = flatIdx === activeIdx
+                          const isActive = flatIdx === activeIdx;
                           return (
                             <button
                               key={result.id}
@@ -271,26 +350,37 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                               onClick={() => select(result)}
                               onMouseEnter={() => setActiveIdx(flatIdx)}
                               className={cn(
-                                'flex w-full items-center gap-3 px-4 py-2 text-left transition-colors',
-                                isActive ? 'bg-[var(--color-surface)]' : 'hover:bg-[var(--color-surface)]/60',
+                                "flex w-full items-center gap-3 px-4 py-2 text-left transition-colors",
+                                isActive
+                                  ? "bg-[var(--color-surface)]"
+                                  : "hover:bg-[var(--color-surface)]/60",
                               )}
                             >
                               <div
                                 className="grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] border border-[var(--color-line)]"
                                 style={{
-                                  background: result.accent ? `${result.accent}18` : 'var(--color-surface)',
+                                  background: result.accent
+                                    ? `${result.accent}18`
+                                    : "var(--color-surface)",
                                 }}
                               >
                                 <result.Icon
                                   className="size-3.5"
-                                  style={{ color: result.accent ?? 'var(--color-fg-subtle)' }}
+                                  style={{
+                                    color:
+                                      result.accent ?? "var(--color-fg-subtle)",
+                                  }}
                                 />
                               </div>
 
                               <div className="min-w-0 flex-1">
                                 <div
                                   className="truncate text-sm"
-                                  style={{ color: isActive ? 'var(--color-fg)' : 'var(--color-fg-muted)' }}
+                                  style={{
+                                    color: isActive
+                                      ? "var(--color-fg)"
+                                      : "var(--color-fg-muted)",
+                                  }}
                                 >
                                   {result.title}
                                 </div>
@@ -305,7 +395,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                                 <ChevronRight className="size-3.5 shrink-0 text-[var(--color-accent)]" />
                               )}
                             </button>
-                          )
+                          );
                         })}
                       </div>
                     ))}
@@ -318,7 +408,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
                 <KbdHint keys="↵" label="open" />
                 <KbdHint keys="esc" label="close" />
                 <span className="ml-auto font-mono text-[10px] text-[var(--color-fg-faint)]">
-                  {results.length} result{results.length !== 1 ? 's' : ''}
+                  {results.length} result{results.length !== 1 ? "s" : ""}
                 </span>
               </div>
             </div>
@@ -326,7 +416,7 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
         </>
       )}
     </AnimatePresence>
-  )
+  );
 }
 
 function KbdHint({ keys, label }: { keys: string; label: string }) {
@@ -337,5 +427,5 @@ function KbdHint({ keys, label }: { keys: string; label: string }) {
       </kbd>
       <span className="text-[10px] text-[var(--color-fg-faint)]">{label}</span>
     </div>
-  )
+  );
 }

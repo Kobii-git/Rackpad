@@ -1,72 +1,102 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Cpu, Plus, Server } from 'lucide-react'
-import { DeviceDrawer } from '@/components/shared/DeviceDrawer'
-import { TopBar } from '@/components/layout/TopBar'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
-import { StatusDot } from '@/components/shared/StatusDot'
-import { canEditInventory, useStore } from '@/lib/store'
-import type { Device } from '@/lib/types'
-import { statusLabel } from '@/lib/utils'
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Cpu, Plus, Server } from "lucide-react";
+import { DeviceDrawer } from "@/components/shared/DeviceDrawer";
+import { TopBar } from "@/components/layout/TopBar";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { DeviceTypeIcon } from "@/components/shared/DeviceTypeIcon";
+import { StatusDot } from "@/components/shared/StatusDot";
+import { canEditInventory, useStore } from "@/lib/store";
+import type { Device } from "@/lib/types";
+import { statusLabel } from "@/lib/utils";
 
-const HOST_DEVICE_TYPES = new Set<Device['deviceType']>(['server', 'storage', 'kvm', 'other'])
+const HOST_DEVICE_TYPES = new Set<Device["deviceType"]>([
+  "server",
+  "storage",
+  "kvm",
+  "other",
+]);
 
 export default function ComputeView() {
-  const currentUser = useStore((s) => s.currentUser)
-  const devices = useStore((s) => s.devices)
-  const canEdit = canEditInventory(currentUser)
-  const [drawerOpen, setDrawerOpen] = useState(false)
+  const currentUser = useStore((s) => s.currentUser);
+  const devices = useStore((s) => s.devices);
+  const canEdit = canEditInventory(currentUser);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerDefaults, setDrawerDefaults] = useState<{
-    deviceType?: Device['deviceType']
-    placement?: NonNullable<Device['placement']>
-    parentDeviceId?: string
-    status?: Device['status']
-  }>()
+    deviceType?: Device["deviceType"];
+    placement?: NonNullable<Device["placement"]>;
+    parentDeviceId?: string;
+    status?: Device["status"];
+  }>();
 
   const vms = useMemo(
     () =>
       devices
-        .filter((device) => device.deviceType === 'vm' || device.placement === 'virtual')
+        .filter(
+          (device) =>
+            device.deviceType === "vm" || device.placement === "virtual",
+        )
         .sort((a, b) => a.hostname.localeCompare(b.hostname)),
     [devices],
-  )
+  );
 
   const vmHostIds = useMemo(
-    () => new Set(vms.map((device) => device.parentDeviceId).filter((value): value is string => Boolean(value))),
+    () =>
+      new Set(
+        vms
+          .map((device) => device.parentDeviceId)
+          .filter((value): value is string => Boolean(value)),
+      ),
     [vms],
-  )
+  );
 
   const hosts = useMemo(
     () =>
       devices
         .filter(
           (device) =>
-            device.deviceType !== 'vm' &&
-            (vmHostIds.has(device.id) || HOST_DEVICE_TYPES.has(device.deviceType)),
+            device.deviceType !== "vm" &&
+            (vmHostIds.has(device.id) ||
+              HOST_DEVICE_TYPES.has(device.deviceType)),
         )
         .sort((a, b) => a.hostname.localeCompare(b.hostname)),
     [devices, vmHostIds],
-  )
+  );
 
   const guestsByHostId = useMemo(() => {
     return vms.reduce<Record<string, Device[]>>((acc, device) => {
       if (device.parentDeviceId) {
-        ;(acc[device.parentDeviceId] ??= []).push(device)
+        (acc[device.parentDeviceId] ??= []).push(device);
       }
-      return acc
-    }, {})
-  }, [vms])
+      return acc;
+    }, {});
+  }, [vms]);
 
   const unassignedVms = useMemo(
-    () => vms.filter((device) => !device.parentDeviceId || !hosts.some((host) => host.id === device.parentDeviceId)),
+    () =>
+      vms.filter(
+        (device) =>
+          !device.parentDeviceId ||
+          !hosts.some((host) => host.id === device.parentDeviceId),
+      ),
     [hosts, vms],
-  )
+  );
 
-  const activeHosts = hosts.filter((host) => (guestsByHostId[host.id] ?? []).length > 0)
-  const emptyHosts = hosts.filter((host) => (guestsByHostId[host.id] ?? []).length === 0)
+  const activeHosts = hosts.filter(
+    (host) => (guestsByHostId[host.id] ?? []).length > 0,
+  );
+  const emptyHosts = hosts.filter(
+    (host) => (guestsByHostId[host.id] ?? []).length === 0,
+  );
 
   return (
     <>
@@ -85,8 +115,12 @@ export default function ComputeView() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setDrawerDefaults({ deviceType: 'server', placement: 'room', status: 'unknown' })
-                  setDrawerOpen(true)
+                  setDrawerDefaults({
+                    deviceType: "server",
+                    placement: "room",
+                    status: "unknown",
+                  });
+                  setDrawerOpen(true);
                 }}
               >
                 <Plus className="size-3.5" />
@@ -96,8 +130,12 @@ export default function ComputeView() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setDrawerDefaults({ deviceType: 'vm', placement: 'virtual', status: 'unknown' })
-                  setDrawerOpen(true)
+                  setDrawerDefaults({
+                    deviceType: "vm",
+                    placement: "virtual",
+                    status: "unknown",
+                  });
+                  setDrawerOpen(true);
                 }}
               >
                 <Plus className="size-3.5" />
@@ -110,10 +148,26 @@ export default function ComputeView() {
 
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <div className="mb-4 grid gap-3 md:grid-cols-4">
-          <ComputeStat label="Hosts" value={String(hosts.length)} hint="Potential virtualization hosts" />
-          <ComputeStat label="Active hosts" value={String(activeHosts.length)} hint="Hosts with at least one guest" />
-          <ComputeStat label="VMs" value={String(vms.length)} hint="Virtual devices documented in this lab" />
-          <ComputeStat label="Unassigned VMs" value={String(unassignedVms.length)} hint="Guests not linked to a host yet" />
+          <ComputeStat
+            label="Hosts"
+            value={String(hosts.length)}
+            hint="Potential virtualization hosts"
+          />
+          <ComputeStat
+            label="Active hosts"
+            value={String(activeHosts.length)}
+            hint="Hosts with at least one guest"
+          />
+          <ComputeStat
+            label="VMs"
+            value={String(vms.length)}
+            hint="Virtual devices documented in this lab"
+          />
+          <ComputeStat
+            label="Unassigned VMs"
+            value={String(unassignedVms.length)}
+            hint="Guests not linked to a host yet"
+          />
         </div>
 
         <div className="space-y-4">
@@ -126,16 +180,24 @@ export default function ComputeView() {
             </CardHeader>
             <CardBody className="space-y-4">
               {hosts.length === 0 ? (
-                <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--color-line)] px-3 py-6 text-center text-sm text-[var(--color-fg-subtle)]">
-                  No compute hosts documented yet.
+                <div className="rk-empty text-center">
+                  <div className="rk-empty-title">
+                    No compute hosts documented yet
+                  </div>
+                  <div className="rk-empty-copy">
+                    Add physical hosts, storage nodes, or hypervisors here to
+                    start tracking guest placement and capacity.
+                  </div>
                 </div>
               ) : (
                 <>
                   {activeHosts.length > 0 && (
                     <div className="grid gap-4 xl:grid-cols-2">
                       {activeHosts.map((host) => {
-                        const guests = (guestsByHostId[host.id] ?? []).sort((a, b) => a.hostname.localeCompare(b.hostname))
-                        const capacity = summarizeHostCapacity(host, guests)
+                        const guests = (guestsByHostId[host.id] ?? []).sort(
+                          (a, b) => a.hostname.localeCompare(b.hostname),
+                        );
+                        const capacity = summarizeHostCapacity(host, guests);
                         return (
                           <Card key={host.id}>
                             <CardHeader>
@@ -149,17 +211,35 @@ export default function ComputeView() {
                               </Badge>
                             </CardHeader>
                             <CardBody className="space-y-3">
-                              <div className="flex items-center gap-2 text-sm text-[var(--color-fg-subtle)]">
+                              <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
                                 <StatusDot status={host.status} />
                                 <span>{statusLabel[host.status]}</span>
-                                {host.managementIp && <span className="font-mono text-[11px]">{host.managementIp}</span>}
+                                {host.managementIp && (
+                                  <span className="font-mono text-[11px]">
+                                    {host.managementIp}
+                                  </span>
+                                )}
                               </div>
 
-                              {(capacity.cpu.total || capacity.memory.total || capacity.storage.total) ? (
+                              {capacity.cpu.total ||
+                              capacity.memory.total ||
+                              capacity.storage.total ? (
                                 <div className="grid gap-2 md:grid-cols-3">
-                                  <CapacityMeter label="CPU" unit="cores" {...capacity.cpu} />
-                                  <CapacityMeter label="Memory" unit="GB" {...capacity.memory} />
-                                  <CapacityMeter label="Storage" unit="GB" {...capacity.storage} />
+                                  <CapacityMeter
+                                    label="CPU"
+                                    unit="cores"
+                                    {...capacity.cpu}
+                                  />
+                                  <CapacityMeter
+                                    label="Memory"
+                                    unit="GB"
+                                    {...capacity.memory}
+                                  />
+                                  <CapacityMeter
+                                    label="Storage"
+                                    unit="GB"
+                                    {...capacity.storage}
+                                  />
                                 </div>
                               ) : null}
 
@@ -168,14 +248,21 @@ export default function ComputeView() {
                                   <Link
                                     key={guest.id}
                                     to={`/devices/${guest.id}`}
-                                    className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 transition-colors hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface)]"
+                                    className="rk-panel-inset rounded-[var(--radius-md)] px-3 py-2 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
                                   >
                                     <div className="flex items-center gap-2">
-                                      <DeviceTypeIcon type={guest.deviceType} className="size-4 text-[var(--color-accent)]" />
-                                      <span className="text-sm text-[var(--color-fg)]">{guest.hostname}</span>
+                                      <DeviceTypeIcon
+                                        type={guest.deviceType}
+                                        className="size-4 text-[var(--color-accent)]"
+                                      />
+                                      <span className="text-sm font-medium text-[var(--text-primary)]">
+                                        {guest.hostname}
+                                      </span>
                                     </div>
-                                    <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
-                                      {guest.displayName || guest.managementIp || statusLabel[guest.status]}
+                                    <div className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+                                      {guest.displayName ||
+                                        guest.managementIp ||
+                                        statusLabel[guest.status]}
                                     </div>
                                   </Link>
                                 ))}
@@ -188,12 +275,12 @@ export default function ComputeView() {
                                     size="sm"
                                     onClick={() => {
                                       setDrawerDefaults({
-                                        deviceType: 'vm',
-                                        placement: 'virtual',
+                                        deviceType: "vm",
+                                        placement: "virtual",
                                         parentDeviceId: host.id,
-                                        status: 'unknown',
-                                      })
-                                      setDrawerOpen(true)
+                                        status: "unknown",
+                                      });
+                                      setDrawerOpen(true);
                                     }}
                                   >
                                     <Plus className="size-3.5" />
@@ -203,7 +290,7 @@ export default function ComputeView() {
                               )}
                             </CardBody>
                           </Card>
-                        )
+                        );
                       })}
                     </div>
                   )}
@@ -217,16 +304,24 @@ export default function ComputeView() {
                         {emptyHosts.map((host) => (
                           <div
                             key={host.id}
-                            className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2"
+                            className="rk-panel-inset rounded-[var(--radius-md)] px-3 py-2"
                           >
                             <div className="flex items-center gap-2">
-                              <DeviceTypeIcon type={host.deviceType} className="size-4 text-[var(--color-accent)]" />
-                              <Link to={`/devices/${host.id}`} className="text-sm text-[var(--color-fg)] hover:underline">
+                              <DeviceTypeIcon
+                                type={host.deviceType}
+                                className="size-4 text-[var(--color-accent)]"
+                              />
+                              <Link
+                                to={`/devices/${host.id}`}
+                                className="text-sm font-medium text-[var(--text-primary)] hover:underline"
+                              >
                                 {host.hostname}
                               </Link>
                             </div>
-                            <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
-                              {host.displayName || host.managementIp || statusLabel[host.status]}
+                            <div className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+                              {host.displayName ||
+                                host.managementIp ||
+                                statusLabel[host.status]}
                             </div>
                           </div>
                         ))}
@@ -247,8 +342,13 @@ export default function ComputeView() {
             </CardHeader>
             <CardBody>
               {unassignedVms.length === 0 ? (
-                <div className="text-sm text-[var(--color-fg-subtle)]">
-                  Every VM is currently linked to a documented host.
+                <div className="rk-empty">
+                  <div className="rk-empty-title">
+                    Every VM is currently linked
+                  </div>
+                  <div className="rk-empty-copy">
+                    All documented guests are already attached to a host record.
+                  </div>
                 </div>
               ) : (
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -256,14 +356,21 @@ export default function ComputeView() {
                     <Link
                       key={device.id}
                       to={`/devices/${device.id}`}
-                      className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 transition-colors hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface)]"
+                      className="rk-panel-inset rounded-[var(--radius-md)] px-3 py-2 transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
                     >
                       <div className="flex items-center gap-2">
-                        <DeviceTypeIcon type={device.deviceType} className="size-4 text-[var(--color-accent)]" />
-                        <span className="text-sm text-[var(--color-fg)]">{device.hostname}</span>
+                        <DeviceTypeIcon
+                          type={device.deviceType}
+                          className="size-4 text-[var(--color-accent)]"
+                        />
+                        <span className="text-sm font-medium text-[var(--text-primary)]">
+                          {device.hostname}
+                        </span>
                       </div>
-                      <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
-                        {device.displayName || device.managementIp || 'No host selected yet'}
+                      <div className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+                        {device.displayName ||
+                          device.managementIp ||
+                          "No host selected yet"}
                       </div>
                     </Link>
                   ))}
@@ -282,40 +389,70 @@ export default function ComputeView() {
         />
       )}
     </>
-  )
+  );
 }
 
-function ComputeStat({ label, value, hint }: { label: string; value: string; hint: string }) {
+function ComputeStat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
   return (
     <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
       <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
         {label}
       </div>
-      <div className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-fg)]">{value}</div>
-      <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">{hint}</div>
+      <div className="mt-1 text-lg font-semibold tracking-tight text-[var(--color-fg)]">
+        {value}
+      </div>
+      <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
+        {hint}
+      </div>
     </div>
-  )
+  );
 }
 
 function summarizeHostCapacity(host: Device, guests: Device[]) {
   return {
-    cpu: summarizeCapacity(host.cpuCores, guests.map((guest) => guest.cpuCores)),
-    memory: summarizeCapacity(host.memoryGb, guests.map((guest) => guest.memoryGb)),
-    storage: summarizeCapacity(host.storageGb, guests.map((guest) => guest.storageGb)),
-  }
+    cpu: summarizeCapacity(
+      host.cpuCores,
+      guests.map((guest) => guest.cpuCores),
+    ),
+    memory: summarizeCapacity(
+      host.memoryGb,
+      guests.map((guest) => guest.memoryGb),
+    ),
+    storage: summarizeCapacity(
+      host.storageGb,
+      guests.map((guest) => guest.storageGb),
+    ),
+  };
 }
 
-function summarizeCapacity(total: number | undefined, values: Array<number | undefined>) {
-  const allocated = values.reduce<number>((sum, value) => sum + (value ?? 0), 0)
-  const safeTotal = total ?? 0
-  const ratio = safeTotal > 0 ? Math.min(100, Math.round((allocated / safeTotal) * 100)) : 0
-  const overcommit = safeTotal > 0 && allocated > safeTotal
+function summarizeCapacity(
+  total: number | undefined,
+  values: Array<number | undefined>,
+) {
+  const allocated = values.reduce<number>(
+    (sum, value) => sum + (value ?? 0),
+    0,
+  );
+  const safeTotal = total ?? 0;
+  const ratio =
+    safeTotal > 0
+      ? Math.min(100, Math.round((allocated / safeTotal) * 100))
+      : 0;
+  const overcommit = safeTotal > 0 && allocated > safeTotal;
   return {
     total: safeTotal,
     allocated,
     ratio,
     overcommit,
-  }
+  };
 }
 
 function CapacityMeter({
@@ -326,12 +463,12 @@ function CapacityMeter({
   ratio,
   overcommit,
 }: {
-  label: string
-  unit: string
-  total: number
-  allocated: number
-  ratio: number
-  overcommit: boolean
+  label: string;
+  unit: string;
+  total: number;
+  allocated: number;
+  ratio: number;
+  overcommit: boolean;
 }) {
   return (
     <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
@@ -339,21 +476,24 @@ function CapacityMeter({
         <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
           {label}
         </div>
-        <div className={`text-[11px] ${overcommit ? 'text-[var(--color-err)]' : 'text-[var(--color-fg-subtle)]'}`}>
-          {formatCapacity(allocated)} / {total > 0 ? formatCapacity(total) : '—'} {unit}
+        <div
+          className={`text-[11px] ${overcommit ? "text-[var(--color-err)]" : "text-[var(--color-fg-subtle)]"}`}
+        >
+          {formatCapacity(allocated)} /{" "}
+          {total > 0 ? formatCapacity(total) : "—"} {unit}
         </div>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-bg-3)]">
         <div
-          className={`h-full rounded-full ${overcommit ? 'bg-[var(--color-err)]' : 'bg-[var(--color-accent)]'}`}
+          className={`h-full rounded-full ${overcommit ? "bg-[var(--color-err)]" : "bg-[var(--color-accent)]"}`}
           style={{ width: `${Math.min(100, ratio)}%` }}
         />
       </div>
     </div>
-  )
+  );
 }
 
 function formatCapacity(value: number) {
-  if (Number.isInteger(value)) return String(value)
-  return value.toFixed(1).replace(/\.0$/, '')
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(1).replace(/\.0$/, "");
 }

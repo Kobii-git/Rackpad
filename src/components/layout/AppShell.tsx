@@ -1,60 +1,65 @@
-import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
-import { Sidebar } from './Sidebar'
-import { TooltipProvider } from '@/components/ui/Tooltip'
-import { CommandPalette } from '@/components/shared/CommandPalette'
-import { AuthScreen } from '@/components/shared/AuthScreen'
-import { Button } from '@/components/ui/Button'
-import { initializeApp, loadAll, useStore } from '@/lib/store'
+import { useEffect, useState } from "react";
+import { Outlet } from "react-router-dom";
+import { Sidebar } from "./Sidebar";
+import { TooltipProvider } from "@/components/ui/Tooltip";
+import { CommandPalette } from "@/components/shared/CommandPalette";
+import { AuthScreen } from "@/components/shared/AuthScreen";
+import { Button } from "@/components/ui/Button";
+import { initializeApp, loadAll, useStore } from "@/lib/store";
 
 export function AppShell() {
-  const [paletteOpen, setPaletteOpen] = useState(false)
-  const authReady = useStore((s) => s.authReady)
-  const authLoading = useStore((s) => s.authLoading)
-  const currentUser = useStore((s) => s.currentUser)
-  const loading = useStore((s) => s.loading)
-  const loaded = useStore((s) => s.loaded)
-  const error = useStore((s) => s.error)
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const authReady = useStore((s) => s.authReady);
+  const authLoading = useStore((s) => s.authLoading);
+  const currentUser = useStore((s) => s.currentUser);
+  const loading = useStore((s) => s.loading);
+  const loaded = useStore((s) => s.loaded);
+  const error = useStore((s) => s.error);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
-        event.preventDefault()
-        setPaletteOpen((value) => !value)
+      if ((event.metaKey || event.ctrlKey) && event.key === "k") {
+        event.preventDefault();
+        setPaletteOpen((value) => !value);
       }
     }
 
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     if (!authReady && !authLoading) {
-      void initializeApp()
+      void initializeApp();
     }
-  }, [authLoading, authReady])
+  }, [authLoading, authReady]);
 
   useEffect(() => {
     if (currentUser && !loaded && !loading) {
-      void loadAll()
+      void loadAll();
     }
-  }, [currentUser, loaded, loading])
+  }, [currentUser, loaded, loading]);
 
-  const shellReady = authReady && !!currentUser
-  const showLoadingCard = !authReady || authLoading || (currentUser != null && !loaded)
+  const shellReady = authReady && !!currentUser;
+  const showLoadingCard =
+    !authReady || authLoading || (currentUser != null && !loaded);
 
   return (
     <TooltipProvider delayDuration={120}>
-      <div className="flex h-screen overflow-hidden bg-[var(--color-bg)]">
+      <div className="rk-page-ambient flex h-screen overflow-hidden bg-[var(--bg-page)]">
         {shellReady && <Sidebar onOpenSearch={() => setPaletteOpen(true)} />}
         <main className="relative flex flex-1 flex-col overflow-hidden">
-          <div className="pointer-events-none absolute inset-0 bg-grid opacity-50" />
+          <div className="pointer-events-none absolute inset-0 bg-grid opacity-45" />
           <div className="relative flex flex-1 flex-col overflow-hidden">
             {!authReady || !currentUser ? (
               showLoadingCard ? (
                 <CenteredStatus
                   eyebrow="Rackpad"
-                  title={authLoading ? 'Checking authentication' : 'Preparing Rackpad'}
+                  title={
+                    authLoading
+                      ? "Checking authentication"
+                      : "Preparing Rackpad"
+                  }
                   body="Loading session state and verifying whether the server already has an admin account."
                 />
               ) : (
@@ -63,11 +68,16 @@ export function AppShell() {
             ) : !loaded ? (
               <CenteredStatus
                 eyebrow="Rackpad"
-                title={loading ? 'Loading infrastructure data' : 'Unable to load data'}
+                title={
+                  loading
+                    ? "Loading infrastructure data"
+                    : "Unable to load data"
+                }
                 body={
                   loading
-                    ? 'Syncing racks, devices, ports, VLANs, IPAM, monitors, and audit history from the API.'
-                    : error ?? 'Something went wrong while contacting the API.'
+                    ? "Syncing racks, devices, ports, VLANs, IPAM, monitors, and audit history from the API."
+                    : (error ??
+                      "Something went wrong while contacting the API.")
                 }
                 action={
                   !loading ? (
@@ -83,9 +93,14 @@ export function AppShell() {
           </div>
         </main>
       </div>
-      {shellReady && <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />}
+      {shellReady && (
+        <CommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+        />
+      )}
     </TooltipProvider>
-  )
+  );
 }
 
 function CenteredStatus({
@@ -94,21 +109,21 @@ function CenteredStatus({
   body,
   action,
 }: {
-  eyebrow: string
-  title: string
-  body: string
-  action?: React.ReactNode
+  eyebrow: string;
+  title: string;
+  body: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="flex flex-1 items-center justify-center px-6">
-      <div className="w-full max-w-md rounded-[var(--radius-md)] border border-[var(--color-line)] bg-[var(--color-bg-2)] p-6 text-center shadow-[var(--shadow-elev)]">
-        <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)]">
-          {eyebrow}
-        </div>
-        <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--color-fg)]">{title}</h2>
-        <p className="mt-2 text-sm text-[var(--color-fg-subtle)]">{body}</p>
+      <div className="rk-panel w-full max-w-md rounded-[var(--radius-lg)] p-6 text-center shadow-[var(--shadow-elev)]">
+        <div className="rk-kicker">{eyebrow}</div>
+        <h2 className="mt-2 text-lg font-semibold tracking-[-0.03em] text-[var(--text-primary)]">
+          {title}
+        </h2>
+        <p className="mt-2 text-sm text-[var(--text-tertiary)]">{body}</p>
         {action && <div className="mt-4 flex justify-center">{action}</div>}
       </div>
     </div>
-  )
+  );
 }

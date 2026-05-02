@@ -1,9 +1,16 @@
-import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
-import { TopBar } from '@/components/layout/TopBar'
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { TopBar } from "@/components/layout/TopBar";
 import {
   createLabRecord,
   deleteLabRecord,
@@ -11,103 +18,107 @@ import {
   selectLab,
   updateLabRecord,
   useStore,
-} from '@/lib/store'
-import type { Lab } from '@/lib/types'
-import { Check, Pencil, Plus, Save, Trash2 } from 'lucide-react'
+} from "@/lib/store";
+import type { Lab } from "@/lib/types";
+import { Check, Pencil, Plus, Save, Trash2 } from "lucide-react";
 
 type LabForm = {
-  name: string
-  description: string
-  location: string
-}
+  name: string;
+  description: string;
+  location: string;
+};
 
 const EMPTY_FORM: LabForm = {
-  name: '',
-  description: '',
-  location: '',
-}
+  name: "",
+  description: "",
+  location: "",
+};
 
 export default function LabsPage() {
-  const currentUser = useStore((s) => s.currentUser)
-  const currentLab = useStore((s) => s.lab)
-  const labs = useStore((s) => s.labs)
-  const canManage = isAdmin(currentUser)
-  const [editingLabId, setEditingLabId] = useState<string | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [pendingSwitchId, setPendingSwitchId] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState<LabForm>(EMPTY_FORM)
+  const currentUser = useStore((s) => s.currentUser);
+  const currentLab = useStore((s) => s.lab);
+  const labs = useStore((s) => s.labs);
+  const canManage = isAdmin(currentUser);
+  const [editingLabId, setEditingLabId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [pendingSwitchId, setPendingSwitchId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState<LabForm>(EMPTY_FORM);
 
   useEffect(() => {
-    if (creating) return
-    const target = labs.find((lab) => lab.id === editingLabId) ?? currentLab
+    if (creating) return;
+    const target = labs.find((lab) => lab.id === editingLabId) ?? currentLab;
     setForm({
       name: target.name,
-      description: target.description ?? '',
-      location: target.location ?? '',
-    })
-  }, [creating, currentLab, editingLabId, labs])
+      description: target.description ?? "",
+      location: target.location ?? "",
+    });
+  }, [creating, currentLab, editingLabId, labs]);
 
-  const editingLab = labs.find((lab) => lab.id === editingLabId) ?? null
+  const editingLab = labs.find((lab) => lab.id === editingLabId) ?? null;
 
   async function handleSwitchLab(labId: string) {
-    setPendingSwitchId(labId)
-    setError('')
+    setPendingSwitchId(labId);
+    setError("");
     try {
-      await selectLab(labId)
+      await selectLab(labId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to switch labs.')
+      setError(err instanceof Error ? err.message : "Failed to switch labs.");
     } finally {
-      setPendingSwitchId(null)
+      setPendingSwitchId(null);
     }
   }
 
   async function handleSaveLab() {
-    if (!canManage) return
-    setSaving(true)
-    setError('')
+    if (!canManage) return;
+    setSaving(true);
+    setError("");
     try {
       if (creating) {
         await createLabRecord({
           name: form.name.trim(),
           description: form.description.trim() || undefined,
           location: form.location.trim() || undefined,
-        })
-        setCreating(false)
-        setEditingLabId(null)
+        });
+        setCreating(false);
+        setEditingLabId(null);
       } else if (editingLab) {
         await updateLabRecord(editingLab.id, {
           name: form.name.trim(),
           description: form.description.trim() || null,
           location: form.location.trim() || null,
-        })
+        });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save lab.')
+      setError(err instanceof Error ? err.message : "Failed to save lab.");
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
   }
 
   async function handleDeleteLab() {
-    if (!canManage || !editingLab) return
-    if (!window.confirm(`Delete lab ${editingLab.name}? This removes its racks, devices, VLANs, and IPAM data.`)) {
-      return
+    if (!canManage || !editingLab) return;
+    if (
+      !window.confirm(
+        `Delete lab ${editingLab.name}? This removes its racks, devices, VLANs, and IPAM data.`,
+      )
+    ) {
+      return;
     }
 
-    setDeleting(true)
-    setError('')
+    setDeleting(true);
+    setError("");
     try {
-      await deleteLabRecord(editingLab.id)
-      setEditingLabId(null)
-      setCreating(false)
-      setForm(EMPTY_FORM)
+      await deleteLabRecord(editingLab.id);
+      setEditingLabId(null);
+      setCreating(false);
+      setForm(EMPTY_FORM);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete lab.')
+      setError(err instanceof Error ? err.message : "Failed to delete lab.");
     } finally {
-      setDeleting(false)
+      setDeleting(false);
     }
   }
 
@@ -127,10 +138,10 @@ export default function LabsPage() {
               variant="outline"
               size="sm"
               onClick={() => {
-                setCreating(true)
-                setEditingLabId(null)
-                setForm(EMPTY_FORM)
-                setError('')
+                setCreating(true);
+                setEditingLabId(null);
+                setForm(EMPTY_FORM);
+                setError("");
               }}
             >
               <Plus className="size-3.5" />
@@ -144,13 +155,18 @@ export default function LabsPage() {
         <div className="min-w-0 flex-1 overflow-y-auto">
           <div className="grid gap-4 xl:grid-cols-2">
             {labs.map((lab) => {
-              const active = lab.id === currentLab.id
-              const editing = lab.id === editingLabId
+              const active = lab.id === currentLab.id;
+              const editing = lab.id === editingLabId;
               return (
-                <Card key={lab.id} className={active ? 'border-[var(--color-accent)]/40' : undefined}>
+                <Card
+                  key={lab.id}
+                  className={
+                    active ? "border-[var(--color-accent)]/40" : undefined
+                  }
+                >
                   <CardHeader>
                     <CardTitle>
-                      <CardLabel>{active ? 'Current lab' : 'Lab'}</CardLabel>
+                      <CardLabel>{active ? "Current lab" : "Lab"}</CardLabel>
                       <CardHeading>{lab.name}</CardHeading>
                     </CardTitle>
                     {active ? (
@@ -165,32 +181,40 @@ export default function LabsPage() {
                         onClick={() => void handleSwitchLab(lab.id)}
                         disabled={pendingSwitchId === lab.id}
                       >
-                        {pendingSwitchId === lab.id ? 'Switching...' : 'Use lab'}
+                        {pendingSwitchId === lab.id
+                          ? "Switching..."
+                          : "Use lab"}
                       </Button>
                     )}
                   </CardHeader>
                   <CardBody className="space-y-3">
-                    <MetaRow label="Location" value={lab.location || 'Not set'} />
-                    <MetaRow label="Description" value={lab.description || 'No description yet'} />
+                    <MetaRow
+                      label="Location"
+                      value={lab.location || "Not set"}
+                    />
+                    <MetaRow
+                      label="Description"
+                      value={lab.description || "No description yet"}
+                    />
                     {canManage && (
                       <div className="flex gap-2 pt-1">
                         <Button
-                          variant={editing ? 'default' : 'outline'}
+                          variant={editing ? "default" : "outline"}
                           size="sm"
                           onClick={() => {
-                            setCreating(false)
-                            setEditingLabId(lab.id)
-                            setError('')
+                            setCreating(false);
+                            setEditingLabId(lab.id);
+                            setError("");
                           }}
                         >
                           <Pencil className="size-3.5" />
-                          {editing ? 'Editing' : 'Edit'}
+                          {editing ? "Editing" : "Edit"}
                         </Button>
                       </div>
                     )}
                   </CardBody>
                 </Card>
-              )
+              );
             })}
           </div>
         </div>
@@ -200,22 +224,33 @@ export default function LabsPage() {
             <Card>
               <CardHeader>
                 <CardTitle>
-                  <CardLabel>{creating ? 'New lab' : 'Lab editor'}</CardLabel>
-                  <CardHeading>{creating ? 'Create lab workspace' : `Update ${editingLab?.name}`}</CardHeading>
+                  <CardLabel>{creating ? "New lab" : "Lab editor"}</CardLabel>
+                  <CardHeading>
+                    {creating
+                      ? "Create lab workspace"
+                      : `Update ${editingLab?.name}`}
+                  </CardHeading>
                 </CardTitle>
               </CardHeader>
               <CardBody className="space-y-4">
                 <Field label="Lab name">
                   <Input
                     value={form.name}
-                    onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((prev) => ({ ...prev, name: event.target.value }))
+                    }
                     placeholder="Home Lab"
                   />
                 </Field>
                 <Field label="Location">
                   <Input
                     value={form.location}
-                    onChange={(event) => setForm((prev) => ({ ...prev, location: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        location: event.target.value,
+                      }))
+                    }
                     placeholder="Office, garage, Colo row A"
                   />
                 </Field>
@@ -223,7 +258,12 @@ export default function LabsPage() {
                   <textarea
                     rows={4}
                     value={form.description}
-                    onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        description: event.target.value,
+                      }))
+                    }
                     className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
                     placeholder="What this lab is for, where it lives, who owns it..."
                   />
@@ -240,23 +280,36 @@ export default function LabsPage() {
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setCreating(false)
-                      setEditingLabId(null)
-                      setError('')
+                      setCreating(false);
+                      setEditingLabId(null);
+                      setError("");
                     }}
                   >
                     Cancel
                   </Button>
                   <div className="flex items-center gap-2">
                     {!creating && labs.length > 1 && editingLab && (
-                      <Button variant="destructive" size="sm" onClick={() => void handleDeleteLab()} disabled={deleting}>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => void handleDeleteLab()}
+                        disabled={deleting}
+                      >
                         <Trash2 className="size-3.5" />
-                        {deleting ? 'Deleting...' : 'Delete lab'}
+                        {deleting ? "Deleting..." : "Delete lab"}
                       </Button>
                     )}
-                    <Button size="sm" onClick={() => void handleSaveLab()} disabled={saving}>
+                    <Button
+                      size="sm"
+                      onClick={() => void handleSaveLab()}
+                      disabled={saving}
+                    >
                       <Save className="size-3.5" />
-                      {saving ? 'Saving...' : creating ? 'Create lab' : 'Save lab'}
+                      {saving
+                        ? "Saving..."
+                        : creating
+                          ? "Create lab"
+                          : "Save lab"}
                     </Button>
                   </div>
                 </div>
@@ -266,10 +319,16 @@ export default function LabsPage() {
         )}
       </div>
     </>
-  )
+  );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
@@ -277,7 +336,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       </span>
       {children}
     </label>
-  )
+  );
 }
 
 function MetaRow({ label, value }: { label: string; value: string }) {
@@ -288,5 +347,5 @@ function MetaRow({ label, value }: { label: string; value: string }) {
       </div>
       <div className="text-sm text-[var(--color-fg)]">{value}</div>
     </div>
-  )
+  );
 }

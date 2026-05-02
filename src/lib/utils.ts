@@ -1,122 +1,129 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-import type { DeviceStatus, LinkState, PortKind } from './types'
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import type { DeviceStatus, LinkState, PortKind } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+  return twMerge(clsx(inputs));
 }
 
 export const COLOR_PRESETS = [
-  { label: 'Blue', value: 'blue', hex: '#4a78c4' },
-  { label: 'Cyan', value: 'cyan', hex: '#4cc8d4' },
-  { label: 'Green', value: 'green', hex: '#5aa05a' },
-  { label: 'Yellow', value: 'yellow', hex: '#d4c43c' },
-  { label: 'Orange', value: 'orange', hex: '#d28a3f' },
-  { label: 'Red', value: 'red', hex: '#c4504a' },
-  { label: 'Purple', value: 'purple', hex: '#8c63d9' },
-  { label: 'Aqua', value: 'aqua', hex: '#59b7c5' },
-  { label: 'Gray', value: 'gray', hex: '#7a7a7a' },
-  { label: 'Black', value: 'black', hex: '#2a2a2a' },
-] as const
+  { label: "Blue", value: "blue", hex: "#4a78c4" },
+  { label: "Cyan", value: "cyan", hex: "#4cc8d4" },
+  { label: "Green", value: "green", hex: "#5aa05a" },
+  { label: "Yellow", value: "yellow", hex: "#d4c43c" },
+  { label: "Orange", value: "orange", hex: "#d28a3f" },
+  { label: "Red", value: "red", hex: "#c4504a" },
+  { label: "Purple", value: "purple", hex: "#8c63d9" },
+  { label: "Aqua", value: "aqua", hex: "#59b7c5" },
+  { label: "Gray", value: "gray", hex: "#7a7a7a" },
+  { label: "Black", value: "black", hex: "#2a2a2a" },
+] as const;
 
 // ---------- Status color tokens ----------
 
 export const statusColor: Record<DeviceStatus, string> = {
-  online: 'var(--color-ok)',
-  offline: 'var(--color-fg-faint)',
-  warning: 'var(--color-warn)',
-  unknown: 'var(--color-fg-subtle)',
-  maintenance: 'var(--color-info)',
-}
+  online: "var(--color-ok)",
+  offline: "var(--color-fg-faint)",
+  warning: "var(--color-warn)",
+  unknown: "var(--color-fg-subtle)",
+  maintenance: "var(--color-info)",
+};
 
 export const statusGlow: Record<DeviceStatus, string> = {
-  online: 'var(--color-ok-glow)',
-  offline: 'transparent',
-  warning: 'var(--color-warn-glow)',
-  unknown: 'transparent',
-  maintenance: 'var(--color-info-glow)',
-}
+  online: "var(--color-ok-glow)",
+  offline: "transparent",
+  warning: "var(--color-warn-glow)",
+  unknown: "transparent",
+  maintenance: "var(--color-info-glow)",
+};
 
 export const statusLabel: Record<DeviceStatus, string> = {
-  online: 'Online',
-  offline: 'Offline',
-  warning: 'Warning',
-  unknown: 'Unknown',
-  maintenance: 'Maintenance',
-}
+  online: "Online",
+  offline: "Offline",
+  warning: "Warning",
+  unknown: "Unknown",
+  maintenance: "Maintenance",
+};
 
 // ---------- Port type colors ----------
 
 export const portTypeColor: Record<PortKind, string> = {
-  rj45: 'var(--color-port-rj45)',
-  sfp: 'var(--color-port-sfp)',
-  sfp_plus: 'var(--color-port-sfp-plus)',
-  qsfp: 'var(--color-port-qsfp)',
-  fiber: 'var(--color-port-fiber)',
-  power: 'var(--color-port-power)',
-  console: 'var(--color-port-console)',
-  usb: 'var(--color-port-usb)',
-  virtual: 'var(--color-port-virtual)',
-}
+  rj45: "var(--color-port-rj45)",
+  sfp: "var(--color-port-sfp)",
+  sfp_plus: "var(--color-port-sfp-plus)",
+  qsfp: "var(--color-port-qsfp)",
+  fiber: "var(--color-port-fiber)",
+  power: "var(--color-port-power)",
+  console: "var(--color-port-console)",
+  usb: "var(--color-port-usb)",
+  virtual: "var(--color-port-virtual)",
+};
 
 export const portTypeLabel: Record<PortKind, string> = {
-  rj45: 'RJ45',
-  sfp: 'SFP',
-  sfp_plus: 'SFP+',
-  qsfp: 'QSFP',
-  fiber: 'Fiber',
-  power: 'Power',
-  console: 'Console',
-  usb: 'USB',
-  virtual: 'Virtual NIC',
-}
+  rj45: "RJ45",
+  sfp: "SFP",
+  sfp_plus: "SFP+",
+  qsfp: "QSFP",
+  fiber: "Fiber",
+  power: "Power",
+  console: "Console",
+  usb: "USB",
+  virtual: "Virtual NIC",
+};
 
 // ---------- Link state ----------
 
 export const linkColor: Record<LinkState, string> = {
-  up: 'var(--color-cyan)',
-  down: 'var(--color-fg-faint)',
-  disabled: 'var(--color-fg-faint)',
-  unknown: 'var(--color-fg-subtle)',
-}
+  up: "var(--color-cyan)",
+  down: "var(--color-fg-faint)",
+  disabled: "var(--color-fg-faint)",
+  unknown: "var(--color-fg-subtle)",
+};
 
 // ---------- Time formatting ----------
 
 export function relativeTime(iso: string | undefined): string {
-  if (!iso) return '—'
-  const date = new Date(iso)
-  const diff = Date.now() - date.getTime()
-  const seconds = Math.floor(diff / 1000)
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  const months = Math.floor(days / 30)
-  if (months < 12) return `${months}mo ago`
-  return `${Math.floor(months / 12)}y ago`
+  if (!iso) return "—";
+  const date = new Date(iso);
+  const diff = Date.now() - date.getTime();
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
 }
 
 // ---------- IP utilities ----------
 
 export function ipToInt(ip: string): number {
-  return ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0
+  return (
+    ip.split(".").reduce((acc, oct) => (acc << 8) + parseInt(oct, 10), 0) >>> 0
+  );
 }
 
 export function intToIp(n: number): string {
-  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff].join('.')
+  return [
+    (n >>> 24) & 0xff,
+    (n >>> 16) & 0xff,
+    (n >>> 8) & 0xff,
+    n & 0xff,
+  ].join(".");
 }
 
 export function cidrSize(cidr: string): number {
-  const prefix = parseInt(cidr.split('/')[1], 10)
-  return Math.pow(2, 32 - prefix)
+  const prefix = parseInt(cidr.split("/")[1], 10);
+  return Math.pow(2, 32 - prefix);
 }
 
 export function utilization(used: number, total: number): number {
-  if (total === 0) return 0
-  return Math.min(100, Math.round((used / total) * 100))
+  if (total === 0) return 0;
+  return Math.min(100, Math.round((used / total) * 100));
 }
 
 const SPEED_MULTIPLIERS_MBPS: Record<string, number> = {
@@ -124,55 +131,61 @@ const SPEED_MULTIPLIERS_MBPS: Record<string, number> = {
   m: 1,
   g: 1000,
   t: 1000 * 1000,
-}
+};
 
 function trimTrailingZeros(value: number) {
-  return value.toFixed(2).replace(/\.00$/, '').replace(/(\.\d)0$/, '$1')
+  return value
+    .toFixed(2)
+    .replace(/\.00$/, "")
+    .replace(/(\.\d)0$/, "$1");
 }
 
 export function parsePortSpeedMbps(speed?: string | null): number | null {
-  if (!speed) return null
+  if (!speed) return null;
 
   const normalized = speed
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, '')
-    .replace(/(?:b(?:it)?(?:\/s)?|bps|be)$/g, '')
+    .replace(/\s+/g, "")
+    .replace(/(?:b(?:it)?(?:\/s)?|bps|be)$/g, "");
 
-  const match = normalized.match(/^(\d+(?:\.\d+)?)([kmgt])?$/)
-  if (!match) return null
+  const match = normalized.match(/^(\d+(?:\.\d+)?)([kmgt])?$/);
+  if (!match) return null;
 
-  const value = Number.parseFloat(match[1])
-  if (!Number.isFinite(value) || value <= 0) return null
+  const value = Number.parseFloat(match[1]);
+  if (!Number.isFinite(value) || value <= 0) return null;
 
-  const unit = match[2] ?? 'm'
-  const multiplier = SPEED_MULTIPLIERS_MBPS[unit]
-  return multiplier ? value * multiplier : null
+  const unit = match[2] ?? "m";
+  const multiplier = SPEED_MULTIPLIERS_MBPS[unit];
+  return multiplier ? value * multiplier : null;
 }
 
 export function formatBandwidthMbps(mbps: number): string {
-  if (!Number.isFinite(mbps) || mbps <= 0) return '0 Mbps'
-  if (mbps >= 1000 * 1000) return `${trimTrailingZeros(mbps / (1000 * 1000))} Tbps`
-  if (mbps >= 1000) return `${trimTrailingZeros(mbps / 1000)} Gbps`
-  if (mbps < 1) return `${trimTrailingZeros(mbps * 1000)} Kbps`
-  return `${trimTrailingZeros(mbps)} Mbps`
+  if (!Number.isFinite(mbps) || mbps <= 0) return "0 Mbps";
+  if (mbps >= 1000 * 1000)
+    return `${trimTrailingZeros(mbps / (1000 * 1000))} Tbps`;
+  if (mbps >= 1000) return `${trimTrailingZeros(mbps / 1000)} Gbps`;
+  if (mbps < 1) return `${trimTrailingZeros(mbps * 1000)} Kbps`;
+  return `${trimTrailingZeros(mbps)} Mbps`;
 }
 
 export function formatPortSpeedLabel(speed?: string | null): string | null {
-  const mbps = parsePortSpeedMbps(speed)
-  if (mbps == null) return null
-  return formatBandwidthMbps(mbps)
+  const mbps = parsePortSpeedMbps(speed);
+  if (mbps == null) return null;
+  return formatBandwidthMbps(mbps);
 }
 
 export function normalizeColorToCss(color?: string | null): string | null {
-  if (!color) return null
-  const value = color.trim()
-  if (!value) return null
+  if (!color) return null;
+  const value = color.trim();
+  if (!value) return null;
   if (/^#(?:[0-9a-fA-F]{3}){1,2}$/.test(value)) {
-    return value
+    return value;
   }
-  const preset = COLOR_PRESETS.find((entry) => entry.value === value.toLowerCase())
-  return preset?.hex ?? value
+  const preset = COLOR_PRESETS.find(
+    (entry) => entry.value === value.toLowerCase(),
+  );
+  return preset?.hex ?? value;
 }
 
 // ---------- IP allocation ----------
@@ -190,32 +203,37 @@ export function nextFreeStaticIp(
   assignedIps: string[],
   options: { skipDhcp?: boolean; skipReserved?: boolean } = {},
 ): string | null {
-  const { skipDhcp = true, skipReserved = false } = options
-  const baseInt = ipToInt(subnetCidr.split('/')[0])
-  const total = cidrSize(subnetCidr)
-  const network = baseInt
-  const broadcast = baseInt + total - 1
+  const { skipDhcp = true, skipReserved = false } = options;
+  const baseInt = ipToInt(subnetCidr.split("/")[0]);
+  const total = cidrSize(subnetCidr);
+  const network = baseInt;
+  const broadcast = baseInt + total - 1;
 
-  const assigned = new Set(assignedIps.map(ipToInt))
+  const assigned = new Set(assignedIps.map(ipToInt));
 
-  const blocked: Array<[number, number]> = []
+  const blocked: Array<[number, number]> = [];
   if (skipDhcp) {
-    for (const r of dhcpRanges) blocked.push([ipToInt(r.startIp), ipToInt(r.endIp)])
+    for (const r of dhcpRanges)
+      blocked.push([ipToInt(r.startIp), ipToInt(r.endIp)]);
   }
   if (skipReserved) {
-    for (const r of reservedRanges) blocked.push([ipToInt(r.startIp), ipToInt(r.endIp)])
+    for (const r of reservedRanges)
+      blocked.push([ipToInt(r.startIp), ipToInt(r.endIp)]);
   }
 
   for (let n = network + 1; n < broadcast; n++) {
-    if (assigned.has(n)) continue
-    let blockedHit = false
+    if (assigned.has(n)) continue;
+    let blockedHit = false;
     for (const [s, e] of blocked) {
-      if (n >= s && n <= e) { blockedHit = true; break }
+      if (n >= s && n <= e) {
+        blockedHit = true;
+        break;
+      }
     }
-    if (blockedHit) continue
-    return intToIp(n)
+    if (blockedHit) continue;
+    return intToIp(n);
   }
-  return null
+  return null;
 }
 
 // Returns the lowest unused VLAN ID inside [startVlan, endVlan].
@@ -224,9 +242,9 @@ export function nextFreeVlanId(
   endVlan: number,
   usedVlanIds: number[],
 ): number | null {
-  const used = new Set(usedVlanIds)
+  const used = new Set(usedVlanIds);
   for (let v = startVlan; v <= endVlan; v++) {
-    if (!used.has(v)) return v
+    if (!used.has(v)) return v;
   }
-  return null
+  return null;
 }

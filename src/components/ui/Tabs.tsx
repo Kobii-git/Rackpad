@@ -1,8 +1,8 @@
-import * as React from 'react'
-import * as TabsPrimitive from '@radix-ui/react-tabs'
-import { cn } from '@/lib/utils'
+import * as React from "react";
+import * as TabsPrimitive from "@radix-ui/react-tabs";
+import { cn } from "@/lib/utils";
 
-export const Tabs = TabsPrimitive.Root
+export const Tabs = TabsPrimitive.Root;
 
 export const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
@@ -10,11 +10,14 @@ export const TabsList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}
-    className={cn('flex items-center gap-0 border-b border-[var(--color-line)]', className)}
+    className={cn(
+      "flex items-center gap-1 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[color-mix(in_srgb,var(--surface-1)_28%,transparent)] p-1",
+      className,
+    )}
     {...props}
   />
-))
-TabsList.displayName = TabsPrimitive.List.displayName
+));
+TabsList.displayName = TabsPrimitive.List.displayName;
 
 export const TabsTrigger = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Trigger>,
@@ -23,18 +26,18 @@ export const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      'relative px-3 py-2 text-xs font-medium uppercase tracking-wider font-mono',
-      'text-[var(--color-fg-subtle)] transition-colors',
-      'hover:text-[var(--color-fg)]',
-      'data-[state=active]:text-[var(--color-fg)]',
-      'data-[state=active]:after:absolute data-[state=active]:after:left-0 data-[state=active]:after:right-0 data-[state=active]:after:-bottom-px data-[state=active]:after:h-px data-[state=active]:after:bg-[var(--color-accent)]',
-      'focus-visible:outline-none',
+      "relative rounded-[var(--radius-sm)] px-3 py-2 font-mono text-[10px] font-medium uppercase tracking-[0.14em]",
+      "text-[var(--text-tertiary)] transition-[background-color,color,box-shadow] duration-150",
+      "hover:bg-[rgb(255_255_255_/_0.04)] hover:text-[var(--text-primary)]",
+      "data-[state=active]:bg-[var(--accent-primary-soft)] data-[state=active]:text-[var(--accent-primary-hover)]",
+      "data-[state=active]:shadow-[0_0_0_1px_var(--accent-primary-border)_inset]",
+      "focus-visible:outline-none",
       className,
     )}
     {...props}
   />
-))
-TabsTrigger.displayName = TabsPrimitive.Trigger.displayName
+));
+TabsTrigger.displayName = TabsPrimitive.Trigger.displayName;
 
 export const TabsContent = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.Content>,
@@ -42,8 +45,8 @@ export const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn('focus-visible:outline-none', className)}
+    className={cn("focus-visible:outline-none", className)}
     {...props}
   />
-))
-TabsContent.displayName = TabsPrimitive.Content.displayName
+));
+TabsContent.displayName = TabsPrimitive.Content.displayName;

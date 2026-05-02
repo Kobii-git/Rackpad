@@ -1,13 +1,20 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { TopBar } from '@/components/layout/TopBar'
-import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import { Input } from '@/components/ui/Input'
-import { Mono } from '@/components/shared/Mono'
-import { IpUtilizationBar } from '@/components/ip/IpUtilizationBar'
-import { IpZoneBar } from '@/components/vlan/IpZoneBar'
-import { AllocatePanel } from '@/components/shared/AllocatePanel'
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { TopBar } from "@/components/layout/TopBar";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { Input } from "@/components/ui/Input";
+import { Mono } from "@/components/shared/Mono";
+import { IpUtilizationBar } from "@/components/ip/IpUtilizationBar";
+import { IpZoneBar } from "@/components/vlan/IpZoneBar";
+import { AllocatePanel } from "@/components/shared/AllocatePanel";
 import {
   canEditInventory,
   createDhcpScopeRecord,
@@ -21,231 +28,251 @@ import {
   updateIpZoneRecord,
   updateSubnetRecord,
   useStore,
-} from '@/lib/store'
-import type { Device, DhcpScope, IpAssignment, IpZone, Subnet, Vlan } from '@/lib/types'
-import { Hash, Network, Plus, Save, Trash2 } from 'lucide-react'
-import { cidrSize } from '@/lib/utils'
+} from "@/lib/store";
+import type {
+  Device,
+  DhcpScope,
+  IpAssignment,
+  IpZone,
+  Subnet,
+  Vlan,
+} from "@/lib/types";
+import { Hash, Network, Plus, Save, Trash2 } from "lucide-react";
+import { cidrSize } from "@/lib/utils";
 
-const TYPE_LABELS: Record<IpAssignment['assignmentType'], string> = {
-  device: 'Devices',
-  interface: 'Interfaces',
-  vm: 'VMs',
-  container: 'Containers',
-  reserved: 'Reservations',
-  infrastructure: 'Infrastructure',
-}
+const TYPE_LABELS: Record<IpAssignment["assignmentType"], string> = {
+  device: "Devices",
+  interface: "Interfaces",
+  vm: "VMs",
+  container: "Containers",
+  reserved: "Reservations",
+  infrastructure: "Infrastructure",
+};
 
-const VISIBLE_ASSIGNMENT_TYPES: IpAssignment['assignmentType'][] = [
-  'device',
-  'interface',
-  'vm',
-  'container',
-  'reserved',
-  'infrastructure',
-]
+const VISIBLE_ASSIGNMENT_TYPES: IpAssignment["assignmentType"][] = [
+  "device",
+  "interface",
+  "vm",
+  "container",
+  "reserved",
+  "infrastructure",
+];
 
 type SubnetForm = {
-  cidr: string
-  name: string
-  description: string
-  vlanId: string
-}
+  cidr: string;
+  name: string;
+  description: string;
+  vlanId: string;
+};
 
 type ScopeForm = {
-  name: string
-  startIp: string
-  endIp: string
-  gateway: string
-  dnsServers: string
-  description: string
-}
+  name: string;
+  startIp: string;
+  endIp: string;
+  gateway: string;
+  dnsServers: string;
+  description: string;
+};
 
 type ZoneForm = {
-  kind: IpZone['kind']
-  startIp: string
-  endIp: string
-  description: string
-}
+  kind: IpZone["kind"];
+  startIp: string;
+  endIp: string;
+  description: string;
+};
 
 const EMPTY_SUBNET_FORM: SubnetForm = {
-  cidr: '',
-  name: '',
-  description: '',
-  vlanId: '',
-}
+  cidr: "",
+  name: "",
+  description: "",
+  vlanId: "",
+};
 
 const EMPTY_SCOPE_FORM: ScopeForm = {
-  name: '',
-  startIp: '',
-  endIp: '',
-  gateway: '',
-  dnsServers: '',
-  description: '',
-}
+  name: "",
+  startIp: "",
+  endIp: "",
+  gateway: "",
+  dnsServers: "",
+  description: "",
+};
 
 const EMPTY_ZONE_FORM: ZoneForm = {
-  kind: 'static',
-  startIp: '',
-  endIp: '',
-  description: '',
-}
+  kind: "static",
+  startIp: "",
+  endIp: "",
+  description: "",
+};
 
 export default function IpamView() {
-  const currentUser = useStore((s) => s.currentUser)
-  const activeLab = useStore((s) => s.lab)
-  const subnets = useStore((s) => s.subnets)
-  const vlans = useStore((s) => s.vlans)
-  const devices = useStore((s) => s.devices)
-  const allAssignments = useStore((s) => s.ipAssignments)
-  const allScopes = useStore((s) => s.scopes)
-  const allZones = useStore((s) => s.ipZones)
-  const canEdit = canEditInventory(currentUser)
+  const currentUser = useStore((s) => s.currentUser);
+  const activeLab = useStore((s) => s.lab);
+  const subnets = useStore((s) => s.subnets);
+  const vlans = useStore((s) => s.vlans);
+  const devices = useStore((s) => s.devices);
+  const allAssignments = useStore((s) => s.ipAssignments);
+  const allScopes = useStore((s) => s.scopes);
+  const allZones = useStore((s) => s.ipZones);
+  const canEdit = canEditInventory(currentUser);
 
-  const [subnetId, setSubnetId] = useState('')
-  const [releasingId, setReleasingId] = useState<string | null>(null)
+  const [subnetId, setSubnetId] = useState("");
+  const [releasingId, setReleasingId] = useState<string | null>(null);
 
-  const [creatingSubnet, setCreatingSubnet] = useState(false)
-  const [subnetForm, setSubnetForm] = useState<SubnetForm>(EMPTY_SUBNET_FORM)
-  const [subnetSaving, setSubnetSaving] = useState(false)
-  const [subnetDeleting, setSubnetDeleting] = useState(false)
-  const [subnetError, setSubnetError] = useState('')
+  const [creatingSubnet, setCreatingSubnet] = useState(false);
+  const [subnetForm, setSubnetForm] = useState<SubnetForm>(EMPTY_SUBNET_FORM);
+  const [subnetSaving, setSubnetSaving] = useState(false);
+  const [subnetDeleting, setSubnetDeleting] = useState(false);
+  const [subnetError, setSubnetError] = useState("");
 
-  const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null)
-  const [creatingScope, setCreatingScope] = useState(false)
-  const [scopeForm, setScopeForm] = useState<ScopeForm>(EMPTY_SCOPE_FORM)
-  const [scopeSaving, setScopeSaving] = useState(false)
-  const [scopeDeleting, setScopeDeleting] = useState(false)
-  const [scopeError, setScopeError] = useState('')
+  const [selectedScopeId, setSelectedScopeId] = useState<string | null>(null);
+  const [creatingScope, setCreatingScope] = useState(false);
+  const [scopeForm, setScopeForm] = useState<ScopeForm>(EMPTY_SCOPE_FORM);
+  const [scopeSaving, setScopeSaving] = useState(false);
+  const [scopeDeleting, setScopeDeleting] = useState(false);
+  const [scopeError, setScopeError] = useState("");
 
-  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
-  const [creatingZone, setCreatingZone] = useState(false)
-  const [zoneForm, setZoneForm] = useState<ZoneForm>(EMPTY_ZONE_FORM)
-  const [zoneSaving, setZoneSaving] = useState(false)
-  const [zoneDeleting, setZoneDeleting] = useState(false)
-  const [zoneError, setZoneError] = useState('')
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [creatingZone, setCreatingZone] = useState(false);
+  const [zoneForm, setZoneForm] = useState<ZoneForm>(EMPTY_ZONE_FORM);
+  const [zoneSaving, setZoneSaving] = useState(false);
+  const [zoneDeleting, setZoneDeleting] = useState(false);
+  const [zoneError, setZoneError] = useState("");
 
   useEffect(() => {
-    if (!subnets.length) return
+    if (!subnets.length) return;
     if (!subnetId || !subnets.some((subnet) => subnet.id === subnetId)) {
-      setSubnetId(subnets[0].id)
+      setSubnetId(subnets[0].id);
     }
-  }, [subnetId, subnets])
+  }, [subnetId, subnets]);
 
   const vlanById = useMemo(() => {
     return vlans.reduce<Record<string, Vlan>>((acc, vlan) => {
-      acc[vlan.id] = vlan
-      return acc
-    }, {})
-  }, [vlans])
+      acc[vlan.id] = vlan;
+      return acc;
+    }, {});
+  }, [vlans]);
 
   const deviceById = useMemo(() => {
     return devices.reduce<Record<string, Device>>((acc, device) => {
-      acc[device.id] = device
-      return acc
-    }, {})
-  }, [devices])
+      acc[device.id] = device;
+      return acc;
+    }, {});
+  }, [devices]);
 
-  const subnet = subnets.find((entry) => entry.id === subnetId) ?? subnets[0]
+  const subnet = subnets.find((entry) => entry.id === subnetId) ?? subnets[0];
 
   const assignments = useMemo(
-    () => allAssignments.filter((assignment) => assignment.subnetId === subnet?.id),
+    () =>
+      allAssignments.filter((assignment) => assignment.subnetId === subnet?.id),
     [allAssignments, subnet?.id],
-  )
+  );
   const subnetScopes = useMemo(
     () => allScopes.filter((scope) => scope.subnetId === subnet?.id),
     [allScopes, subnet?.id],
-  )
+  );
   const subnetZones = useMemo(
     () => allZones.filter((zone) => zone.subnetId === subnet?.id),
     [allZones, subnet?.id],
-  )
+  );
 
   useEffect(() => {
-    if (!subnet || creatingSubnet) return
+    if (!subnet || creatingSubnet) return;
     setSubnetForm({
       cidr: subnet.cidr,
       name: subnet.name,
-      description: subnet.description ?? '',
-      vlanId: subnet.vlanId ?? '',
-    })
-    setSubnetError('')
-  }, [creatingSubnet, subnet])
+      description: subnet.description ?? "",
+      vlanId: subnet.vlanId ?? "",
+    });
+    setSubnetError("");
+  }, [creatingSubnet, subnet]);
 
   useEffect(() => {
     if (!subnetScopes.length) {
-      setSelectedScopeId(null)
-      return
+      setSelectedScopeId(null);
+      return;
     }
-    if (!selectedScopeId || !subnetScopes.some((scope) => scope.id === selectedScopeId)) {
-      setSelectedScopeId(subnetScopes[0].id)
+    if (
+      !selectedScopeId ||
+      !subnetScopes.some((scope) => scope.id === selectedScopeId)
+    ) {
+      setSelectedScopeId(subnetScopes[0].id);
     }
-  }, [selectedScopeId, subnetScopes])
+  }, [selectedScopeId, subnetScopes]);
 
   const selectedScope = selectedScopeId
     ? subnetScopes.find((scope) => scope.id === selectedScopeId)
-    : undefined
+    : undefined;
 
   useEffect(() => {
     if (creatingScope) {
-      setScopeForm(EMPTY_SCOPE_FORM)
-      setScopeError('')
-      return
+      setScopeForm(EMPTY_SCOPE_FORM);
+      setScopeError("");
+      return;
     }
-    if (!selectedScope) return
+    if (!selectedScope) return;
     setScopeForm({
       name: selectedScope.name,
       startIp: selectedScope.startIp,
       endIp: selectedScope.endIp,
-      gateway: selectedScope.gateway ?? '',
-      dnsServers: (selectedScope.dnsServers ?? []).join(', '),
-      description: selectedScope.description ?? '',
-    })
-    setScopeError('')
-  }, [creatingScope, selectedScope])
+      gateway: selectedScope.gateway ?? "",
+      dnsServers: (selectedScope.dnsServers ?? []).join(", "),
+      description: selectedScope.description ?? "",
+    });
+    setScopeError("");
+  }, [creatingScope, selectedScope]);
 
   useEffect(() => {
     if (!subnetZones.length) {
-      setSelectedZoneId(null)
-      return
+      setSelectedZoneId(null);
+      return;
     }
-    if (!selectedZoneId || !subnetZones.some((zone) => zone.id === selectedZoneId)) {
-      setSelectedZoneId(subnetZones[0].id)
+    if (
+      !selectedZoneId ||
+      !subnetZones.some((zone) => zone.id === selectedZoneId)
+    ) {
+      setSelectedZoneId(subnetZones[0].id);
     }
-  }, [selectedZoneId, subnetZones])
+  }, [selectedZoneId, subnetZones]);
 
   const selectedZone = selectedZoneId
     ? subnetZones.find((zone) => zone.id === selectedZoneId)
-    : undefined
+    : undefined;
 
   useEffect(() => {
     if (creatingZone) {
-      setZoneForm(EMPTY_ZONE_FORM)
-      setZoneError('')
-      return
+      setZoneForm(EMPTY_ZONE_FORM);
+      setZoneError("");
+      return;
     }
-    if (!selectedZone) return
+    if (!selectedZone) return;
     setZoneForm({
       kind: selectedZone.kind,
       startIp: selectedZone.startIp,
       endIp: selectedZone.endIp,
-      description: selectedZone.description ?? '',
-    })
-    setZoneError('')
-  }, [creatingZone, selectedZone])
+      description: selectedZone.description ?? "",
+    });
+    setZoneError("");
+  }, [creatingZone, selectedZone]);
 
   const ipsBySubnetId = useMemo(() => {
-    return allAssignments.reduce<Record<string, IpAssignment[]>>((acc, assignment) => {
-      ;(acc[assignment.subnetId] ??= []).push(assignment)
-      return acc
-    }, {})
-  }, [allAssignments])
+    return allAssignments.reduce<Record<string, IpAssignment[]>>(
+      (acc, assignment) => {
+        (acc[assignment.subnetId] ??= []).push(assignment);
+        return acc;
+      },
+      {},
+    );
+  }, [allAssignments]);
 
   const grouped = useMemo(() => {
-    return assignments.reduce<Record<string, IpAssignment[]>>((acc, assignment) => {
-      ;(acc[assignment.assignmentType] ??= []).push(assignment)
-      return acc
-    }, {})
-  }, [assignments])
+    return assignments.reduce<Record<string, IpAssignment[]>>(
+      (acc, assignment) => {
+        (acc[assignment.assignmentType] ??= []).push(assignment);
+        return acc;
+      },
+      {},
+    );
+  }, [assignments]);
 
   if (!subnet) {
     return (
@@ -259,8 +286,8 @@ export default function IpamView() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCreatingSubnet(true)
-                  setSubnetForm(EMPTY_SUBNET_FORM)
+                  setCreatingSubnet(true);
+                  setSubnetForm(EMPTY_SUBNET_FORM);
                 }}
               >
                 <Plus className="size-3.5" />
@@ -279,7 +306,8 @@ export default function IpamView() {
             </CardHeader>
             <CardBody className="space-y-4">
               <div className="text-sm text-[var(--color-fg-subtle)]">
-                Create a subnet to start documenting IP allocations, DHCP scopes, and static zones.
+                Create a subnet to start documenting IP allocations, DHCP
+                scopes, and static zones.
               </div>
               {canEdit && (
                 <SubnetEditor
@@ -292,8 +320,8 @@ export default function IpamView() {
                   canDelete={false}
                   onChange={setSubnetForm}
                   onSave={async () => {
-                    setSubnetSaving(true)
-                    setSubnetError('')
+                    setSubnetSaving(true);
+                    setSubnetError("");
                     try {
                       const created = await createSubnetRecord({
                         labId: activeLab.id,
@@ -301,19 +329,23 @@ export default function IpamView() {
                         name: subnetForm.name.trim(),
                         description: subnetForm.description.trim() || undefined,
                         vlanId: subnetForm.vlanId || undefined,
-                      })
-                      setSubnetId(created.id)
-                      setCreatingSubnet(false)
+                      });
+                      setSubnetId(created.id);
+                      setCreatingSubnet(false);
                     } catch (err) {
-                      setSubnetError(err instanceof Error ? err.message : 'Failed to create subnet.')
+                      setSubnetError(
+                        err instanceof Error
+                          ? err.message
+                          : "Failed to create subnet.",
+                      );
                     } finally {
-                      setSubnetSaving(false)
+                      setSubnetSaving(false);
                     }
                   }}
                   onDelete={async () => {}}
                   onNew={() => {
-                    setCreatingSubnet(true)
-                    setSubnetForm(EMPTY_SUBNET_FORM)
+                    setCreatingSubnet(true);
+                    setSubnetForm(EMPTY_SUBNET_FORM);
                   }}
                 />
               )}
@@ -321,24 +353,24 @@ export default function IpamView() {
           </Card>
         </div>
       </>
-    )
+    );
   }
 
-  const vlan = subnet?.vlanId ? vlanById[subnet.vlanId] : undefined
+  const vlan = subnet?.vlanId ? vlanById[subnet.vlanId] : undefined;
 
   async function handleUnassign(assignmentId: string) {
-    setReleasingId(assignmentId)
+    setReleasingId(assignmentId);
     try {
-      await unassignIp(assignmentId)
+      await unassignIp(assignmentId);
     } finally {
-      setReleasingId(null)
+      setReleasingId(null);
     }
   }
 
   async function handleSaveSubnet() {
-    if (!subnet) return
-    setSubnetSaving(true)
-    setSubnetError('')
+    if (!subnet) return;
+    setSubnetSaving(true);
+    setSubnetError("");
     try {
       if (creatingSubnet) {
         const created = await createSubnetRecord({
@@ -347,10 +379,10 @@ export default function IpamView() {
           name: subnetForm.name.trim(),
           description: subnetForm.description.trim() || undefined,
           vlanId: subnetForm.vlanId || undefined,
-        })
-        setSubnetId(created.id)
-        setCreatingSubnet(false)
-        return
+        });
+        setSubnetId(created.id);
+        setCreatingSubnet(false);
+        return;
       }
 
       await updateSubnetRecord(subnet.id, {
@@ -358,35 +390,43 @@ export default function IpamView() {
         name: subnetForm.name.trim(),
         description: subnetForm.description.trim() || null,
         vlanId: subnetForm.vlanId || null,
-      })
+      });
     } catch (err) {
-      setSubnetError(err instanceof Error ? err.message : 'Failed to save subnet.')
+      setSubnetError(
+        err instanceof Error ? err.message : "Failed to save subnet.",
+      );
     } finally {
-      setSubnetSaving(false)
+      setSubnetSaving(false);
     }
   }
 
   async function handleDeleteSubnet() {
-    if (!subnet) return
-    if (!window.confirm(`Delete subnet ${subnet.cidr}? This also removes its scopes, zones, and assignments.`)) {
-      return
+    if (!subnet) return;
+    if (
+      !window.confirm(
+        `Delete subnet ${subnet.cidr}? This also removes its scopes, zones, and assignments.`,
+      )
+    ) {
+      return;
     }
-    setSubnetDeleting(true)
-    setSubnetError('')
+    setSubnetDeleting(true);
+    setSubnetError("");
     try {
-      await deleteSubnetRecord(subnet.id)
-      setSubnetId('')
+      await deleteSubnetRecord(subnet.id);
+      setSubnetId("");
     } catch (err) {
-      setSubnetError(err instanceof Error ? err.message : 'Failed to delete subnet.')
+      setSubnetError(
+        err instanceof Error ? err.message : "Failed to delete subnet.",
+      );
     } finally {
-      setSubnetDeleting(false)
+      setSubnetDeleting(false);
     }
   }
 
   async function handleSaveScope() {
-    if (!subnet) return
-    setScopeSaving(true)
-    setScopeError('')
+    if (!subnet) return;
+    setScopeSaving(true);
+    setScopeError("");
     try {
       if (creatingScope) {
         const created = await createDhcpScopeRecord({
@@ -397,13 +437,13 @@ export default function IpamView() {
           gateway: scopeForm.gateway.trim() || undefined,
           dnsServers: parseDnsServers(scopeForm.dnsServers),
           description: scopeForm.description.trim() || undefined,
-        })
-        setSelectedScopeId(created.id)
-        setCreatingScope(false)
-        return
+        });
+        setSelectedScopeId(created.id);
+        setCreatingScope(false);
+        return;
       }
 
-      if (!selectedScope) return
+      if (!selectedScope) return;
       await updateDhcpScopeRecord(selectedScope.id, {
         name: scopeForm.name.trim(),
         startIp: scopeForm.startIp.trim(),
@@ -411,34 +451,38 @@ export default function IpamView() {
         gateway: scopeForm.gateway.trim() || null,
         dnsServers: parseDnsServers(scopeForm.dnsServers) ?? null,
         description: scopeForm.description.trim() || null,
-      })
+      });
     } catch (err) {
-      setScopeError(err instanceof Error ? err.message : 'Failed to save DHCP scope.')
+      setScopeError(
+        err instanceof Error ? err.message : "Failed to save DHCP scope.",
+      );
     } finally {
-      setScopeSaving(false)
+      setScopeSaving(false);
     }
   }
 
   async function handleDeleteScope() {
-    if (!selectedScope) return
-    if (!window.confirm(`Delete DHCP scope ${selectedScope.name}?`)) return
-    setScopeDeleting(true)
-    setScopeError('')
+    if (!selectedScope) return;
+    if (!window.confirm(`Delete DHCP scope ${selectedScope.name}?`)) return;
+    setScopeDeleting(true);
+    setScopeError("");
     try {
-      await deleteDhcpScopeRecord(selectedScope.id)
-      setSelectedScopeId(null)
-      setCreatingScope(false)
+      await deleteDhcpScopeRecord(selectedScope.id);
+      setSelectedScopeId(null);
+      setCreatingScope(false);
     } catch (err) {
-      setScopeError(err instanceof Error ? err.message : 'Failed to delete DHCP scope.')
+      setScopeError(
+        err instanceof Error ? err.message : "Failed to delete DHCP scope.",
+      );
     } finally {
-      setScopeDeleting(false)
+      setScopeDeleting(false);
     }
   }
 
   async function handleSaveZone() {
-    if (!subnet) return
-    setZoneSaving(true)
-    setZoneError('')
+    if (!subnet) return;
+    setZoneSaving(true);
+    setZoneError("");
     try {
       if (creatingZone) {
         const created = await createIpZoneRecord({
@@ -447,41 +491,49 @@ export default function IpamView() {
           startIp: zoneForm.startIp.trim(),
           endIp: zoneForm.endIp.trim(),
           description: zoneForm.description.trim() || undefined,
-        })
-        setSelectedZoneId(created.id)
-        setCreatingZone(false)
-        return
+        });
+        setSelectedZoneId(created.id);
+        setCreatingZone(false);
+        return;
       }
 
-      if (!selectedZone) return
+      if (!selectedZone) return;
       await updateIpZoneRecord(selectedZone.id, {
         kind: zoneForm.kind,
         startIp: zoneForm.startIp.trim(),
         endIp: zoneForm.endIp.trim(),
         description: zoneForm.description.trim() || undefined,
-      })
+      });
     } catch (err) {
-      setZoneError(err instanceof Error ? err.message : 'Failed to save IP zone.')
+      setZoneError(
+        err instanceof Error ? err.message : "Failed to save IP zone.",
+      );
     } finally {
-      setZoneSaving(false)
+      setZoneSaving(false);
     }
   }
 
   async function handleDeleteZone() {
-    if (!selectedZone) return
-    if (!window.confirm(`Delete ${selectedZone.kind} zone ${selectedZone.startIp}-${selectedZone.endIp}?`)) {
-      return
+    if (!selectedZone) return;
+    if (
+      !window.confirm(
+        `Delete ${selectedZone.kind} zone ${selectedZone.startIp}-${selectedZone.endIp}?`,
+      )
+    ) {
+      return;
     }
-    setZoneDeleting(true)
-    setZoneError('')
+    setZoneDeleting(true);
+    setZoneError("");
     try {
-      await deleteIpZoneRecord(selectedZone.id)
-      setSelectedZoneId(null)
-      setCreatingZone(false)
+      await deleteIpZoneRecord(selectedZone.id);
+      setSelectedZoneId(null);
+      setCreatingZone(false);
     } catch (err) {
-      setZoneError(err instanceof Error ? err.message : 'Failed to delete IP zone.')
+      setZoneError(
+        err instanceof Error ? err.message : "Failed to delete IP zone.",
+      );
     } finally {
-      setZoneDeleting(false)
+      setZoneDeleting(false);
     }
   }
 
@@ -507,8 +559,8 @@ export default function IpamView() {
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  setCreatingSubnet(true)
-                  setSubnetForm(EMPTY_SUBNET_FORM)
+                  setCreatingSubnet(true);
+                  setSubnetForm(EMPTY_SUBNET_FORM);
                 }}
               >
                 <Plus className="size-3.5" />
@@ -529,46 +581,58 @@ export default function IpamView() {
           </div>
           <div className="flex-1 overflow-y-auto py-1">
             {subnets.map((entry) => {
-              const isActive = entry.id === subnet?.id
-              const entryVlan = entry.vlanId ? vlanById[entry.vlanId] : undefined
-              const ipCount = (ipsBySubnetId[entry.id] ?? []).length
-              const total = cidrSize(entry.cidr) - 2
-              const pct = Math.round((ipCount / Math.max(1, total)) * 100)
+              const isActive = entry.id === subnet?.id;
+              const entryVlan = entry.vlanId
+                ? vlanById[entry.vlanId]
+                : undefined;
+              const ipCount = (ipsBySubnetId[entry.id] ?? []).length;
+              const total = cidrSize(entry.cidr) - 2;
+              const pct = Math.round((ipCount / Math.max(1, total)) * 100);
               return (
                 <button
                   key={entry.id}
                   onClick={() => {
-                    setSubnetId(entry.id)
-                    setCreatingSubnet(false)
-                    setCreatingScope(false)
-                    setCreatingZone(false)
+                    setSubnetId(entry.id);
+                    setCreatingSubnet(false);
+                    setCreatingScope(false);
+                    setCreatingZone(false);
                   }}
                   className={`w-full border-l-2 px-4 py-2.5 text-left transition-colors ${
                     isActive
-                      ? 'border-[var(--color-accent)] bg-[var(--color-surface)]'
-                      : 'border-transparent hover:bg-[var(--color-surface)]/40'
+                      ? "border-[var(--color-accent)] bg-[var(--color-surface)]"
+                      : "border-transparent hover:bg-[var(--color-surface)]/40"
                   }`}
                 >
                   <div className="mb-0.5 flex items-center gap-2">
                     <Network className="size-3 text-[var(--color-fg-muted)]" />
-                    <Mono className="text-xs text-[var(--color-fg)]">{entry.cidr}</Mono>
+                    <Mono className="text-xs text-[var(--color-fg)]">
+                      {entry.cidr}
+                    </Mono>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="truncate text-[11px] text-[var(--color-fg-subtle)]">{entry.name}</span>
+                    <span className="truncate text-[11px] text-[var(--color-fg-subtle)]">
+                      {entry.name}
+                    </span>
                     {entryVlan && (
                       <span
                         className="rounded-[1px] px-1 font-mono text-[10px]"
-                        style={{ backgroundColor: `${entryVlan.color}20`, color: entryVlan.color }}
+                        style={{
+                          backgroundColor: `${entryVlan.color}20`,
+                          color: entryVlan.color,
+                        }}
                       >
                         VL{entryVlan.vlanId}
                       </span>
                     )}
                   </div>
                   <div className="mt-1.5 h-0.5 overflow-hidden bg-[var(--color-bg)]">
-                    <div className="h-full bg-[var(--color-accent)]" style={{ width: `${pct}%`, opacity: 0.7 }} />
+                    <div
+                      className="h-full bg-[var(--color-accent)]"
+                      style={{ width: `${pct}%`, opacity: 0.7 }}
+                    />
                   </div>
                 </button>
-              )
+              );
             })}
           </div>
         </div>
@@ -582,7 +646,9 @@ export default function IpamView() {
                 </div>
                 <h2 className="flex items-center gap-3 text-lg font-semibold tracking-tight">
                   <span className="font-mono">{subnet.cidr}</span>
-                  <span className="font-sans text-[var(--color-fg-muted)]">/</span>
+                  <span className="font-sans text-[var(--color-fg-muted)]">
+                    /
+                  </span>
                   <span className="font-sans">{subnet.name}</span>
                 </h2>
                 {vlan && (
@@ -590,12 +656,17 @@ export default function IpamView() {
                     <Hash className="size-3 text-[var(--color-fg-subtle)]" />
                     <span
                       className="rounded-[1px] px-1.5 py-0.5 font-mono text-[11px]"
-                      style={{ backgroundColor: `${vlan.color}20`, color: vlan.color }}
+                      style={{
+                        backgroundColor: `${vlan.color}20`,
+                        color: vlan.color,
+                      }}
                     >
                       VLAN {vlan.vlanId} - {vlan.name}
                     </span>
                     {vlan.description && (
-                      <span className="text-[11px] text-[var(--color-fg-subtle)]">{vlan.description}</span>
+                      <span className="text-[11px] text-[var(--color-fg-subtle)]">
+                        {vlan.description}
+                      </span>
                     )}
                   </div>
                 )}
@@ -616,8 +687,8 @@ export default function IpamView() {
               onSave={() => void handleSaveSubnet()}
               onDelete={() => void handleDeleteSubnet()}
               onNew={() => {
-                setCreatingSubnet(true)
-                setSubnetForm(EMPTY_SUBNET_FORM)
+                setCreatingSubnet(true);
+                setSubnetForm(EMPTY_SUBNET_FORM);
               }}
             />
           )}
@@ -631,7 +702,11 @@ export default function IpamView() {
                 </CardTitle>
               </CardHeader>
               <CardBody>
-                <IpZoneBar subnet={subnet} zones={subnetZones} scopes={subnetScopes} />
+                <IpZoneBar
+                  subnet={subnet}
+                  zones={subnetZones}
+                  scopes={subnetScopes}
+                />
               </CardBody>
             </Card>
           )}
@@ -682,8 +757,8 @@ export default function IpamView() {
           />
 
           {VISIBLE_ASSIGNMENT_TYPES.map((type) => {
-            const items = grouped[type]
-            if (!items || items.length === 0) return null
+            const items = grouped[type];
+            if (!items || items.length === 0) return null;
 
             return (
               <Card key={type}>
@@ -696,42 +771,60 @@ export default function IpamView() {
                 <CardBody className="p-0">
                   <div className="divide-y divide-[var(--color-line)]">
                     {items
-                      .sort((a, b) => a.ipAddress.localeCompare(b.ipAddress, undefined, { numeric: true }))
+                      .sort((a, b) =>
+                        a.ipAddress.localeCompare(b.ipAddress, undefined, {
+                          numeric: true,
+                        }),
+                      )
                       .map((assignment) => {
-                        const device = assignment.deviceId ? deviceById[assignment.deviceId] : undefined
+                        const device = assignment.deviceId
+                          ? deviceById[assignment.deviceId]
+                          : undefined;
                         return (
                           <div
                             key={assignment.id}
                             className="grid grid-cols-12 items-center gap-3 px-4 py-2 transition-colors hover:bg-[var(--color-surface)]/40"
                           >
-                            <Mono className="col-span-3 text-[var(--color-fg)]">{assignment.ipAddress}</Mono>
-                            <div className="col-span-2 text-xs">{assignment.hostname ?? '-'}</div>
+                            <Mono className="col-span-3 text-[var(--color-fg)]">
+                              {assignment.ipAddress}
+                            </Mono>
+                            <div className="col-span-2 text-xs">
+                              {assignment.hostname ?? "-"}
+                            </div>
                             <div className="col-span-4 text-[11px] text-[var(--color-fg-subtle)]">
-                              {device ? `${device.hostname} (${device.deviceType})` : assignment.description ?? '-'}
+                              {device
+                                ? `${device.hostname} (${device.deviceType})`
+                                : (assignment.description ?? "-")}
                             </div>
                             <div className="col-span-3 flex items-center justify-end gap-2">
                               <Badge tone={badgeTone(type)}>{type}</Badge>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                disabled={releasingId === assignment.id || !canEdit}
-                                onClick={() => void handleUnassign(assignment.id)}
+                                disabled={
+                                  releasingId === assignment.id || !canEdit
+                                }
+                                onClick={() =>
+                                  void handleUnassign(assignment.id)
+                                }
                               >
-                                {releasingId === assignment.id ? 'Releasing...' : 'Unassign'}
+                                {releasingId === assignment.id
+                                  ? "Releasing..."
+                                  : "Unassign"}
                               </Button>
                             </div>
                           </div>
-                        )
+                        );
                       })}
                   </div>
                 </CardBody>
               </Card>
-            )
+            );
           })}
         </div>
       </div>
     </>
-  )
+  );
 }
 
 function SubnetEditor({
@@ -747,24 +840,26 @@ function SubnetEditor({
   onDelete,
   onNew,
 }: {
-  creating: boolean
-  form: SubnetForm
-  vlans: Vlan[]
-  error: string
-  saving: boolean
-  deleting: boolean
-  canDelete: boolean
-  onChange: React.Dispatch<React.SetStateAction<SubnetForm>>
-  onSave: () => void
-  onDelete: () => void
-  onNew: () => void
+  creating: boolean;
+  form: SubnetForm;
+  vlans: Vlan[];
+  error: string;
+  saving: boolean;
+  deleting: boolean;
+  canDelete: boolean;
+  onChange: React.Dispatch<React.SetStateAction<SubnetForm>>;
+  onSave: () => void;
+  onDelete: () => void;
+  onNew: () => void;
 }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>
-          <CardLabel>{creating ? 'New subnet' : 'Subnet editor'}</CardLabel>
-          <CardHeading>{creating ? 'Create subnet' : 'Update subnet details'}</CardHeading>
+          <CardLabel>{creating ? "New subnet" : "Subnet editor"}</CardLabel>
+          <CardHeading>
+            {creating ? "Create subnet" : "Update subnet details"}
+          </CardHeading>
         </CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={onNew}>
@@ -778,14 +873,18 @@ function SubnetEditor({
           <Field label="CIDR">
             <Input
               value={form.cidr}
-              onChange={(event) => onChange((prev) => ({ ...prev, cidr: event.target.value }))}
+              onChange={(event) =>
+                onChange((prev) => ({ ...prev, cidr: event.target.value }))
+              }
               placeholder="10.0.10.0/24"
             />
           </Field>
           <Field label="Name">
             <Input
               value={form.name}
-              onChange={(event) => onChange((prev) => ({ ...prev, name: event.target.value }))}
+              onChange={(event) =>
+                onChange((prev) => ({ ...prev, name: event.target.value }))
+              }
               placeholder="Servers management"
             />
           </Field>
@@ -794,7 +893,9 @@ function SubnetEditor({
           <Field label="Linked VLAN">
             <Select
               value={form.vlanId}
-              onChange={(value) => onChange((prev) => ({ ...prev, vlanId: value }))}
+              onChange={(value) =>
+                onChange((prev) => ({ ...prev, vlanId: value }))
+              }
             >
               <option value="">Unassigned</option>
               {vlans.map((vlan) => (
@@ -807,7 +908,12 @@ function SubnetEditor({
           <Field label="Description">
             <Input
               value={form.description}
-              onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+              onChange={(event) =>
+                onChange((prev) => ({
+                  ...prev,
+                  description: event.target.value,
+                }))
+              }
               placeholder="Primary management network"
             />
           </Field>
@@ -815,19 +921,24 @@ function SubnetEditor({
         {error && <ErrorBanner>{error}</ErrorBanner>}
         <div className="flex items-center justify-end gap-2">
           {canDelete && (
-            <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onDelete}
+              disabled={deleting}
+            >
               <Trash2 className="size-3.5" />
-              {deleting ? 'Deleting...' : 'Delete subnet'}
+              {deleting ? "Deleting..." : "Delete subnet"}
             </Button>
           )}
           <Button size="sm" onClick={onSave} disabled={saving}>
             <Save className="size-3.5" />
-            {saving ? 'Saving...' : creating ? 'Create subnet' : 'Save subnet'}
+            {saving ? "Saving..." : creating ? "Create subnet" : "Save subnet"}
           </Button>
         </div>
       </CardBody>
     </Card>
-  )
+  );
 }
 
 function ScopeEditor({
@@ -846,20 +957,20 @@ function ScopeEditor({
   onSave,
   onDelete,
 }: {
-  subnet: Subnet
-  scopes: DhcpScope[]
-  selectedScopeId: string | null
-  setSelectedScopeId: (value: string | null) => void
-  creating: boolean
-  setCreating: (value: boolean) => void
-  form: ScopeForm
-  onChange: React.Dispatch<React.SetStateAction<ScopeForm>>
-  error: string
-  saving: boolean
-  deleting: boolean
-  canEdit: boolean
-  onSave: () => void
-  onDelete: () => void
+  subnet: Subnet;
+  scopes: DhcpScope[];
+  selectedScopeId: string | null;
+  setSelectedScopeId: (value: string | null) => void;
+  creating: boolean;
+  setCreating: (value: boolean) => void;
+  form: ScopeForm;
+  onChange: React.Dispatch<React.SetStateAction<ScopeForm>>;
+  error: string;
+  saving: boolean;
+  deleting: boolean;
+  canEdit: boolean;
+  onSave: () => void;
+  onDelete: () => void;
 }) {
   return (
     <Card>
@@ -873,8 +984,8 @@ function ScopeEditor({
             variant="outline"
             size="sm"
             onClick={() => {
-              setCreating(true)
-              setSelectedScopeId(null)
+              setCreating(true);
+              setSelectedScopeId(null);
             }}
           >
             <Plus className="size-3.5" />
@@ -890,13 +1001,13 @@ function ScopeEditor({
                 key={scope.id}
                 type="button"
                 onClick={() => {
-                  setCreating(false)
-                  setSelectedScopeId(scope.id)
+                  setCreating(false);
+                  setSelectedScopeId(scope.id);
                 }}
                 className={`rounded-[var(--radius-xs)] border px-2.5 py-1 text-xs transition-colors ${
                   !creating && selectedScopeId === scope.id
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-                    : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+                    : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
                 }`}
               >
                 <span className="font-mono">{scope.name}</span>
@@ -904,7 +1015,13 @@ function ScopeEditor({
             ))}
           </div>
         ) : (
-          <div className="text-sm text-[var(--color-fg-subtle)]">No DHCP scopes documented for {subnet.cidr}.</div>
+          <div className="rk-empty">
+            <div className="rk-empty-title">No DHCP scopes documented</div>
+            <div className="rk-empty-copy">
+              Add one or more DHCP pools for {subnet.cidr} if this subnet hands
+              out leases dynamically.
+            </div>
+          </div>
         )}
 
         {(creating || selectedScopeId) && canEdit && (
@@ -913,14 +1030,21 @@ function ScopeEditor({
               <Field label="Scope name">
                 <Input
                   value={form.name}
-                  onChange={(event) => onChange((prev) => ({ ...prev, name: event.target.value }))}
+                  onChange={(event) =>
+                    onChange((prev) => ({ ...prev, name: event.target.value }))
+                  }
                   placeholder="Clients"
                 />
               </Field>
               <Field label="Gateway">
                 <Input
                   value={form.gateway}
-                  onChange={(event) => onChange((prev) => ({ ...prev, gateway: event.target.value }))}
+                  onChange={(event) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      gateway: event.target.value,
+                    }))
+                  }
                   placeholder="10.0.10.1"
                 />
               </Field>
@@ -929,14 +1053,21 @@ function ScopeEditor({
               <Field label="Start IP">
                 <Input
                   value={form.startIp}
-                  onChange={(event) => onChange((prev) => ({ ...prev, startIp: event.target.value }))}
+                  onChange={(event) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      startIp: event.target.value,
+                    }))
+                  }
                   placeholder="10.0.10.100"
                 />
               </Field>
               <Field label="End IP">
                 <Input
                   value={form.endIp}
-                  onChange={(event) => onChange((prev) => ({ ...prev, endIp: event.target.value }))}
+                  onChange={(event) =>
+                    onChange((prev) => ({ ...prev, endIp: event.target.value }))
+                  }
                   placeholder="10.0.10.199"
                 />
               </Field>
@@ -944,35 +1075,54 @@ function ScopeEditor({
             <Field label="DNS servers">
               <Input
                 value={form.dnsServers}
-                onChange={(event) => onChange((prev) => ({ ...prev, dnsServers: event.target.value }))}
+                onChange={(event) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    dnsServers: event.target.value,
+                  }))
+                }
                 placeholder="1.1.1.1, 8.8.8.8"
               />
             </Field>
             <Field label="Description">
               <Input
                 value={form.description}
-                onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+                onChange={(event) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    description: event.target.value,
+                  }))
+                }
                 placeholder="General client pool"
               />
             </Field>
             {error && <ErrorBanner>{error}</ErrorBanner>}
             <div className="flex items-center justify-end gap-2">
               {!creating && (
-                <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={onDelete}
+                  disabled={deleting}
+                >
                   <Trash2 className="size-3.5" />
-                  {deleting ? 'Deleting...' : 'Delete scope'}
+                  {deleting ? "Deleting..." : "Delete scope"}
                 </Button>
               )}
               <Button size="sm" onClick={onSave} disabled={saving}>
                 <Save className="size-3.5" />
-                {saving ? 'Saving...' : creating ? 'Create scope' : 'Save scope'}
+                {saving
+                  ? "Saving..."
+                  : creating
+                    ? "Create scope"
+                    : "Save scope"}
               </Button>
             </div>
           </div>
         )}
       </CardBody>
     </Card>
-  )
+  );
 }
 
 function ZoneEditor({
@@ -990,19 +1140,19 @@ function ZoneEditor({
   onSave,
   onDelete,
 }: {
-  zones: IpZone[]
-  selectedZoneId: string | null
-  setSelectedZoneId: (value: string | null) => void
-  creating: boolean
-  setCreating: (value: boolean) => void
-  form: ZoneForm
-  onChange: React.Dispatch<React.SetStateAction<ZoneForm>>
-  error: string
-  saving: boolean
-  deleting: boolean
-  canEdit: boolean
-  onSave: () => void
-  onDelete: () => void
+  zones: IpZone[];
+  selectedZoneId: string | null;
+  setSelectedZoneId: (value: string | null) => void;
+  creating: boolean;
+  setCreating: (value: boolean) => void;
+  form: ZoneForm;
+  onChange: React.Dispatch<React.SetStateAction<ZoneForm>>;
+  error: string;
+  saving: boolean;
+  deleting: boolean;
+  canEdit: boolean;
+  onSave: () => void;
+  onDelete: () => void;
 }) {
   return (
     <Card>
@@ -1016,8 +1166,8 @@ function ZoneEditor({
             variant="outline"
             size="sm"
             onClick={() => {
-              setCreating(true)
-              setSelectedZoneId(null)
+              setCreating(true);
+              setSelectedZoneId(null);
             }}
           >
             <Plus className="size-3.5" />
@@ -1033,23 +1183,31 @@ function ZoneEditor({
                 key={zone.id}
                 type="button"
                 onClick={() => {
-                  setCreating(false)
-                  setSelectedZoneId(zone.id)
+                  setCreating(false);
+                  setSelectedZoneId(zone.id);
                 }}
                 className={`rounded-[var(--radius-xs)] border px-2.5 py-1 text-xs transition-colors ${
                   !creating && selectedZoneId === zone.id
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]'
-                    : 'border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]'
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]/10 text-[var(--color-accent-strong)]"
+                    : "border-[var(--color-line)] text-[var(--color-fg-muted)] hover:border-[var(--color-line-strong)]"
                 }`}
               >
                 <span className="font-mono">{zone.kind}</span>
                 <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
-                <span>{zone.startIp}-{zone.endIp}</span>
+                <span>
+                  {zone.startIp}-{zone.endIp}
+                </span>
               </button>
             ))}
           </div>
         ) : (
-          <div className="text-sm text-[var(--color-fg-subtle)]">No IP zones documented yet.</div>
+          <div className="rk-empty">
+            <div className="rk-empty-title">No IP zones documented yet</div>
+            <div className="rk-empty-copy">
+              Define infrastructure, reserved, static, or DHCP zones to make
+              address ownership easier to scan.
+            </div>
+          </div>
         )}
 
         {(creating || selectedZoneId) && canEdit && (
@@ -1058,7 +1216,12 @@ function ZoneEditor({
               <Field label="Kind">
                 <Select
                   value={form.kind}
-                  onChange={(value) => onChange((prev) => ({ ...prev, kind: value as ZoneForm['kind'] }))}
+                  onChange={(value) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      kind: value as ZoneForm["kind"],
+                    }))
+                  }
                 >
                   <option value="static">static</option>
                   <option value="dhcp">dhcp</option>
@@ -1069,14 +1232,21 @@ function ZoneEditor({
               <Field label="Start IP">
                 <Input
                   value={form.startIp}
-                  onChange={(event) => onChange((prev) => ({ ...prev, startIp: event.target.value }))}
+                  onChange={(event) =>
+                    onChange((prev) => ({
+                      ...prev,
+                      startIp: event.target.value,
+                    }))
+                  }
                   placeholder="10.0.10.10"
                 />
               </Field>
               <Field label="End IP">
                 <Input
                   value={form.endIp}
-                  onChange={(event) => onChange((prev) => ({ ...prev, endIp: event.target.value }))}
+                  onChange={(event) =>
+                    onChange((prev) => ({ ...prev, endIp: event.target.value }))
+                  }
                   placeholder="10.0.10.99"
                 />
               </Field>
@@ -1084,39 +1254,47 @@ function ZoneEditor({
             <Field label="Description">
               <Input
                 value={form.description}
-                onChange={(event) => onChange((prev) => ({ ...prev, description: event.target.value }))}
+                onChange={(event) =>
+                  onChange((prev) => ({
+                    ...prev,
+                    description: event.target.value,
+                  }))
+                }
                 placeholder="Static addresses for infrastructure"
               />
             </Field>
             {error && <ErrorBanner>{error}</ErrorBanner>}
             <div className="flex items-center justify-end gap-2">
               {!creating && (
-                <Button variant="destructive" size="sm" onClick={onDelete} disabled={deleting}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={onDelete}
+                  disabled={deleting}
+                >
                   <Trash2 className="size-3.5" />
-                  {deleting ? 'Deleting...' : 'Delete zone'}
+                  {deleting ? "Deleting..." : "Delete zone"}
                 </Button>
               )}
               <Button size="sm" onClick={onSave} disabled={saving}>
                 <Save className="size-3.5" />
-                {saving ? 'Saving...' : creating ? 'Create zone' : 'Save zone'}
+                {saving ? "Saving..." : creating ? "Create zone" : "Save zone"}
               </Button>
             </div>
           </div>
         )}
       </CardBody>
     </Card>
-  )
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
-        {label}
-      </span>
+      <span className="rk-field-label">{label}</span>
       {children}
     </label>
-  )
+  );
 }
 
 function Select({
@@ -1124,19 +1302,19 @@ function Select({
   onChange,
   children,
 }: {
-  value: string
-  onChange: (value: string) => void
-  children: ReactNode
+  value: string;
+  onChange: (value: string) => void;
+  children: ReactNode;
 }) {
   return (
     <select
       value={value}
       onChange={(event) => onChange(event.target.value)}
-      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+      className="rk-control h-8 w-full px-2 text-sm text-[var(--text-primary)]"
     >
       {children}
     </select>
-  )
+  );
 }
 
 function ErrorBanner({ children }: { children: ReactNode }) {
@@ -1144,30 +1322,30 @@ function ErrorBanner({ children }: { children: ReactNode }) {
     <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
       {children}
     </div>
-  )
+  );
 }
 
-function badgeTone(type: IpAssignment['assignmentType']) {
+function badgeTone(type: IpAssignment["assignmentType"]) {
   switch (type) {
-    case 'device':
-      return 'cyan' as const
-    case 'vm':
-      return 'accent' as const
-    case 'container':
-      return 'info' as const
-    case 'reserved':
-      return 'warn' as const
-    case 'infrastructure':
-      return 'neutral' as const
+    case "device":
+      return "cyan" as const;
+    case "vm":
+      return "accent" as const;
+    case "container":
+      return "info" as const;
+    case "reserved":
+      return "warn" as const;
+    case "infrastructure":
+      return "neutral" as const;
     default:
-      return 'neutral' as const
+      return "neutral" as const;
   }
 }
 
 function parseDnsServers(value: string) {
   const normalized = value
-    .split(',')
+    .split(",")
     .map((entry) => entry.trim())
-    .filter(Boolean)
-  return normalized.length > 0 ? normalized : undefined
+    .filter(Boolean);
+  return normalized.length > 0 ? normalized : undefined;
 }
