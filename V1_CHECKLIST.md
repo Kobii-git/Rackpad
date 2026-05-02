@@ -50,7 +50,7 @@ Acceptance:
 
 ### `v0.9.3` Controller-aware WiFi
 
-Status: `planned`
+Status: `done`
 
 - Add first-class WiFi entities for controllers, SSIDs, AP radios, and clients
 - Track SSID, band, channel, signal, and last-seen client telemetry when known

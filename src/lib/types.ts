@@ -40,6 +40,7 @@ export type IpZoneKind = 'static' | 'dhcp' | 'reserved' | 'infrastructure'
 export type UserRole = 'admin' | 'editor' | 'viewer'
 export type MonitorType = 'none' | 'icmp' | 'tcp' | 'http' | 'https'
 export type DiscoveryStatus = 'new' | 'imported' | 'dismissed'
+export type WifiBand = '2.4ghz' | '5ghz' | '6ghz'
 
 export interface AlertSettings {
   enabled: boolean
@@ -245,6 +246,61 @@ export interface DiscoveredDevice {
   importedDeviceId?: ID | null
   lastSeen?: string | null
   lastScannedAt: string
+}
+
+export interface WifiController {
+  id: ID
+  labId: ID
+  deviceId?: ID | null
+  name: string
+  vendor?: string | null
+  model?: string | null
+  managementIp?: string | null
+  notes?: string | null
+}
+
+export interface WifiSsid {
+  id: ID
+  labId: ID
+  name: string
+  purpose?: string | null
+  security?: string | null
+  hidden: boolean
+  vlanId?: ID | null
+  color?: string | null
+}
+
+export interface WifiAccessPoint {
+  deviceId: ID
+  controllerId?: ID | null
+  location?: string | null
+  firmwareVersion?: string | null
+  notes?: string | null
+}
+
+export interface WifiRadio {
+  id: ID
+  apDeviceId: ID
+  slotName: string
+  band: WifiBand
+  channel: string
+  channelWidth?: string | null
+  txPower?: string | null
+  ssidIds: ID[]
+  notes?: string | null
+}
+
+export interface WifiClientAssociation {
+  clientDeviceId: ID
+  apDeviceId: ID
+  radioId?: ID | null
+  ssidId?: ID | null
+  band?: WifiBand | null
+  channel?: string | null
+  signalDbm?: number | null
+  lastSeen?: string | null
+  lastRoamAt?: string | null
+  notes?: string | null
 }
 
 export interface PortTemplatePort {

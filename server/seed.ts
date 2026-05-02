@@ -39,6 +39,12 @@ const devices = [
   { id: 'd_vm_plex',   labId: 'lab_home', rackId: null,       hostname: 'plex-01',      displayName: 'Plex',                deviceType: 'vm',          manufacturer: 'Ubuntu',      model: 'Media VM',           serial: null,           managementIp: null,         status: 'warning',     placement: 'virtual', parentDeviceId: 'd_srv_pve2', startU: null, heightU: null, face: null, tags: JSON.stringify(['media']),                         notes: 'Hosted on pve-02', lastSeen: new Date(now - 300_000).toISOString(), cpuCores: 8,  memoryGb: 16, storageGb: 250, specs: '8 vCPU | 16 GB RAM | 250 GB SSD' },
   { id: 'd_vm_next',   labId: 'lab_home', rackId: null,       hostname: 'nextcloud-01', displayName: 'Nextcloud',           deviceType: 'vm',          manufacturer: 'Ubuntu',      model: 'App VM',             serial: null,           managementIp: null,         status: 'online',      placement: 'virtual', parentDeviceId: 'd_srv_pve2', startU: null, heightU: null, face: null, tags: JSON.stringify(['files']),                         notes: 'Hosted on pve-02', lastSeen: new Date(now - 150_000).toISOString(), cpuCores: 4,  memoryGb: 8,  storageGb: 200, specs: '4 vCPU | 8 GB RAM | 200 GB SSD' },
   { id: 'd_vm_ollama', labId: 'lab_home', rackId: null,       hostname: 'ollama-01',    displayName: 'Ollama',              deviceType: 'vm',          manufacturer: 'Ubuntu',      model: 'GPU VM',             serial: null,           managementIp: null,         status: 'online',      placement: 'virtual', parentDeviceId: 'd_srv_pve3', startU: null, heightU: null, face: null, tags: JSON.stringify(['ai', 'gpu']),                     notes: 'Hosted on pve-03', lastSeen: new Date(now - 45_000).toISOString(), cpuCores: 16, memoryGb: 48, storageGb: 600, specs: '16 vCPU | 48 GB RAM | 600 GB SSD' },
+  { id: 'd_ap_lounge', labId: 'lab_home', rackId: null,       hostname: 'ap-lounge-01', displayName: 'Lounge AP',           deviceType: 'ap',          manufacturer: 'Ubiquiti',    model: 'U6-Pro',             serial: 'UB-AP-6001',  managementIp: '10.0.10.30', status: 'online',      placement: 'wireless', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'downstairs']),            notes: 'Ceiling-mounted in the lounge.', lastSeen: new Date(now - 10_000).toISOString() },
+  { id: 'd_ap_office', labId: 'lab_home', rackId: null,       hostname: 'ap-office-01', displayName: 'Office AP',           deviceType: 'ap',          manufacturer: 'Ubiquiti',    model: 'U6-Lite',            serial: 'UB-AP-6002',  managementIp: '10.0.10.31', status: 'online',      placement: 'wireless', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'upstairs']),              notes: 'Wall-mounted near the office desk.', lastSeen: new Date(now - 20_000).toISOString() },
+  { id: 'd_wifi_phone',  labId: 'lab_home', rackId: null,     hostname: 'pixel-9-pro',  displayName: 'Kobus Phone',         deviceType: 'endpoint',    manufacturer: 'Google',      model: 'Pixel 9 Pro',        serial: null,           managementIp: '10.0.10.60', status: 'online',      placement: 'wireless', parentDeviceId: 'd_ap_lounge', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'phone']),                 notes: 'Primary personal handset.', lastSeen: new Date(now - 15_000).toISOString() },
+  { id: 'd_wifi_laptop', labId: 'lab_home', rackId: null,     hostname: 'x1-carbon',    displayName: 'Work Laptop',         deviceType: 'endpoint',    manufacturer: 'Lenovo',      model: 'ThinkPad X1 Carbon', serial: null,           managementIp: '10.0.10.61', status: 'online',      placement: 'wireless', parentDeviceId: 'd_ap_office', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'laptop']),               notes: 'Normally docks in the office.', lastSeen: new Date(now - 40_000).toISOString() },
+  { id: 'd_wifi_tv',     labId: 'lab_home', rackId: null,     hostname: 'lounge-tv',    displayName: 'Lounge TV',           deviceType: 'endpoint',    manufacturer: 'Samsung',     model: 'QN90',               serial: null,           managementIp: '10.0.50.120', status: 'online',     placement: 'wireless', parentDeviceId: 'd_ap_lounge', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'media']),                notes: 'Streaming TV in the lounge.', lastSeen: new Date(now - 90_000).toISOString() },
+  { id: 'd_wifi_doorbell', labId: 'lab_home', rackId: null,   hostname: 'doorbell-01',  displayName: 'Front Door Bell',     deviceType: 'endpoint',    manufacturer: 'Reolink',     model: 'Doorbell WiFi',      serial: null,           managementIp: '10.0.20.13', status: 'warning',     placement: 'wireless', parentDeviceId: 'd_ap_lounge', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'iot', 'camera']),        notes: 'Occasionally roams poorly at night.', lastSeen: new Date(now - 600_000).toISOString() },
 ]
 
 const deviceCapacityById: Record<string, { cpuCores?: number; memoryGb?: number; storageGb?: number; specs?: string }> = {
@@ -203,6 +209,53 @@ const ipAssignments = [
   { id: 'ip_i1', subnetId: 's_iot',     ipAddress: '10.0.20.10', assignmentType: 'device',    deviceId: null,          portId: null, vmId: null, containerId: null, hostname: 'cam-front-door', description: null },
   { id: 'ip_i2', subnetId: 's_iot',     ipAddress: '10.0.20.11', assignmentType: 'device',    deviceId: null,          portId: null, vmId: null, containerId: null, hostname: 'cam-back-yard',  description: null },
   { id: 'ip_i3', subnetId: 's_iot',     ipAddress: '10.0.20.12', assignmentType: 'device',    deviceId: null,          portId: null, vmId: null, containerId: null, hostname: 'thermostat',     description: null },
+  { id: 'ip_ap1', subnetId: 's_default', ipAddress: '10.0.10.30', assignmentType: 'device',   deviceId: 'd_ap_lounge',   portId: null, vmId: null, containerId: null, hostname: 'ap-lounge-01',  description: 'Lounge AP management' },
+  { id: 'ip_ap2', subnetId: 's_default', ipAddress: '10.0.10.31', assignmentType: 'device',   deviceId: 'd_ap_office',   portId: null, vmId: null, containerId: null, hostname: 'ap-office-01',  description: 'Office AP management' },
+  { id: 'ip_wc1', subnetId: 's_default', ipAddress: '10.0.10.60', assignmentType: 'device',   deviceId: 'd_wifi_phone',  portId: null, vmId: null, containerId: null, hostname: 'pixel-9-pro',   description: 'Main SSID client' },
+  { id: 'ip_wc2', subnetId: 's_default', ipAddress: '10.0.10.61', assignmentType: 'device',   deviceId: 'd_wifi_laptop', portId: null, vmId: null, containerId: null, hostname: 'x1-carbon',     description: 'Main SSID client' },
+  { id: 'ip_wc3', subnetId: 's_guest',   ipAddress: '10.0.50.120', assignmentType: 'device',  deviceId: 'd_wifi_tv',     portId: null, vmId: null, containerId: null, hostname: 'lounge-tv',     description: 'Guest SSID client' },
+  { id: 'ip_wc4', subnetId: 's_iot',     ipAddress: '10.0.20.13', assignmentType: 'device',   deviceId: 'd_wifi_doorbell', portId: null, vmId: null, containerId: null, hostname: 'doorbell-01', description: 'IoT SSID client' },
+]
+
+const wifiControllers = [
+  { id: 'wctrl_unifi', labId: 'lab_home', deviceId: 'd_unifi', name: 'UniFi Network', vendor: 'Ubiquiti', model: 'Cloud Key Gen2 Plus', managementIp: '10.0.10.4', notes: 'Primary house WiFi controller.' },
+]
+
+const wifiSsids = [
+  { id: 'wssid_main',  labId: 'lab_home', name: 'Home-Main',  purpose: 'Primary trusted wireless LAN', security: 'WPA2/WPA3 Personal', hidden: 0, vlanId: 'v_default', color: '#6a9bd4' },
+  { id: 'wssid_iot',   labId: 'lab_home', name: 'Home-IoT',   purpose: 'IoT isolation SSID',            security: 'WPA2 Personal',      hidden: 0, vlanId: 'v_iot',     color: '#6abf69' },
+  { id: 'wssid_guest', labId: 'lab_home', name: 'Home-Guest', purpose: 'Guest-only internet access',     security: 'WPA2 Personal',      hidden: 0, vlanId: 'v_guest',   color: '#d4a13c' },
+]
+
+const wifiAccessPoints = [
+  { deviceId: 'd_ap_lounge', controllerId: 'wctrl_unifi', location: 'Ground floor lounge ceiling', firmwareVersion: '6.7.18', notes: 'Covers lounge, patio doors, and hallway.' },
+  { deviceId: 'd_ap_office', controllerId: 'wctrl_unifi', location: 'Office wall mount', firmwareVersion: '6.7.18', notes: 'Covers office, landing, and upstairs bedrooms.' },
+]
+
+const wifiRadios = [
+  { id: 'wr_lounge_24', apDeviceId: 'd_ap_lounge', slotName: 'radio0', band: '2.4ghz', channel: '6', channelWidth: '20 MHz', txPower: 'medium', notes: 'Long-range IoT coverage.' },
+  { id: 'wr_lounge_5',  apDeviceId: 'd_ap_lounge', slotName: 'radio1', band: '5ghz',   channel: '44', channelWidth: '80 MHz', txPower: 'high',   notes: 'Primary downstairs high-speed radio.' },
+  { id: 'wr_office_24', apDeviceId: 'd_ap_office', slotName: 'radio0', band: '2.4ghz', channel: '1', channelWidth: '20 MHz', txPower: 'medium', notes: 'Office 2.4 GHz coverage.' },
+  { id: 'wr_office_5',  apDeviceId: 'd_ap_office', slotName: 'radio1', band: '5ghz',   channel: '149', channelWidth: '80 MHz', txPower: 'high',  notes: 'Primary upstairs high-speed radio.' },
+]
+
+const wifiRadioSsids = [
+  { radioId: 'wr_lounge_24', ssidId: 'wssid_main' },
+  { radioId: 'wr_lounge_24', ssidId: 'wssid_iot' },
+  { radioId: 'wr_lounge_24', ssidId: 'wssid_guest' },
+  { radioId: 'wr_lounge_5', ssidId: 'wssid_main' },
+  { radioId: 'wr_lounge_5', ssidId: 'wssid_guest' },
+  { radioId: 'wr_office_24', ssidId: 'wssid_main' },
+  { radioId: 'wr_office_24', ssidId: 'wssid_iot' },
+  { radioId: 'wr_office_5', ssidId: 'wssid_main' },
+  { radioId: 'wr_office_5', ssidId: 'wssid_guest' },
+]
+
+const wifiClientAssociations = [
+  { clientDeviceId: 'd_wifi_phone', apDeviceId: 'd_ap_lounge', radioId: 'wr_lounge_5', ssidId: 'wssid_main', band: '5ghz', channel: '44', signalDbm: -52, lastSeen: new Date(now - 15_000).toISOString(), lastRoamAt: new Date(now - 20 * 60_000).toISOString(), notes: 'Usually sticks to the lounge AP while downstairs.' },
+  { clientDeviceId: 'd_wifi_laptop', apDeviceId: 'd_ap_office', radioId: 'wr_office_5', ssidId: 'wssid_main', band: '5ghz', channel: '149', signalDbm: -47, lastSeen: new Date(now - 40_000).toISOString(), lastRoamAt: new Date(now - 35 * 60_000).toISOString(), notes: 'Roams to the office AP when docked.' },
+  { clientDeviceId: 'd_wifi_tv', apDeviceId: 'd_ap_lounge', radioId: 'wr_lounge_5', ssidId: 'wssid_guest', band: '5ghz', channel: '44', signalDbm: -60, lastSeen: new Date(now - 90_000).toISOString(), lastRoamAt: new Date(now - 5 * 3600_000).toISOString(), notes: 'Guest SSID keeps the smart TV isolated.' },
+  { clientDeviceId: 'd_wifi_doorbell', apDeviceId: 'd_ap_lounge', radioId: 'wr_lounge_24', ssidId: 'wssid_iot', band: '2.4ghz', channel: '6', signalDbm: -71, lastSeen: new Date(now - 600_000).toISOString(), lastRoamAt: new Date(now - 8 * 3600_000).toISOString(), notes: 'Edge-of-coverage IoT client.' },
 ]
 
 const auditLog = [
@@ -240,6 +293,12 @@ export function seedIfEmpty() {
   const insertDhcpScope = db.prepare('INSERT INTO dhcpScopes VALUES (@id, @subnetId, @name, @startIp, @endIp, @gateway, @dnsServers, @description)')
   const insertIpZone = db.prepare('INSERT INTO ipZones VALUES (@id, @subnetId, @kind, @startIp, @endIp, @description)')
   const insertIpAssignment = db.prepare('INSERT INTO ipAssignments VALUES (@id, @subnetId, @ipAddress, @assignmentType, @deviceId, @portId, @vmId, @containerId, @hostname, @description)')
+  const insertWifiController = db.prepare('INSERT INTO wifiControllers VALUES (@id, @labId, @deviceId, @name, @vendor, @model, @managementIp, @notes)')
+  const insertWifiSsid = db.prepare('INSERT INTO wifiSsids VALUES (@id, @labId, @name, @purpose, @security, @hidden, @vlanId, @color)')
+  const insertWifiAccessPoint = db.prepare('INSERT INTO wifiAccessPoints VALUES (@deviceId, @controllerId, @location, @firmwareVersion, @notes)')
+  const insertWifiRadio = db.prepare('INSERT INTO wifiRadios VALUES (@id, @apDeviceId, @slotName, @band, @channel, @channelWidth, @txPower, @notes)')
+  const insertWifiRadioSsid = db.prepare('INSERT INTO wifiRadioSsids VALUES (@radioId, @ssidId)')
+  const insertWifiClientAssociation = db.prepare('INSERT INTO wifiClientAssociations VALUES (@clientDeviceId, @apDeviceId, @radioId, @ssidId, @band, @channel, @signalDbm, @lastSeen, @lastRoamAt, @notes)')
   const insertAudit = db.prepare('INSERT INTO auditLog VALUES (@id, @ts, @user, @action, @entityType, @entityId, @summary)')
 
   // Wrap everything in a transaction so seed is atomic
@@ -270,6 +329,12 @@ export function seedIfEmpty() {
     for (const sc of dhcpScopes) insertDhcpScope.run(sc)
     for (const iz of ipZones) insertIpZone.run(iz)
     for (const ip of ipAssignments) insertIpAssignment.run(ip)
+    for (const controller of wifiControllers) insertWifiController.run(controller)
+    for (const ssid of wifiSsids) insertWifiSsid.run(ssid)
+    for (const accessPoint of wifiAccessPoints) insertWifiAccessPoint.run(accessPoint)
+    for (const radio of wifiRadios) insertWifiRadio.run(radio)
+    for (const radioSsid of wifiRadioSsids) insertWifiRadioSsid.run(radioSsid)
+    for (const association of wifiClientAssociations) insertWifiClientAssociation.run(association)
     for (const a of auditLog) insertAudit.run(a)
   })
 

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 7
+const CURRENT_SCHEMA_VERSION = 8
 
 export const db = new Database(DB_PATH)
 
@@ -370,6 +370,100 @@ const SCHEMA_MIGRATIONS = [
     version: 7,
     sql: `
       ALTER TABLE deviceMonitors ADD COLUMN lastAlertAt TEXT;
+    `,
+  },
+  {
+    version: 8,
+    sql: `
+      CREATE TABLE IF NOT EXISTS wifiControllers (
+        id           TEXT PRIMARY KEY,
+        labId        TEXT NOT NULL REFERENCES labs(id) ON DELETE CASCADE,
+        deviceId     TEXT UNIQUE REFERENCES devices(id) ON DELETE SET NULL,
+        name         TEXT NOT NULL,
+        vendor       TEXT,
+        model        TEXT,
+        managementIp TEXT,
+        notes        TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS wifiSsids (
+        id       TEXT PRIMARY KEY,
+        labId    TEXT NOT NULL REFERENCES labs(id) ON DELETE CASCADE,
+        name     TEXT NOT NULL,
+        purpose  TEXT,
+        security TEXT,
+        hidden   INTEGER NOT NULL DEFAULT 0,
+        vlanId   TEXT REFERENCES vlans(id) ON DELETE SET NULL,
+        color    TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS wifiAccessPoints (
+        deviceId         TEXT PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+        controllerId     TEXT REFERENCES wifiControllers(id) ON DELETE SET NULL,
+        location         TEXT,
+        firmwareVersion  TEXT,
+        notes            TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS wifiRadios (
+        id            TEXT PRIMARY KEY,
+        apDeviceId    TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+        slotName      TEXT NOT NULL,
+        band          TEXT NOT NULL,
+        channel       TEXT NOT NULL,
+        channelWidth  TEXT,
+        txPower       TEXT,
+        notes         TEXT
+      );
+
+      CREATE TABLE IF NOT EXISTS wifiRadioSsids (
+        radioId TEXT NOT NULL REFERENCES wifiRadios(id) ON DELETE CASCADE,
+        ssidId  TEXT NOT NULL REFERENCES wifiSsids(id) ON DELETE CASCADE,
+        PRIMARY KEY (radioId, ssidId)
+      );
+
+      CREATE TABLE IF NOT EXISTS wifiClientAssociations (
+        clientDeviceId TEXT PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+        apDeviceId     TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+        radioId        TEXT REFERENCES wifiRadios(id) ON DELETE SET NULL,
+        ssidId         TEXT REFERENCES wifiSsids(id) ON DELETE SET NULL,
+        band           TEXT,
+        channel        TEXT,
+        signalDbm      INTEGER,
+        lastSeen       TEXT,
+        lastRoamAt     TEXT,
+        notes          TEXT
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_wifi_controllers_lab_name
+        ON wifiControllers (labId, name);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_wifi_ssids_lab_name
+        ON wifiSsids (labId, name);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_controllers_lab_id
+        ON wifiControllers (labId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_ssids_lab_id
+        ON wifiSsids (labId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_access_points_controller_id
+        ON wifiAccessPoints (controllerId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_radios_ap_device_id
+        ON wifiRadios (apDeviceId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_radio_ssids_ssid_id
+        ON wifiRadioSsids (ssidId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_client_associations_ap_device_id
+        ON wifiClientAssociations (apDeviceId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_client_associations_ssid_id
+        ON wifiClientAssociations (ssidId);
+
+      CREATE INDEX IF NOT EXISTS idx_wifi_client_associations_radio_id
+        ON wifiClientAssociations (radioId);
     `,
   },
 ] as const

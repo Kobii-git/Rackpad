@@ -4,6 +4,31 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.3] - 2026-05-02
+
+### Added
+
+- First-class WiFi entities for controllers, SSIDs, AP metadata, radios, and explicit client associations.
+- A controller-aware WiFi workspace that shows which AP, SSID, radio band, and channel each wireless client is using.
+- WiFi CRUD flows for documenting controller records, SSIDs, AP metadata, radios, and client links from the app UI.
+- Demo WiFi data with a real controller, two APs, multiple SSIDs, and client telemetry so the wireless workspace is populated on first-run demo installs.
+
+### Changed
+
+- Wireless clients are no longer modeled only as generic parent-child links; they can now carry explicit SSID, radio, band, channel, signal, and roam timing data.
+- Access points can now be associated with a controller and documented with firmware and physical location notes.
+- Backup export and restore now preserve the full WiFi model, including controller records, SSIDs, radios, radio-to-SSID mappings, and client associations.
+
+### Schema
+
+- Added `wifiControllers`, `wifiSsids`, `wifiAccessPoints`, `wifiRadios`, `wifiRadioSsids`, and `wifiClientAssociations`.
+- Bumped the SQLite schema version to `8`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.9.2] - 2026-05-02
 
 ### Added

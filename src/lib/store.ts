@@ -20,6 +20,11 @@ import type {
   UserRole,
   Vlan,
   VlanRange,
+  WifiAccessPoint,
+  WifiClientAssociation,
+  WifiController,
+  WifiRadio,
+  WifiSsid,
 } from './types'
 import type {
   DevicePatch,
@@ -33,6 +38,11 @@ import type {
   SubnetPatch,
   UserPatch,
   VlanRangePatch,
+  WifiAccessPointPatch,
+  WifiClientAssociationPatch,
+  WifiControllerPatch,
+  WifiRadioPatch,
+  WifiSsidPatch,
 } from './api'
 import { cidrSize, intToIp, ipToInt, nextFreeStaticIp, nextFreeVlanId } from './utils'
 
@@ -71,6 +81,11 @@ interface State {
   deviceMonitors: DeviceMonitor[]
   portTemplates: PortTemplate[]
   discoveredDevices: DiscoveredDevice[]
+  wifiControllers: WifiController[]
+  wifiSsids: WifiSsid[]
+  wifiAccessPoints: WifiAccessPoint[]
+  wifiRadios: WifiRadio[]
+  wifiClientAssociations: WifiClientAssociation[]
 }
 
 const EMPTY_DATA = {
@@ -90,6 +105,11 @@ const EMPTY_DATA = {
   deviceMonitors: [] as DeviceMonitor[],
   portTemplates: [] as PortTemplate[],
   discoveredDevices: [] as DiscoveredDevice[],
+  wifiControllers: [] as WifiController[],
+  wifiSsids: [] as WifiSsid[],
+  wifiAccessPoints: [] as WifiAccessPoint[],
+  wifiRadios: [] as WifiRadio[],
+  wifiClientAssociations: [] as WifiClientAssociation[],
 }
 
 let state: State = {
@@ -271,6 +291,45 @@ function sortDiscoveredDevices(devices: DiscoveredDevice[]) {
   })
 }
 
+function sortWifiControllers(controllers: WifiController[]) {
+  return [...controllers].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+}
+
+function sortWifiSsids(ssids: WifiSsid[]) {
+  return [...ssids].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+}
+
+function sortWifiAccessPoints(accessPoints: WifiAccessPoint[]) {
+  return [...accessPoints].sort((a, b) => a.deviceId.localeCompare(b.deviceId))
+}
+
+function wifiBandOrder(value?: string | null) {
+  switch (value) {
+    case '2.4ghz':
+      return 0
+    case '5ghz':
+      return 1
+    case '6ghz':
+      return 2
+    default:
+      return 3
+  }
+}
+
+function sortWifiRadios(radios: WifiRadio[]) {
+  return [...radios].sort((a, b) => {
+    const byAp = a.apDeviceId.localeCompare(b.apDeviceId)
+    if (byAp !== 0) return byAp
+    const byBand = wifiBandOrder(a.band) - wifiBandOrder(b.band)
+    if (byBand !== 0) return byBand
+    return a.slotName.localeCompare(b.slotName) || a.id.localeCompare(b.id)
+  })
+}
+
+function sortWifiClientAssociations(associations: WifiClientAssociation[]) {
+  return [...associations].sort((a, b) => a.clientDeviceId.localeCompare(b.clientDeviceId))
+}
+
 function replaceById<T extends { id: string }>(items: T[], updated: T, sorter?: (value: T[]) => T[]) {
   const exists = items.some((item) => item.id === updated.id)
   const next = exists
@@ -307,6 +366,11 @@ function filterAuditForLab(
     assignmentIds: Set<string>
     monitorIds: Set<string>
     discoveredIds: Set<string>
+    wifiControllerIds: Set<string>
+    wifiSsidIds: Set<string>
+    wifiAccessPointIds: Set<string>
+    wifiRadioIds: Set<string>
+    wifiClientAssociationIds: Set<string>
   },
 ) {
   return sortAudit(
@@ -338,6 +402,16 @@ function filterAuditForLab(
           return context.monitorIds.has(entry.entityId)
         case 'DiscoveredDevice':
           return context.discoveredIds.has(entry.entityId)
+        case 'WifiController':
+          return context.wifiControllerIds.has(entry.entityId)
+        case 'WifiSsid':
+          return context.wifiSsidIds.has(entry.entityId)
+        case 'WifiAccessPoint':
+          return context.wifiAccessPointIds.has(entry.entityId)
+        case 'WifiRadio':
+          return context.wifiRadioIds.has(entry.entityId)
+        case 'WifiClientAssociation':
+          return context.wifiClientAssociationIds.has(entry.entityId)
         default:
           return false
       }
@@ -720,6 +794,11 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
         deviceMonitors: api.getDeviceMonitors(),
         portTemplates: api.getPortTemplates(),
         discoveredDevices: api.getDiscoveredDevices(),
+        wifiControllers: api.getWifiControllers(),
+        wifiSsids: api.getWifiSsids(),
+        wifiAccessPoints: api.getWifiAccessPoints(),
+        wifiRadios: api.getWifiRadios(),
+        wifiClientAssociations: api.getWifiClientAssociations(),
         users: currentUser.role === 'admin' ? api.getUsers() : Promise.resolve([] as AppUser[]),
       }
 
@@ -815,6 +894,47 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
       )
       const discoveredIds = new Set(allDiscoveredDevices.map((device) => device.id))
 
+      const allWifiControllers = sortWifiControllers(
+        ((resolved.get('wifiControllers') as WifiController[] | undefined) ?? []).filter(
+          (controller) => controller.labId === activeLab.id,
+        ),
+      )
+      const wifiControllerIds = new Set(allWifiControllers.map((controller) => controller.id))
+
+      const allWifiSsids = sortWifiSsids(
+        ((resolved.get('wifiSsids') as WifiSsid[] | undefined) ?? []).filter(
+          (ssid) => ssid.labId === activeLab.id,
+        ),
+      )
+      const wifiSsidIds = new Set(allWifiSsids.map((ssid) => ssid.id))
+
+      const allWifiAccessPoints = sortWifiAccessPoints(
+        ((resolved.get('wifiAccessPoints') as WifiAccessPoint[] | undefined) ?? []).filter((accessPoint) =>
+          deviceIds.has(accessPoint.deviceId),
+        ),
+      )
+      const wifiAccessPointIds = new Set(allWifiAccessPoints.map((accessPoint) => accessPoint.deviceId))
+
+      const allWifiRadios = sortWifiRadios(
+        ((resolved.get('wifiRadios') as WifiRadio[] | undefined) ?? []).filter((radio) =>
+          deviceIds.has(radio.apDeviceId),
+        ),
+      )
+      const wifiRadioIds = new Set(allWifiRadios.map((radio) => radio.id))
+
+      const allWifiClientAssociations = sortWifiClientAssociations(
+        ((resolved.get('wifiClientAssociations') as WifiClientAssociation[] | undefined) ?? []).filter(
+          (association) =>
+            deviceIds.has(association.clientDeviceId) &&
+            deviceIds.has(association.apDeviceId) &&
+            (!association.radioId || wifiRadioIds.has(association.radioId)) &&
+            (!association.ssidId || wifiSsidIds.has(association.ssidId)),
+        ),
+      )
+      const wifiClientAssociationIds = new Set(
+        allWifiClientAssociations.map((association) => association.clientDeviceId),
+      )
+
       const filteredAudit = filterAuditForLab(
         (resolved.get('auditLog') as AuditEntry[] | undefined) ?? [],
         {
@@ -831,6 +951,11 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
           assignmentIds,
           monitorIds,
           discoveredIds,
+          wifiControllerIds,
+          wifiSsidIds,
+          wifiAccessPointIds,
+          wifiRadioIds,
+          wifiClientAssociationIds,
         },
       )
 
@@ -858,6 +983,11 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
         deviceMonitors: allMonitors,
         portTemplates: sortPortTemplates((resolved.get('portTemplates') as PortTemplate[] | undefined) ?? []),
         discoveredDevices: allDiscoveredDevices,
+        wifiControllers: allWifiControllers,
+        wifiSsids: allWifiSsids,
+        wifiAccessPoints: allWifiAccessPoints,
+        wifiRadios: allWifiRadios,
+        wifiClientAssociations: allWifiClientAssociations,
         users: sortUsers((resolved.get('users') as AppUser[] | undefined) ?? []),
       }))
     } catch (error) {
@@ -1464,6 +1594,14 @@ export async function deleteDevice(id: string): Promise<boolean> {
     discoveredDevices: prev.discoveredDevices.map((entry) =>
       entry.importedDeviceId === id ? { ...entry, importedDeviceId: null, status: 'new' } : entry,
     ),
+    wifiControllers: prev.wifiControllers.map((controller) =>
+      controller.deviceId === id ? { ...controller, deviceId: null } : controller,
+    ),
+    wifiAccessPoints: prev.wifiAccessPoints.filter((entry) => entry.deviceId !== id),
+    wifiRadios: prev.wifiRadios.filter((entry) => entry.apDeviceId !== id),
+    wifiClientAssociations: prev.wifiClientAssociations.filter(
+      (entry) => entry.clientDeviceId !== id && entry.apDeviceId !== id,
+    ),
   }))
 
   void recordAudit(
@@ -1590,6 +1728,7 @@ export async function deleteVlan(id: string): Promise<boolean> {
     vlans: prev.vlans.filter((entry) => entry.id !== id),
     ports: prev.ports.map((port) => (port.vlanId === id ? { ...port, vlanId: undefined } : port)),
     subnets: prev.subnets.map((subnet) => (subnet.vlanId === id ? { ...subnet, vlanId: undefined } : subnet)),
+    wifiSsids: prev.wifiSsids.map((ssid) => (ssid.vlanId === id ? { ...ssid, vlanId: undefined } : ssid)),
   }))
 
   void recordAudit(
@@ -1930,6 +2069,117 @@ export async function deleteDiscoveredDeviceRecord(id: string): Promise<void> {
       'DiscoveredDevice',
       id,
       `Removed discovered device ${existing.hostname ?? existing.ipAddress}`,
+    )
+  }
+}
+
+export async function createWifiControllerRecord(input: Omit<WifiController, 'id'>): Promise<WifiController> {
+  const created = await api.createWifiController(input)
+  await loadAll(true)
+  void recordAudit('wifi.controller.create', 'WifiController', created.id, `Added WiFi controller ${created.name}`)
+  return created
+}
+
+export async function updateWifiControllerRecord(id: string, changes: WifiControllerPatch): Promise<WifiController> {
+  const updated = await api.updateWifiController(id, changes)
+  await loadAll(true)
+  void recordAudit('wifi.controller.update', 'WifiController', id, `Updated WiFi controller ${updated.name}`)
+  return updated
+}
+
+export async function deleteWifiControllerRecord(id: string): Promise<void> {
+  const existing = state.wifiControllers.find((controller) => controller.id === id)
+  await api.deleteWifiController(id)
+  await loadAll(true)
+  if (existing) {
+    void recordAudit('wifi.controller.delete', 'WifiController', id, `Deleted WiFi controller ${existing.name}`)
+  }
+}
+
+export async function createWifiSsidRecord(input: Omit<WifiSsid, 'id'>): Promise<WifiSsid> {
+  const created = await api.createWifiSsid(input)
+  await loadAll(true)
+  void recordAudit('wifi.ssid.create', 'WifiSsid', created.id, `Added WiFi SSID ${created.name}`)
+  return created
+}
+
+export async function updateWifiSsidRecord(id: string, changes: WifiSsidPatch): Promise<WifiSsid> {
+  const updated = await api.updateWifiSsid(id, changes)
+  await loadAll(true)
+  void recordAudit('wifi.ssid.update', 'WifiSsid', id, `Updated WiFi SSID ${updated.name}`)
+  return updated
+}
+
+export async function deleteWifiSsidRecord(id: string): Promise<void> {
+  const existing = state.wifiSsids.find((ssid) => ssid.id === id)
+  await api.deleteWifiSsid(id)
+  await loadAll(true)
+  if (existing) {
+    void recordAudit('wifi.ssid.delete', 'WifiSsid', id, `Deleted WiFi SSID ${existing.name}`)
+  }
+}
+
+export async function saveWifiAccessPointRecord(deviceId: string, changes: WifiAccessPointPatch): Promise<WifiAccessPoint> {
+  const updated = await api.saveWifiAccessPoint(deviceId, changes)
+  await loadAll(true)
+  const device = state.devices.find((entry) => entry.id === deviceId)
+  void recordAudit('wifi.ap.update', 'WifiAccessPoint', deviceId, `Updated WiFi access point ${device?.hostname ?? deviceId}`)
+  return updated
+}
+
+export async function createWifiRadioRecord(input: Omit<WifiRadio, 'id'>): Promise<WifiRadio> {
+  const created = await api.createWifiRadio(input)
+  await loadAll(true)
+  const ap = state.devices.find((entry) => entry.id === input.apDeviceId)
+  void recordAudit('wifi.radio.create', 'WifiRadio', created.id, `Added ${created.band} radio ${created.slotName} on ${ap?.hostname ?? input.apDeviceId}`)
+  return created
+}
+
+export async function updateWifiRadioRecord(id: string, changes: WifiRadioPatch): Promise<WifiRadio> {
+  const updated = await api.updateWifiRadio(id, changes)
+  await loadAll(true)
+  void recordAudit('wifi.radio.update', 'WifiRadio', id, `Updated WiFi radio ${updated.slotName}`)
+  return updated
+}
+
+export async function deleteWifiRadioRecord(id: string): Promise<void> {
+  const existing = state.wifiRadios.find((radio) => radio.id === id)
+  await api.deleteWifiRadio(id)
+  await loadAll(true)
+  if (existing) {
+    void recordAudit('wifi.radio.delete', 'WifiRadio', id, `Deleted WiFi radio ${existing.slotName}`)
+  }
+}
+
+export async function saveWifiClientAssociationRecord(
+  clientDeviceId: string,
+  changes: WifiClientAssociationPatch,
+): Promise<WifiClientAssociation> {
+  const updated = await api.saveWifiClientAssociation(clientDeviceId, changes)
+  await loadAll(true)
+  const client = state.devices.find((entry) => entry.id === clientDeviceId)
+  const ap = state.devices.find((entry) => entry.id === updated.apDeviceId)
+  void recordAudit(
+    'wifi.client.link',
+    'WifiClientAssociation',
+    clientDeviceId,
+    `Linked ${client?.hostname ?? clientDeviceId} to ${ap?.hostname ?? updated.apDeviceId}${updated.ssidId ? ` on ${state.wifiSsids.find((ssid) => ssid.id === updated.ssidId)?.name ?? updated.ssidId}` : ''}`,
+  )
+  return updated
+}
+
+export async function deleteWifiClientAssociationRecord(clientDeviceId: string): Promise<void> {
+  const existing = state.wifiClientAssociations.find((association) => association.clientDeviceId === clientDeviceId)
+  const client = state.devices.find((entry) => entry.id === clientDeviceId)
+  await api.deleteWifiClientAssociation(clientDeviceId)
+  await loadAll(true)
+  if (existing) {
+    const ap = state.devices.find((entry) => entry.id === existing.apDeviceId)
+    void recordAudit(
+      'wifi.client.unlink',
+      'WifiClientAssociation',
+      clientDeviceId,
+      `Removed WiFi link between ${client?.hostname ?? clientDeviceId} and ${ap?.hostname ?? existing.apDeviceId}`,
     )
   }
 }

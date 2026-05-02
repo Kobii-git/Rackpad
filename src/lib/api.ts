@@ -18,6 +18,11 @@ import type {
   UserRole,
   Vlan,
   VlanRange,
+  WifiAccessPoint,
+  WifiClientAssociation,
+  WifiController,
+  WifiRadio,
+  WifiSsid,
 } from './types'
 
 const API_BASE = '/api'
@@ -53,6 +58,11 @@ export type PortTemplatePatch = Nullable<Pick<PortTemplate, 'name' | 'descriptio
 export type DiscoveredDevicePatch = Nullable<
   Pick<DiscoveredDevice, 'hostname' | 'displayName' | 'deviceType' | 'placement' | 'status' | 'notes' | 'importedDeviceId' | 'lastSeen'>
 >
+export type WifiControllerPatch = Nullable<Pick<WifiController, 'deviceId' | 'name' | 'vendor' | 'model' | 'managementIp' | 'notes'>>
+export type WifiSsidPatch = Nullable<Pick<WifiSsid, 'name' | 'purpose' | 'security' | 'hidden' | 'vlanId' | 'color'>>
+export type WifiAccessPointPatch = Nullable<Pick<WifiAccessPoint, 'controllerId' | 'location' | 'firmwareVersion' | 'notes'>>
+export type WifiRadioPatch = Nullable<Pick<WifiRadio, 'slotName' | 'band' | 'channel' | 'channelWidth' | 'txPower' | 'ssidIds' | 'notes'>>
+export type WifiClientAssociationPatch = Nullable<Pick<WifiClientAssociation, 'apDeviceId' | 'radioId' | 'ssidId' | 'band' | 'channel' | 'signalDbm' | 'lastSeen' | 'lastRoamAt' | 'notes'>>
 export type UserPatch = Nullable<Pick<AppUser, 'username' | 'displayName' | 'role' | 'disabled'>> & {
   password?: string | null
 }
@@ -614,6 +624,106 @@ export const api = {
 
   deleteDiscoveredDevice(id: string) {
     return request<void>(`/discovery/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getWifiControllers(params?: { labId?: string }) {
+    return request<WifiController[]>('/wifi/controllers', undefined, params)
+  },
+
+  createWifiController(body: Omit<WifiController, 'id'> & { id?: string }) {
+    return request<WifiController>('/wifi/controllers', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateWifiController(id: string, body: WifiControllerPatch) {
+    return request<WifiController>(`/wifi/controllers/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteWifiController(id: string) {
+    return request<void>(`/wifi/controllers/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getWifiSsids(params?: { labId?: string }) {
+    return request<WifiSsid[]>('/wifi/ssids', undefined, params)
+  },
+
+  createWifiSsid(body: Omit<WifiSsid, 'id'> & { id?: string }) {
+    return request<WifiSsid>('/wifi/ssids', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateWifiSsid(id: string, body: WifiSsidPatch) {
+    return request<WifiSsid>(`/wifi/ssids/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteWifiSsid(id: string) {
+    return request<void>(`/wifi/ssids/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getWifiAccessPoints(params?: { labId?: string }) {
+    return request<WifiAccessPoint[]>('/wifi/access-points', undefined, params)
+  },
+
+  saveWifiAccessPoint(deviceId: string, body: WifiAccessPointPatch) {
+    return request<WifiAccessPoint>(`/wifi/access-points/${deviceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+  },
+
+  getWifiRadios(params?: { labId?: string; apDeviceId?: string }) {
+    return request<WifiRadio[]>('/wifi/radios', undefined, params)
+  },
+
+  createWifiRadio(body: Omit<WifiRadio, 'id'> & { id?: string }) {
+    return request<WifiRadio>('/wifi/radios', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateWifiRadio(id: string, body: WifiRadioPatch) {
+    return request<WifiRadio>(`/wifi/radios/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteWifiRadio(id: string) {
+    return request<void>(`/wifi/radios/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  getWifiClientAssociations(params?: { labId?: string; apDeviceId?: string }) {
+    return request<WifiClientAssociation[]>('/wifi/associations', undefined, params)
+  },
+
+  saveWifiClientAssociation(clientDeviceId: string, body: WifiClientAssociationPatch) {
+    return request<WifiClientAssociation>(`/wifi/associations/${clientDeviceId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteWifiClientAssociation(clientDeviceId: string) {
+    return request<void>(`/wifi/associations/${clientDeviceId}`, {
       method: 'DELETE',
     })
   },

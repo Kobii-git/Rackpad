@@ -58,6 +58,12 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
         ORDER BY username, id
       `).all(),
       deviceMonitors: db.prepare('SELECT * FROM deviceMonitors ORDER BY deviceId, id').all(),
+      wifiControllers: db.prepare('SELECT * FROM wifiControllers ORDER BY name, id').all(),
+      wifiSsids: db.prepare('SELECT * FROM wifiSsids ORDER BY name, id').all(),
+      wifiAccessPoints: db.prepare('SELECT * FROM wifiAccessPoints ORDER BY deviceId').all(),
+      wifiRadios: db.prepare('SELECT * FROM wifiRadios ORDER BY apDeviceId, band, slotName, id').all(),
+      wifiRadioSsids: db.prepare('SELECT * FROM wifiRadioSsids ORDER BY radioId, ssidId').all(),
+      wifiClientAssociations: db.prepare('SELECT * FROM wifiClientAssociations ORDER BY apDeviceId, clientDeviceId').all(),
       appSettings: db.prepare('SELECT * FROM appSettings ORDER BY key').all(),
     },
   }
@@ -107,6 +113,12 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const auditLog = normalizeArrayRecordArray(data.auditLog, 'data.auditLog')
   const users = normalizeArrayRecordArray(data.users, 'data.users')
   const deviceMonitors = normalizeArrayRecordArray(data.deviceMonitors, 'data.deviceMonitors')
+  const wifiControllers = normalizeArrayRecordArray(data.wifiControllers ?? [], 'data.wifiControllers')
+  const wifiSsids = normalizeArrayRecordArray(data.wifiSsids ?? [], 'data.wifiSsids')
+  const wifiAccessPoints = normalizeArrayRecordArray(data.wifiAccessPoints ?? [], 'data.wifiAccessPoints')
+  const wifiRadios = normalizeArrayRecordArray(data.wifiRadios ?? [], 'data.wifiRadios')
+  const wifiRadioSsids = normalizeArrayRecordArray(data.wifiRadioSsids ?? [], 'data.wifiRadioSsids')
+  const wifiClientAssociations = normalizeArrayRecordArray(data.wifiClientAssociations ?? [], 'data.wifiClientAssociations')
   const appSettings = normalizeArrayRecordArray(data.appSettings ?? [], 'data.appSettings')
 
   if (users.length === 0) {
@@ -115,6 +127,12 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
 
   db.exec(`
     DELETE FROM userSessions;
+    DELETE FROM wifiClientAssociations;
+    DELETE FROM wifiRadioSsids;
+    DELETE FROM wifiRadios;
+    DELETE FROM wifiAccessPoints;
+    DELETE FROM wifiSsids;
+    DELETE FROM wifiControllers;
     DELETE FROM deviceMonitors;
     DELETE FROM appSettings;
     DELETE FROM auditLog;
@@ -169,6 +187,31 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const insertDeviceMonitor = db.prepare(`
     INSERT INTO deviceMonitors (id, deviceId, name, type, target, port, path, intervalMs, enabled, sortOrder, lastCheckAt, lastAlertAt, lastResult, lastMessage)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertWifiController = db.prepare(`
+    INSERT INTO wifiControllers (id, labId, deviceId, name, vendor, model, managementIp, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertWifiSsid = db.prepare(`
+    INSERT INTO wifiSsids (id, labId, name, purpose, security, hidden, vlanId, color)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertWifiAccessPoint = db.prepare(`
+    INSERT INTO wifiAccessPoints (deviceId, controllerId, location, firmwareVersion, notes)
+    VALUES (?, ?, ?, ?, ?)
+  `)
+  const insertWifiRadio = db.prepare(`
+    INSERT INTO wifiRadios (id, apDeviceId, slotName, band, channel, channelWidth, txPower, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertWifiRadioSsid = db.prepare(`
+    INSERT INTO wifiRadioSsids (radioId, ssidId)
+    VALUES (?, ?)
+  `)
+  const insertWifiClientAssociation = db.prepare(`
+    INSERT INTO wifiClientAssociations
+      (clientDeviceId, apDeviceId, radioId, ssidId, band, channel, signalDbm, lastSeen, lastRoamAt, notes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertAppSetting = db.prepare(`
     INSERT INTO appSettings (key, value, updatedAt)
@@ -326,6 +369,71 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.lastMessage ?? null,
     )
   }
+  for (const row of wifiControllers) {
+    insertWifiController.run(
+      row.id,
+      row.labId,
+      row.deviceId ?? null,
+      row.name,
+      row.vendor ?? null,
+      row.model ?? null,
+      row.managementIp ?? null,
+      row.notes ?? null,
+    )
+  }
+  for (const row of wifiSsids) {
+    insertWifiSsid.run(
+      row.id,
+      row.labId,
+      row.name,
+      row.purpose ?? null,
+      row.security ?? null,
+      Number(row.hidden ?? 0),
+      row.vlanId ?? null,
+      row.color ?? null,
+    )
+  }
+  for (const row of wifiAccessPoints) {
+    insertWifiAccessPoint.run(
+      row.deviceId,
+      row.controllerId ?? null,
+      row.location ?? null,
+      row.firmwareVersion ?? null,
+      row.notes ?? null,
+    )
+  }
+  for (const row of wifiRadios) {
+    insertWifiRadio.run(
+      row.id,
+      row.apDeviceId,
+      row.slotName,
+      row.band,
+      row.channel,
+      row.channelWidth ?? null,
+      row.txPower ?? null,
+      row.notes ?? null,
+    )
+  }
+  for (const row of wifiRadioSsids) {
+    insertWifiRadioSsid.run(
+      row.radioId,
+      row.ssidId,
+    )
+  }
+  for (const row of wifiClientAssociations) {
+    insertWifiClientAssociation.run(
+      row.clientDeviceId,
+      row.apDeviceId,
+      row.radioId ?? null,
+      row.ssidId ?? null,
+      row.band ?? null,
+      row.channel ?? null,
+      row.signalDbm ?? null,
+      row.lastSeen ?? null,
+      row.lastRoamAt ?? null,
+      row.notes ?? null,
+    )
+  }
   for (const row of appSettings) {
     insertAppSetting.run(
       row.key,
@@ -357,6 +465,10 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       devices: devices.length,
       discoveredDevices: discoveredDevices.length,
       portTemplates: portTemplates.length,
+      wifiControllers: wifiControllers.length,
+      wifiSsids: wifiSsids.length,
+      wifiRadios: wifiRadios.length,
+      wifiClientAssociations: wifiClientAssociations.length,
       vlans: vlans.length,
       subnets: subnets.length,
       users: users.length,
