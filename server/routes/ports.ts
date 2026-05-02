@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db, parseRow } from '../db.js'
 import { BUILT_IN_PORT_TEMPLATES, listPortTemplates } from '../lib/port-templates.js'
+import { ensurePortVirtualSwitchMembership } from './virtual-switches.js'
 import { createId } from '../lib/ids.js'
 import {
   asObject,
@@ -190,6 +191,7 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     const linkState = optionalEnum(body, 'linkState', LINK_STATES) ?? 'down'
     const mode = optionalEnum(body, 'mode', PORT_MODES) ?? 'access'
     const vlanId = optionalString(body, 'vlanId', { maxLength: 80 })
+    const virtualSwitchId = optionalString(body, 'virtualSwitchId', { maxLength: 80 })
     const allowedVlanIds = normalizeAllowedVlanIds(optionalStringArray(body, 'allowedVlanIds', { maxItems: 128 }))
     const description = optionalString(body, 'description', { maxLength: 500 })
     const face = optionalEnum(body, 'face', PORT_FACES) ?? 'front'
@@ -199,14 +201,17 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     if (!device) {
       return reply.status(404).send({ error: 'Device not found.' })
     }
+    if (virtualSwitchId) {
+      ensurePortVirtualSwitchMembership(deviceId, virtualSwitchId)
+    }
 
     const row = db.prepare('SELECT MAX(position) AS maxPosition FROM ports WHERE deviceId = ?').get(deviceId) as { maxPosition?: number | null }
     const position = requestedPosition ?? ((row.maxPosition ?? 0) + 1)
     const id = createId('p')
 
     db.prepare(`
-      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       deviceId,
@@ -220,6 +225,7 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
       mode === 'trunk' && allowedVlanIds ? JSON.stringify(allowedVlanIds) : null,
       description ?? null,
       face,
+      virtualSwitchId ?? null,
     )
 
     const created = db.prepare('SELECT * FROM ports WHERE id = ?').get(id) as Record<string, unknown>
@@ -238,15 +244,21 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     const name = optionalString(body, 'name', { maxLength: 120 })
     const speed = optionalString(body, 'speed', { maxLength: 20 })
     const vlanId = optionalString(body, 'vlanId', { maxLength: 80 })
+    const virtualSwitchId = optionalString(body, 'virtualSwitchId', { maxLength: 80 })
     const allowedVlanIds = normalizeAllowedVlanIds(optionalStringArray(body, 'allowedVlanIds', { maxItems: 128 }))
     const description = optionalString(body, 'description', { maxLength: 500 })
     const nextMode = 'mode' in body
       ? requiredEnum(body, 'mode', PORT_MODES)
       : (String(current.mode ?? 'access') as (typeof PORT_MODES)[number])
 
+    if (virtualSwitchId) {
+      ensurePortVirtualSwitchMembership(String(current.deviceId), virtualSwitchId)
+    }
+
     if (name !== undefined) { updates.push('name = ?'); values.push(name) }
     if (speed !== undefined) { updates.push('speed = ?'); values.push(speed) }
     if (vlanId !== undefined) { updates.push('vlanId = ?'); values.push(vlanId) }
+    if (virtualSwitchId !== undefined) { updates.push('virtualSwitchId = ?'); values.push(virtualSwitchId) }
     if (description !== undefined) { updates.push('description = ?'); values.push(description) }
 
     if ('kind' in body) { updates.push('kind = ?'); values.push(requiredEnum(body, 'kind', PORT_KINDS)) }

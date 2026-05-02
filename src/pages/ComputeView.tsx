@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Cpu, Plus, Server } from "lucide-react";
+import { Cpu, Network, Pencil, Plus, Save, Trash2, X } from "lucide-react";
 import { DeviceDrawer } from "@/components/shared/DeviceDrawer";
 import { TopBar } from "@/components/layout/TopBar";
 import { Button } from "@/components/ui/Button";
@@ -13,10 +13,17 @@ import {
   CardLabel,
   CardTitle,
 } from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
 import { DeviceTypeIcon } from "@/components/shared/DeviceTypeIcon";
 import { StatusDot } from "@/components/shared/StatusDot";
-import { canEditInventory, useStore } from "@/lib/store";
-import type { Device } from "@/lib/types";
+import {
+  canEditInventory,
+  createVirtualSwitchRecord,
+  deleteVirtualSwitchRecord,
+  updateVirtualSwitchRecord,
+  useStore,
+} from "@/lib/store";
+import type { Device, Port, VirtualSwitch } from "@/lib/types";
 import { statusLabel } from "@/lib/utils";
 
 const HOST_DEVICE_TYPES = new Set<Device["deviceType"]>([
@@ -29,6 +36,8 @@ const HOST_DEVICE_TYPES = new Set<Device["deviceType"]>([
 export default function ComputeView() {
   const currentUser = useStore((s) => s.currentUser);
   const devices = useStore((s) => s.devices);
+  const ports = useStore((s) => s.ports);
+  const virtualSwitches = useStore((s) => s.virtualSwitches);
   const canEdit = canEditInventory(currentUser);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerDefaults, setDrawerDefaults] = useState<{
@@ -37,6 +46,14 @@ export default function ComputeView() {
     parentDeviceId?: string;
     status?: Device["status"];
   }>();
+  const [bridgeEditorHostId, setBridgeEditorHostId] = useState<string | null>(
+    null,
+  );
+  const [bridgeEditingId, setBridgeEditingId] = useState<string | null>(null);
+  const [bridgeForm, setBridgeForm] = useState({ name: "", notes: "" });
+  const [bridgeSaving, setBridgeSaving] = useState(false);
+  const [bridgeDeletingId, setBridgeDeletingId] = useState<string | null>(null);
+  const [bridgeError, setBridgeError] = useState("");
 
   const vms = useMemo(
     () =>
@@ -81,6 +98,24 @@ export default function ComputeView() {
     }, {});
   }, [vms]);
 
+  const virtualSwitchesByHostId = useMemo(() => {
+    return virtualSwitches.reduce<Record<string, VirtualSwitch[]>>(
+      (acc, virtualSwitch) => {
+        (acc[virtualSwitch.hostDeviceId] ??= []).push(virtualSwitch);
+        return acc;
+      },
+      {},
+    );
+  }, [virtualSwitches]);
+
+  const portsByVirtualSwitchId = useMemo(() => {
+    return ports.reduce<Record<string, typeof ports>>((acc, port) => {
+      if (!port.virtualSwitchId) return acc;
+      (acc[port.virtualSwitchId] ??= []).push(port);
+      return acc;
+    }, {});
+  }, [ports]);
+
   const unassignedVms = useMemo(
     () =>
       vms.filter(
@@ -97,6 +132,79 @@ export default function ComputeView() {
   const emptyHosts = hosts.filter(
     (host) => (guestsByHostId[host.id] ?? []).length === 0,
   );
+
+  function openBridgeEditor(hostId: string, virtualSwitch?: VirtualSwitch) {
+    setBridgeEditorHostId(hostId);
+    setBridgeEditingId(virtualSwitch?.id ?? null);
+    setBridgeForm({
+      name: virtualSwitch?.name ?? "",
+      notes: virtualSwitch?.notes ?? "",
+    });
+    setBridgeError("");
+  }
+
+  function closeBridgeEditor() {
+    setBridgeEditorHostId(null);
+    setBridgeEditingId(null);
+    setBridgeForm({ name: "", notes: "" });
+    setBridgeError("");
+  }
+
+  async function handleSaveBridge(hostId: string) {
+    if (!bridgeForm.name.trim()) {
+      setBridgeError("Bridge name is required.");
+      return;
+    }
+
+    setBridgeSaving(true);
+    setBridgeError("");
+    try {
+      if (bridgeEditingId) {
+        await updateVirtualSwitchRecord(bridgeEditingId, {
+          name: bridgeForm.name.trim(),
+          notes: bridgeForm.notes.trim() || null,
+        });
+      } else {
+        await createVirtualSwitchRecord({
+          hostDeviceId: hostId,
+          name: bridgeForm.name.trim(),
+          notes: bridgeForm.notes.trim() || null,
+        });
+      }
+      closeBridgeEditor();
+    } catch (error) {
+      setBridgeError(
+        error instanceof Error ? error.message : "Failed to save bridge.",
+      );
+    } finally {
+      setBridgeSaving(false);
+    }
+  }
+
+  async function handleDeleteBridge(virtualSwitch: VirtualSwitch) {
+    if (
+      !window.confirm(
+        `Delete virtual switch "${virtualSwitch.name}"? Ports mapped to it will keep their VLAN settings but lose bridge membership.`,
+      )
+    ) {
+      return;
+    }
+
+    setBridgeDeletingId(virtualSwitch.id);
+    setBridgeError("");
+    try {
+      await deleteVirtualSwitchRecord(virtualSwitch.id);
+      if (bridgeEditingId === virtualSwitch.id) {
+        closeBridgeEditor();
+      }
+    } catch (error) {
+      setBridgeError(
+        error instanceof Error ? error.message : "Failed to delete bridge.",
+      );
+    } finally {
+      setBridgeDeletingId(null);
+    }
+  }
 
   return (
     <>
@@ -268,6 +376,31 @@ export default function ComputeView() {
                                 ))}
                               </div>
 
+                              <VirtualSwitchSection
+                                host={host}
+                                virtualSwitches={
+                                  virtualSwitchesByHostId[host.id] ?? []
+                                }
+                                portsByVirtualSwitchId={portsByVirtualSwitchId}
+                                canEdit={canEdit}
+                                editingHostId={bridgeEditorHostId}
+                                editingId={bridgeEditingId}
+                                bridgeForm={bridgeForm}
+                                bridgeSaving={bridgeSaving}
+                                bridgeDeletingId={bridgeDeletingId}
+                                bridgeError={bridgeError}
+                                onFormChange={setBridgeForm}
+                                onCreate={() => openBridgeEditor(host.id)}
+                                onEdit={(virtualSwitch) =>
+                                  openBridgeEditor(host.id, virtualSwitch)
+                                }
+                                onCancel={closeBridgeEditor}
+                                onSave={() => void handleSaveBridge(host.id)}
+                                onDelete={(virtualSwitch) =>
+                                  void handleDeleteBridge(virtualSwitch)
+                                }
+                              />
+
                               {canEdit && (
                                 <div className="flex justify-end">
                                   <Button
@@ -323,6 +456,31 @@ export default function ComputeView() {
                                 host.managementIp ||
                                 statusLabel[host.status]}
                             </div>
+                            <VirtualSwitchSection
+                              host={host}
+                              virtualSwitches={
+                                virtualSwitchesByHostId[host.id] ?? []
+                              }
+                              portsByVirtualSwitchId={portsByVirtualSwitchId}
+                              canEdit={canEdit}
+                              editingHostId={bridgeEditorHostId}
+                              editingId={bridgeEditingId}
+                              bridgeForm={bridgeForm}
+                              bridgeSaving={bridgeSaving}
+                              bridgeDeletingId={bridgeDeletingId}
+                              bridgeError={bridgeError}
+                              onFormChange={setBridgeForm}
+                              onCreate={() => openBridgeEditor(host.id)}
+                              onEdit={(virtualSwitch) =>
+                                openBridgeEditor(host.id, virtualSwitch)
+                              }
+                              onCancel={closeBridgeEditor}
+                              onSave={() => void handleSaveBridge(host.id)}
+                              onDelete={(virtualSwitch) =>
+                                void handleDeleteBridge(virtualSwitch)
+                              }
+                              compact
+                            />
                           </div>
                         ))}
                       </div>
@@ -413,6 +571,219 @@ function ComputeStat({
         {hint}
       </div>
     </div>
+  );
+}
+
+function VirtualSwitchSection({
+  host,
+  virtualSwitches,
+  portsByVirtualSwitchId,
+  canEdit,
+  editingHostId,
+  editingId,
+  bridgeForm,
+  bridgeSaving,
+  bridgeDeletingId,
+  bridgeError,
+  onFormChange,
+  onCreate,
+  onEdit,
+  onCancel,
+  onSave,
+  onDelete,
+  compact = false,
+}: {
+  host: Device;
+  virtualSwitches: VirtualSwitch[];
+  portsByVirtualSwitchId: Record<string, Port[]>;
+  canEdit: boolean;
+  editingHostId: string | null;
+  editingId: string | null;
+  bridgeForm: { name: string; notes: string };
+  bridgeSaving: boolean;
+  bridgeDeletingId: string | null;
+  bridgeError: string;
+  onFormChange: (next: { name: string; notes: string }) => void;
+  onCreate: () => void;
+  onEdit: (virtualSwitch: VirtualSwitch) => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onDelete: (virtualSwitch: VirtualSwitch) => void;
+  compact?: boolean;
+}) {
+  const editorOpen = editingHostId === host.id;
+
+  return (
+    <div className={compact ? "mt-3 space-y-2" : "space-y-3"}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+          Virtual switches
+        </div>
+        {canEdit ? (
+          <Button variant="outline" size="sm" onClick={onCreate}>
+            <Plus className="size-3.5" />
+            Add bridge
+          </Button>
+        ) : null}
+      </div>
+
+      {virtualSwitches.length === 0 && !editorOpen ? (
+        <div className="rounded-[var(--radius-sm)] border border-dashed border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-[11px] text-[var(--color-fg-subtle)]">
+          No host bridges documented yet.
+        </div>
+      ) : null}
+
+      {virtualSwitches.length > 0 ? (
+        <div className="grid gap-2">
+          {virtualSwitches.map((virtualSwitch) => {
+            const members = portsByVirtualSwitchId[virtualSwitch.id] ?? [];
+            const uplinks = members.filter(
+              (port) => port.deviceId === host.id,
+            ).length;
+            const guestPorts = members.length - uplinks;
+            const isEditing = editingId === virtualSwitch.id && editorOpen;
+
+            return (
+              <div
+                key={virtualSwitch.id}
+                className="rk-panel-inset rounded-[var(--radius-md)] px-3 py-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Network className="size-3.5 text-[var(--accent-secondary)]" />
+                      <span className="truncate text-sm font-medium text-[var(--text-primary)]">
+                        {virtualSwitch.name}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+                      {members.length} member ports | {uplinks} host uplinks |{" "}
+                      {guestPorts} guest NICs
+                    </div>
+                    {virtualSwitch.notes ? (
+                      <div className="mt-1 text-[11px] text-[var(--text-muted)]">
+                        {virtualSwitch.notes}
+                      </div>
+                    ) : null}
+                  </div>
+                  {canEdit ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant={isEditing ? "default" : "ghost"}
+                        size="icon"
+                        onClick={() => onEdit(virtualSwitch)}
+                        aria-label={`Edit ${virtualSwitch.name}`}
+                      >
+                        <Pencil className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDelete(virtualSwitch)}
+                        aria-label={`Delete ${virtualSwitch.name}`}
+                        disabled={bridgeDeletingId === virtualSwitch.id}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {editorOpen ? (
+        <div className="rk-panel rounded-[var(--radius-md)] p-3">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div>
+              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                {editingId ? "Edit bridge" : "New bridge"}
+              </div>
+              <div className="text-sm font-medium text-[var(--text-primary)]">
+                {host.hostname}
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" onClick={onCancel}>
+              <X className="size-3.5" />
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            <ComputeField label="Name">
+              <Input
+                value={bridgeForm.name}
+                onChange={(event) =>
+                  onFormChange({
+                    ...bridgeForm,
+                    name: event.target.value,
+                  })
+                }
+                placeholder="vSwitch-Servers"
+              />
+            </ComputeField>
+
+            <ComputeField label="Notes">
+              <textarea
+                value={bridgeForm.notes}
+                onChange={(event) =>
+                  onFormChange({
+                    ...bridgeForm,
+                    notes: event.target.value,
+                  })
+                }
+                rows={3}
+                className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                placeholder="External uplink bridge for guest and management networks"
+              />
+            </ComputeField>
+
+            <div className="text-[11px] text-[var(--color-fg-subtle)]">
+              Ports on this host and on VMs linked to it can join the same
+              bridge from the Ports workspace.
+            </div>
+
+            {bridgeError ? (
+              <div className="text-xs text-[var(--color-err)]">
+                {bridgeError}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={onSave} disabled={bridgeSaving}>
+                <Save className="size-3.5" />
+                {bridgeSaving
+                  ? "Saving..."
+                  : editingId
+                    ? "Save bridge"
+                    : "Create bridge"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ComputeField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block">
+      <div className="mb-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </div>
+      {children}
+    </label>
   );
 }
 

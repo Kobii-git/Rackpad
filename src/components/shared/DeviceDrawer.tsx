@@ -20,11 +20,14 @@ const DEVICE_TYPES: DeviceType[] = [
   "router",
   "firewall",
   "server",
+  "rack_shelf",
   "ap",
   "endpoint",
   "vm",
   "storage",
   "patch_panel",
+  "brush_panel",
+  "blanking_panel",
   "pdu",
   "ups",
   "kvm",
@@ -181,14 +184,21 @@ export function DeviceDrawer({
       .filter((entry) => {
         if (form.placement === "wireless") return entry.deviceType === "ap";
         if (form.placement === "virtual") return entry.deviceType !== "vm";
+        if (form.placement === "shelf") return entry.deviceType === "rack_shelf";
         return true;
       })
       .sort((a, b) => a.hostname.localeCompare(b.hostname));
   }, [device, devices, form.placement]);
   const showParentSelector =
-    form.placement === "wireless" || form.placement === "virtual";
+    form.placement === "wireless" ||
+    form.placement === "virtual" ||
+    form.placement === "shelf";
   const parentLabel =
-    form.placement === "wireless" ? "Connected AP" : "Host device";
+    form.placement === "wireless"
+      ? "Connected AP"
+      : form.placement === "shelf"
+        ? "Rack shelf / tray"
+        : "Host device";
 
   useEffect(() => {
     if (!form.portTemplateId) return;
@@ -211,6 +221,12 @@ export function DeviceDrawer({
       face: "front",
     }));
   }, [form.placement]);
+
+  useEffect(() => {
+    if (form.deviceType !== "rack_shelf") return;
+    if (form.placement === "rack") return;
+    setForm((prev) => ({ ...prev, placement: "rack", parentDeviceId: "" }));
+  }, [form.deviceType, form.placement]);
 
   useEffect(() => {
     if (showParentSelector) return;
@@ -505,6 +521,9 @@ export function DeviceDrawer({
                     >
                       <option value="rack">Rack mounted</option>
                       <option value="room">Loose / room tech</option>
+                      {form.deviceType !== "rack_shelf" && (
+                        <option value="shelf">On rack shelf / tray</option>
+                      )}
                       <option value="wireless">WiFi / AP linked</option>
                       <option value="virtual">Virtual / hosted</option>
                     </Select>
@@ -519,6 +538,8 @@ export function DeviceDrawer({
                         <option value="">
                           {form.placement === "wireless"
                             ? "-- no AP selected --"
+                            : form.placement === "shelf"
+                              ? "-- no rack shelf selected --"
                             : "-- no host selected --"}
                         </option>
                         {parentCandidates.map((entry) => (

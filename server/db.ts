@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 9
+const CURRENT_SCHEMA_VERSION = 10
 
 export const db = new Database(DB_PATH)
 
@@ -471,6 +471,25 @@ const SCHEMA_MIGRATIONS = [
     sql: `
       ALTER TABLE ports ADD COLUMN mode TEXT NOT NULL DEFAULT 'access';
       ALTER TABLE ports ADD COLUMN allowedVlanIds TEXT;
+    `,
+  },
+  {
+    version: 10,
+    sql: `
+      CREATE TABLE IF NOT EXISTS virtualSwitches (
+        id           TEXT PRIMARY KEY,
+        hostDeviceId TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+        name         TEXT NOT NULL,
+        notes        TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_virtual_switches_host_device_id
+        ON virtualSwitches (hostDeviceId);
+
+      ALTER TABLE ports ADD COLUMN virtualSwitchId TEXT REFERENCES virtualSwitches(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_ports_virtual_switch_id
+        ON ports (virtualSwitchId);
     `,
   },
 ] as const

@@ -5,10 +5,13 @@ export type DeviceType =
   | "router"
   | "firewall"
   | "server"
+  | "rack_shelf"
   | "ap"
   | "endpoint"
   | "vm"
   | "patch_panel"
+  | "brush_panel"
+  | "blanking_panel"
   | "storage"
   | "pdu"
   | "ups"
@@ -35,7 +38,12 @@ export type DeviceStatus =
   | "warning"
   | "unknown"
   | "maintenance";
-export type DevicePlacement = "rack" | "room" | "wireless" | "virtual";
+export type DevicePlacement =
+  | "rack"
+  | "room"
+  | "wireless"
+  | "virtual"
+  | "shelf";
 export type IpAssignmentType =
   | "device"
   | "interface"
@@ -121,8 +129,16 @@ export interface Port {
   mode: PortMode;
   vlanId?: ID;
   allowedVlanIds?: ID[];
+  virtualSwitchId?: ID | null;
   description?: string;
   face?: RackFace;
+}
+
+export interface VirtualSwitch {
+  id: ID;
+  hostDeviceId: ID;
+  name: string;
+  notes?: string | null;
 }
 
 export interface PortLink {

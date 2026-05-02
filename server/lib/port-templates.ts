@@ -221,5 +221,6 @@ export function createPortsFromTemplate(deviceId: string, templateId: string) {
     allowedVlanIds: port.mode === 'trunk' ? JSON.stringify(port.allowedVlanIds ?? []) : null,
     description: null,
     face: port.face ?? 'front',
+    virtualSwitchId: null,
   }))
 }

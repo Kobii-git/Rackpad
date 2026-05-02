@@ -20,6 +20,7 @@ import type {
   UserRole,
   Vlan,
   VlanRange,
+  VirtualSwitch,
   WifiAccessPoint,
   WifiClientAssociation,
   WifiController,
@@ -38,6 +39,7 @@ import type {
   SubnetPatch,
   UserPatch,
   VlanRangePatch,
+  VirtualSwitchPatch,
   WifiAccessPointPatch,
   WifiClientAssociationPatch,
   WifiControllerPatch,
@@ -76,6 +78,7 @@ interface State {
   devices: Device[];
   ports: Port[];
   portLinks: PortLink[];
+  virtualSwitches: VirtualSwitch[];
   vlans: Vlan[];
   vlanRanges: VlanRange[];
   subnets: Subnet[];
@@ -100,6 +103,7 @@ const EMPTY_DATA = {
   devices: [] as Device[],
   ports: [] as Port[],
   portLinks: [] as PortLink[],
+  virtualSwitches: [] as VirtualSwitch[],
   vlans: [] as Vlan[],
   vlanRanges: [] as VlanRange[],
   subnets: [] as Subnet[],
@@ -227,6 +231,14 @@ function sortPorts(ports: Port[]) {
   return [...ports].sort((a, b) => {
     const byDevice = a.deviceId.localeCompare(b.deviceId);
     return byDevice !== 0 ? byDevice : a.position - b.position;
+  });
+}
+
+function sortVirtualSwitches(virtualSwitches: VirtualSwitch[]) {
+  return [...virtualSwitches].sort((a, b) => {
+    const byHost = a.hostDeviceId.localeCompare(b.hostDeviceId);
+    if (byHost !== 0) return byHost;
+    return a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
   });
 }
 
@@ -383,6 +395,7 @@ function filterAuditForLab(
     deviceIds: Set<string>;
     portIds: Set<string>;
     portLinkIds: Set<string>;
+    virtualSwitchIds: Set<string>;
     vlanIds: Set<string>;
     vlanRangeIds: Set<string>;
     subnetIds: Set<string>;
@@ -411,6 +424,8 @@ function filterAuditForLab(
           return context.portIds.has(entry.entityId);
         case "PortLink":
           return context.portLinkIds.has(entry.entityId);
+        case "VirtualSwitch":
+          return context.virtualSwitchIds.has(entry.entityId);
         case "Vlan":
           return context.vlanIds.has(entry.entityId);
         case "VlanRange":
@@ -848,6 +863,7 @@ export async function loadAll(
       const requests = {
         racks: api.getRacks(),
         devices: api.getDevices(),
+        virtualSwitches: api.getVirtualSwitches(),
         ports: api.getPorts(),
         portLinks: api.getPortLinks(),
         vlans: api.getVlans(),
@@ -913,6 +929,15 @@ export async function loadAll(
         (resolved.get("vlans") as Vlan[] | undefined) ?? [],
       ).filter((vlan) => vlan.labId === activeLab.id);
       const vlanIds = new Set(allVlans.map((vlan) => vlan.id));
+
+      const allVirtualSwitches = sortVirtualSwitches(
+        (
+          (resolved.get("virtualSwitches") as VirtualSwitch[] | undefined) ?? []
+        ).filter((virtualSwitch) => deviceIds.has(virtualSwitch.hostDeviceId)),
+      );
+      const virtualSwitchIds = new Set(
+        allVirtualSwitches.map((virtualSwitch) => virtualSwitch.id),
+      );
 
       const allVlanRanges = sortVlanRanges(
         (resolved.get("vlanRanges") as VlanRange[] | undefined) ?? [],
@@ -1040,6 +1065,7 @@ export async function loadAll(
           deviceIds,
           portIds,
           portLinkIds,
+          virtualSwitchIds,
           vlanIds,
           vlanRangeIds,
           subnetIds,
@@ -1068,6 +1094,7 @@ export async function loadAll(
             : null,
         racks: allRacks,
         devices: allDevices,
+        virtualSwitches: allVirtualSwitches,
         ports: allPorts,
         portLinks: allPortLinks,
         vlans: allVlans,
@@ -1313,6 +1340,87 @@ export async function deleteRackRecord(id: string): Promise<void> {
   }
 }
 
+export async function createVirtualSwitchRecord(input: {
+  hostDeviceId: string;
+  name: string;
+  notes?: string | null;
+}): Promise<VirtualSwitch> {
+  const created = await api.createVirtualSwitch({
+    hostDeviceId: input.hostDeviceId,
+    name: input.name,
+    notes: input.notes ?? null,
+  });
+
+  setState((prev) => ({
+    ...prev,
+    virtualSwitches: sortVirtualSwitches([...prev.virtualSwitches, created]),
+  }));
+
+  const host = state.devices.find((device) => device.id === created.hostDeviceId);
+  void recordAudit(
+    "virtual.switch.create",
+    "VirtualSwitch",
+    created.id,
+    `Added virtual switch ${created.name} on ${host?.hostname ?? created.hostDeviceId}`,
+  );
+
+  return created;
+}
+
+export async function updateVirtualSwitchRecord(
+  id: string,
+  changes: VirtualSwitchPatch,
+): Promise<VirtualSwitch | null> {
+  const existing = state.virtualSwitches.find((virtualSwitch) => virtualSwitch.id === id);
+  if (!existing) return null;
+
+  const updated = await api.updateVirtualSwitch(id, changes);
+  setState((prev) => ({
+    ...prev,
+    virtualSwitches: replaceById(
+      prev.virtualSwitches,
+      updated,
+      sortVirtualSwitches,
+    ),
+  }));
+
+  void recordAudit(
+    "virtual.switch.update",
+    "VirtualSwitch",
+    id,
+    `Updated virtual switch ${updated.name}`,
+  );
+
+  return updated;
+}
+
+export async function deleteVirtualSwitchRecord(id: string): Promise<boolean> {
+  const existing = state.virtualSwitches.find((virtualSwitch) => virtualSwitch.id === id);
+  if (!existing) return false;
+
+  await api.deleteVirtualSwitch(id);
+  setState((prev) => ({
+    ...prev,
+    virtualSwitches: prev.virtualSwitches.filter(
+      (virtualSwitch) => virtualSwitch.id !== id,
+    ),
+    ports: prev.ports.map((port) =>
+      port.virtualSwitchId === id
+        ? { ...port, virtualSwitchId: null }
+        : port,
+    ),
+  }));
+
+  void recordAudit(
+    "virtual.switch.delete",
+    "VirtualSwitch",
+    id,
+    `Deleted virtual switch ${existing.name}`,
+  );
+
+  return true;
+}
+
 export async function updatePort(
   id: string,
   changes: Partial<Omit<Port, "id" | "deviceId" | "position">>,
@@ -1329,6 +1437,7 @@ export async function updatePort(
     "mode",
     "vlanId",
     "allowedVlanIds",
+    "virtualSwitchId",
     "description",
     "face",
   ] as const;
@@ -1749,6 +1858,9 @@ export async function deleteDevice(id: string): Promise<boolean> {
 
   setState((prev) => ({
     ...prev,
+    virtualSwitches: prev.virtualSwitches.filter(
+      (virtualSwitch) => virtualSwitch.hostDeviceId !== id,
+    ),
     devices: prev.devices
       .filter((entry) => entry.id !== id)
       .map((entry) =>
@@ -1756,7 +1868,17 @@ export async function deleteDevice(id: string): Promise<boolean> {
           ? { ...entry, parentDeviceId: undefined }
           : entry,
       ),
-    ports: prev.ports.filter((port) => port.deviceId !== id),
+    ports: prev.ports
+      .filter((port) => port.deviceId !== id)
+      .map((port) =>
+        prev.virtualSwitches.some(
+          (virtualSwitch) =>
+            virtualSwitch.hostDeviceId === id &&
+            virtualSwitch.id === port.virtualSwitchId,
+        )
+          ? { ...port, virtualSwitchId: null }
+          : port,
+      ),
     portLinks: prev.portLinks.filter(
       (link) =>
         !devicePortIds.includes(link.fromPortId) &&

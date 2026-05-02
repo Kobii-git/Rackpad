@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Device, Port, PortLink } from "@/lib/types";
+import type { Device, Port, PortLink, VirtualSwitch, Vlan } from "@/lib/types";
 import { cn, portTypeColor, portTypeLabel } from "@/lib/utils";
 import { StatusDot } from "@/components/shared/StatusDot";
 import { Mono } from "@/components/shared/Mono";
@@ -10,6 +10,8 @@ interface PortListProps {
   links: Record<string, PortLink>;
   portsById: Record<string, Port>;
   devicesById: Record<string, Device>;
+  vlansById?: Record<string, Vlan>;
+  virtualSwitchesById?: Record<string, VirtualSwitch>;
   onSelectPort?: (portId: string) => void;
   selectedPortId?: string;
 }
@@ -19,6 +21,8 @@ export function PortList({
   links,
   portsById,
   devicesById,
+  vlansById = {},
+  virtualSwitchesById = {},
   onSelectPort,
   selectedPortId,
 }: PortListProps) {
@@ -81,7 +85,11 @@ export function PortList({
                 </Td>
                 <Td>
                   <div className="text-xs text-[var(--text-secondary)]">
-                    {formatPortModeSummary(port)}
+                    {formatPortModeSummary(
+                      port,
+                      vlansById,
+                      virtualSwitchesById,
+                    )}
                   </div>
                 </Td>
                 <Td>
@@ -137,14 +145,38 @@ function Td({
   return <td className={cn(className)}>{children}</td>;
 }
 
-function formatPortModeSummary(port: Port) {
+function formatPortModeSummary(
+  port: Port,
+  vlansById: Record<string, Vlan>,
+  virtualSwitchesById: Record<string, VirtualSwitch>,
+) {
+  const virtualSwitchSuffix = port.virtualSwitchId
+    ? ` | bridge ${virtualSwitchesById[port.virtualSwitchId]?.name ?? port.virtualSwitchId}`
+    : "";
   if (port.mode === "trunk") {
-    const taggedCount = port.allowedVlanIds?.length ?? 0;
-    const nativeLabel = port.vlanId ? `native ${port.vlanId}` : "no native";
-    return taggedCount > 0
-      ? `trunk | ${nativeLabel} | ${taggedCount} tagged`
+    const tagged = (port.allowedVlanIds ?? []).map((vlanId) =>
+      formatCompactVlanLabel(vlanId, vlansById),
+    );
+    const nativeLabel = port.vlanId
+      ? `native ${formatCompactVlanLabel(port.vlanId, vlansById)}`
+      : "no native";
+
+    const summary = tagged.length > 0
+      ? `trunk | ${nativeLabel} | tagged ${tagged.join(", ")}`
       : `trunk | ${nativeLabel}`;
+    return `${summary}${virtualSwitchSuffix}`;
   }
 
-  return port.vlanId ? `access | VLAN ${port.vlanId}` : "access | unassigned";
+  const base = port.vlanId
+    ? `access | VLAN ${formatCompactVlanLabel(port.vlanId, vlansById)}`
+    : "access | unassigned";
+
+  return `${base}${virtualSwitchSuffix}`;
+}
+function formatCompactVlanLabel(
+  vlanId: string,
+  vlansById: Record<string, Vlan>,
+) {
+  const vlan = vlansById[vlanId];
+  return vlan ? String(vlan.vlanId) : vlanId;
 }

@@ -22,10 +22,13 @@ const DEVICE_TYPES = [
   'router',
   'firewall',
   'server',
+  'rack_shelf',
   'ap',
   'endpoint',
   'vm',
   'patch_panel',
+  'brush_panel',
+  'blanking_panel',
   'storage',
   'pdu',
   'ups',
@@ -34,7 +37,7 @@ const DEVICE_TYPES = [
 ] as const
 
 const DEVICE_STATUSES = ['online', 'offline', 'warning', 'unknown', 'maintenance'] as const
-const DEVICE_PLACEMENTS = ['rack', 'room', 'wireless', 'virtual'] as const
+const DEVICE_PLACEMENTS = ['rack', 'room', 'wireless', 'virtual', 'shelf'] as const
 const DEVICE_FACES = ['front', 'rear'] as const
 const JSON_COLS = ['tags'] as const
 
@@ -53,7 +56,17 @@ function derivePlacement(input: {
   if (input.rackId || input.startU != null || input.heightU != null) return 'rack'
   if (input.deviceType === 'vm') return 'virtual'
   if (input.deviceType === 'ap') return 'wireless'
+  if (input.deviceType === 'rack_shelf') return 'rack'
   return 'room'
+}
+
+type ParentDeviceRow = {
+  id: string
+  labId: string
+  hostname: string
+  deviceType: (typeof DEVICE_TYPES)[number]
+  rackId: string | null
+  face: (typeof DEVICE_FACES)[number] | null
 }
 
 function normalizePlacement(input: {
@@ -64,8 +77,30 @@ function normalizePlacement(input: {
   startU?: number | null
   heightU?: number | null
   face?: (typeof DEVICE_FACES)[number] | null
+  parentDevice?: ParentDeviceRow | null
 }) {
   const placement = derivePlacement(input)
+
+  if (placement === 'shelf') {
+    const parent = input.parentDevice
+    if (!parent) {
+      throw new ValidationError('A rack shelf / tray must be selected for shelf-mounted gear.')
+    }
+    if (parent.deviceType !== 'rack_shelf') {
+      throw new ValidationError('Shelf-mounted gear can only be attached to a rack shelf / tray.')
+    }
+    if (!parent.rackId) {
+      throw new ValidationError('Selected rack shelf / tray is not mounted in a rack.')
+    }
+
+    return {
+      placement,
+      rackId: parent.rackId,
+      startU: null,
+      heightU: null,
+      face: parent.face ?? null,
+    }
+  }
 
   if (placement !== 'rack') {
     return {
@@ -94,14 +129,16 @@ function normalizePlacement(input: {
   }
 }
 
-function resolveParentDeviceId(parentDeviceId: string | null | undefined, labId: string, deviceId?: string) {
+function resolveParentDevice(parentDeviceId: string | null | undefined, labId: string, deviceId?: string) {
   if (!parentDeviceId) return null
   if (deviceId && parentDeviceId === deviceId) {
     throw new ValidationError('A device cannot be its own parent.')
   }
 
-  const parent = db.prepare('SELECT id, labId FROM devices WHERE id = ?').get(parentDeviceId) as
-    | { id: string; labId: string }
+  const parent = db.prepare(
+    'SELECT id, labId, hostname, deviceType, rackId, face FROM devices WHERE id = ?',
+  ).get(parentDeviceId) as
+    | ParentDeviceRow
     | undefined
 
   if (!parent) {
@@ -111,7 +148,7 @@ function resolveParentDeviceId(parentDeviceId: string | null | undefined, labId:
     throw new ValidationError('Parent device must belong to the same lab.')
   }
 
-  return parent.id
+  return parent
 }
 
 export const devicesRoutes: FastifyPluginAsync = async (app) => {
@@ -160,6 +197,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     if (managementIp) ensureIpv4(managementIp, 'managementIp')
     if (lastSeen) ensureIsoDate(lastSeen, 'lastSeen')
 
+    const parentDevice = resolveParentDevice(parentDeviceId, labId)
     const normalizedPlacement = normalizePlacement({
       deviceType,
       placement,
@@ -167,8 +205,9 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       startU,
       heightU,
       face,
+      parentDevice,
     })
-    const normalizedParentDeviceId = resolveParentDeviceId(parentDeviceId, labId)
+    const normalizedParentDeviceId = parentDevice?.id ?? null
 
     const template = portTemplateId ? getPortTemplate(portTemplateId) : null
     if (portTemplateId && !template) {
@@ -184,8 +223,8 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `)
     const insertPort = db.prepare(`
-      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
-      VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face)
+      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId)
+      VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face, @virtualSwitchId)
     `)
 
     const createDevice = db.transaction(() => {
@@ -253,6 +292,11 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       parentDeviceId !== undefined ||
       'deviceType' in body
     ) {
+      const parentDevice = resolveParentDevice(
+        parentDeviceId === undefined ? (existing.parentDeviceId ? String(existing.parentDeviceId) : null) : parentDeviceId,
+        String(existing.labId),
+        req.params.id,
+      )
       const normalizedPlacement = normalizePlacement({
         deviceId: req.params.id,
         deviceType: nextDeviceType,
@@ -265,12 +309,9 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         face: face === undefined
           ? (existing.face ? String(existing.face) as (typeof DEVICE_FACES)[number] : null)
           : face,
+        parentDevice,
       })
-      const normalizedParentDeviceId = resolveParentDeviceId(
-        parentDeviceId === undefined ? (existing.parentDeviceId ? String(existing.parentDeviceId) : null) : parentDeviceId,
-        String(existing.labId),
-        req.params.id,
-      )
+      const normalizedParentDeviceId = parentDevice?.id ?? null
 
       updates.push('placement = ?', 'parentDeviceId = ?', 'rackId = ?', 'startU = ?', 'heightU = ?', 'face = ?')
       values.push(
@@ -350,8 +391,8 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         throw new ValidationError('Selected port template does not exist.')
       }
       const insertPort = db.prepare(`
-        INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
-        VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face)
+        INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId)
+        VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face, @virtualSwitchId)
       `)
       const applyPorts = db.transaction(() => {
         for (const port of createPortsFromTemplate(req.params.id, template.id)) {

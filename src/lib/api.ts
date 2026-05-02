@@ -18,6 +18,7 @@ import type {
   UserRole,
   Vlan,
   VlanRange,
+  VirtualSwitch,
   WifiAccessPoint,
   WifiClientAssociation,
   WifiController,
@@ -53,6 +54,7 @@ export type IpAssignmentPatch = Nullable<Omit<IpAssignment, "id">>;
 export type VlanPatch = Nullable<Omit<Vlan, "id" | "labId">>;
 export type VlanRangePatch = Nullable<Omit<VlanRange, "id" | "labId">>;
 export type PortPatch = Nullable<Omit<Port, "id" | "deviceId" | "position">>;
+export type VirtualSwitchPatch = Nullable<Pick<VirtualSwitch, "name" | "notes">>;
 export type PortLinkPatch = Nullable<
   Omit<PortLink, "id" | "fromPortId" | "toPortId">
 >;
@@ -391,6 +393,32 @@ export const api = {
 
   getDevices(params?: { rackId?: string; labId?: string }) {
     return request<Device[]>("/devices", undefined, params);
+  },
+
+  getVirtualSwitches(params?: { labId?: string; hostDeviceId?: string }) {
+    return request<VirtualSwitch[]>("/virtual-switches", undefined, params);
+  },
+
+  createVirtualSwitch(
+    body: Omit<VirtualSwitch, "id"> & { id?: string },
+  ) {
+    return request<VirtualSwitch>("/virtual-switches", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+
+  updateVirtualSwitch(id: string, body: VirtualSwitchPatch) {
+    return request<VirtualSwitch>(`/virtual-switches/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    });
+  },
+
+  deleteVirtualSwitch(id: string) {
+    return request<void>(`/virtual-switches/${id}`, {
+      method: "DELETE",
+    });
   },
 
   getDevice(id: string) {

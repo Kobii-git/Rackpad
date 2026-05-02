@@ -73,6 +73,7 @@ export default function DeviceDetail() {
   const devices = useStore((s) => s.devices);
   const ports = useStore((s) => s.ports);
   const portLinks = useStore((s) => s.portLinks);
+  const virtualSwitches = useStore((s) => s.virtualSwitches);
   const vlans = useStore((s) => s.vlans);
   const ipAssignments = useStore((s) => s.ipAssignments);
   const auditLog = useStore((s) => s.auditLog);
@@ -144,6 +145,15 @@ export default function DeviceDetail() {
       return acc;
     }, {});
   }, [vlans]);
+  const virtualSwitchById = useMemo(() => {
+    return virtualSwitches.reduce<Record<string, (typeof virtualSwitches)[number]>>(
+      (acc, entry) => {
+        acc[entry.id] = entry;
+        return acc;
+      },
+      {},
+    );
+  }, [virtualSwitches]);
 
   useEffect(() => {
     setSelectedMonitorId(null);
@@ -564,10 +574,13 @@ export default function DeviceDetail() {
                     <span className="mx-1.5 text-[var(--color-fg-faint)]">
                       |
                     </span>
-                    {rack.name} U{device.startU}
-                    {(device.heightU ?? 1) > 1
-                      ? `-${device.startU! + device.heightU! - 1}`
-                      : ""}
+                    {device.placement === "shelf" && parentDevice
+                      ? `${rack.name} | shelf ${parentDevice.hostname}`
+                      : `${rack.name} U${device.startU}${
+                          (device.heightU ?? 1) > 1
+                            ? `-${device.startU! + device.heightU! - 1}`
+                            : ""
+                        }`}
                   </>
                 )}
               </div>
@@ -656,14 +669,16 @@ export default function DeviceDetail() {
                     />
                     <Row label="Rack" value={rack?.name} />
                     <Row
-                      label={
-                        device.placement === "wireless"
-                          ? "Connected AP"
-                          : device.placement === "virtual"
-                            ? "Host device"
-                            : "Parent"
-                      }
-                      value={parentDevice?.hostname}
+                        label={
+                          device.placement === "wireless"
+                            ? "Connected AP"
+                            : device.placement === "virtual"
+                              ? "Host device"
+                              : device.placement === "shelf"
+                                ? "Rack shelf"
+                              : "Parent"
+                        }
+                        value={parentDevice?.hostname}
                     />
                     <Row label="Face" value={device.face} />
                     <Row
@@ -786,6 +801,8 @@ export default function DeviceDetail() {
                     links={linkByPortId}
                     portsById={portById}
                     devicesById={deviceById}
+                    vlansById={vlanById}
+                    virtualSwitchesById={virtualSwitchById}
                     onSelectPort={setSelectedPortId}
                     selectedPortId={selectedPortId}
                   />
@@ -803,6 +820,8 @@ export default function DeviceDetail() {
                         links={linkByPortId}
                         portsById={portById}
                         devicesById={deviceById}
+                        vlansById={vlanById}
+                        virtualSwitchesById={virtualSwitchById}
                         onSelectPort={setSelectedPortId}
                         selectedPortId={selectedPortId}
                       />
@@ -818,6 +837,7 @@ export default function DeviceDetail() {
                   peerDevice={peerDevice}
                   link={selectedLink}
                   vlansById={vlanById}
+                  virtualSwitchesById={virtualSwitchById}
                 />
               </div>
             </div>
@@ -1305,18 +1325,23 @@ function PortInspectorCard({
   peerDevice,
   link,
   vlansById,
+  virtualSwitchesById,
 }: {
   port?: Port;
   peerPort?: Port;
   peerDevice?: Device;
   link?: PortLink;
   vlansById: Record<string, Vlan>;
+  virtualSwitchesById: Record<string, { id: string; name: string }>;
 }) {
   const primaryVlan = port?.vlanId ? vlansById[port.vlanId] : undefined;
   const allowedVlanLabels =
     port?.allowedVlanIds?.map((vlanId) =>
       formatVlanReference(vlanId, vlansById),
     ) ?? [];
+  const virtualSwitch = port?.virtualSwitchId
+    ? virtualSwitchesById[port.virtualSwitchId]
+    : undefined;
 
   return (
     <Card>
@@ -1374,6 +1399,13 @@ function PortInspectorCard({
                   }
                 />
               )}
+              <InspectorRow
+                label="Virtual switch"
+                value={
+                  virtualSwitch?.name ??
+                  (port.virtualSwitchId ? port.virtualSwitchId : "None")
+                }
+              />
               <InspectorRow label="Type" value={port.kind.replace("_", " ")} />
             </div>
 
@@ -1631,6 +1663,8 @@ function formatPlacement(placement?: Device["placement"]) {
       return "WiFi linked";
     case "virtual":
       return "Virtual";
+    case "shelf":
+      return "On rack shelf";
     case "room":
       return "Loose / room";
     default:

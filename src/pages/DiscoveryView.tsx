@@ -621,6 +621,11 @@ export default function DiscoveryView() {
                           <option value="firewall">firewall</option>
                           <option value="storage">storage</option>
                           <option value="vm">vm</option>
+                          <option value="patch_panel">patch panel</option>
+                          <option value="brush_panel">brush panel</option>
+                          <option value="blanking_panel">
+                            blanking panel
+                          </option>
                           <option value="other">other</option>
                         </Select>
                       </Field>

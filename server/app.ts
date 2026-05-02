@@ -18,6 +18,7 @@ import { monitoringRoutes } from './routes/monitoring.js'
 import { adminRoutes } from './routes/admin.js'
 import { discoveryRoutes } from './routes/discovery.js'
 import { wifiRoutes } from './routes/wifi.js'
+import { virtualSwitchesRoutes } from './routes/virtual-switches.js'
 import { getAuthToken, lookupSession, needsBootstrap } from './lib/auth.js'
 import { ValidationError } from './lib/validation.js'
 
@@ -249,6 +250,7 @@ export async function createApp() {
   await app.register(monitoringRoutes, { prefix: '/api/device-monitors' })
   await app.register(discoveryRoutes, { prefix: '/api/discovery' })
   await app.register(wifiRoutes, { prefix: '/api/wifi' })
+  await app.register(virtualSwitchesRoutes, { prefix: '/api/virtual-switches' })
   await app.register(adminRoutes, { prefix: '/api/admin' })
 
   if (existsSync(DIST_DIR)) {

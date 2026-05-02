@@ -89,6 +89,7 @@ interface PortFormState {
   mode: NonNullable<Port["mode"]>;
   vlanId: string;
   allowedVlanIds: string[];
+  virtualSwitchId: string;
   description: string;
   face: NonNullable<Port["face"]>;
 }
@@ -117,6 +118,7 @@ function portToForm(port: Port): PortFormState {
     mode: port.mode ?? "access",
     vlanId: port.vlanId ?? "",
     allowedVlanIds: port.allowedVlanIds ?? [],
+    virtualSwitchId: port.virtualSwitchId ?? "",
     description: port.description ?? "",
     face: port.face ?? "front",
   };
@@ -168,6 +170,7 @@ function blankPortForm(device?: Device): PortFormState {
     mode: "access",
     vlanId: "",
     allowedVlanIds: [],
+    virtualSwitchId: "",
     description: "",
     face: "front",
   };
@@ -179,6 +182,7 @@ export default function PortView() {
   const ports = useStore((s) => s.ports);
   const portLinks = useStore((s) => s.portLinks);
   const portTemplates = useStore((s) => s.portTemplates);
+  const virtualSwitches = useStore((s) => s.virtualSwitches);
   const vlans = useStore((s) => s.vlans);
   const canEdit = canEditInventory(currentUser);
   const portBearingDevices = devices.filter((device) =>
@@ -219,6 +223,15 @@ export default function PortView() {
       return acc;
     }, {});
   }, [devices]);
+  const vlanById = useMemo(() => {
+    return vlans.reduce<Record<string, (typeof vlans)[number]>>(
+      (acc, vlan) => {
+        acc[vlan.id] = vlan;
+        return acc;
+      },
+      {},
+    );
+  }, [vlans]);
 
   const portsByDeviceId = useMemo(() => {
     return ports.reduce<Record<string, Port[]>>((acc, port) => {
@@ -226,6 +239,16 @@ export default function PortView() {
       return acc;
     }, {});
   }, [ports]);
+
+  const virtualSwitchById = useMemo(() => {
+    return virtualSwitches.reduce<Record<string, (typeof virtualSwitches)[number]>>(
+      (acc, virtualSwitch) => {
+        acc[virtualSwitch.id] = virtualSwitch;
+        return acc;
+      },
+      {},
+    );
+  }, [virtualSwitches]);
 
   const portById = useMemo(() => {
     return ports.reduce<Record<string, Port>>((acc, port) => {
@@ -244,6 +267,13 @@ export default function PortView() {
 
   const device = deviceById[selectedDeviceId];
   const devicePorts = portsByDeviceId[selectedDeviceId] ?? [];
+  const candidateVirtualSwitches = useMemo(() => {
+    if (!device) return [];
+    const hostDeviceId = device.parentDeviceId ?? device.id;
+    return virtualSwitches.filter(
+      (virtualSwitch) => virtualSwitch.hostDeviceId === hostDeviceId,
+    );
+  }, [device, virtualSwitches]);
 
   useEffect(() => {
     if (!devicePorts.length) {
@@ -338,6 +368,7 @@ export default function PortView() {
           allowedVlanIds:
             form.mode === "trunk" ? form.allowedVlanIds : undefined,
           description: form.description.trim() || undefined,
+          virtualSwitchId: form.virtualSwitchId || undefined,
           face: form.face,
           position: (devicePorts.at(-1)?.position ?? 0) + 1,
         });
@@ -354,6 +385,7 @@ export default function PortView() {
           allowedVlanIds:
             form.mode === "trunk" ? form.allowedVlanIds : undefined,
           description: form.description.trim() || undefined,
+          virtualSwitchId: form.virtualSwitchId || undefined,
           face: form.face,
         });
       }
@@ -619,6 +651,8 @@ export default function PortView() {
                     links={linkByPortId}
                     portsById={portById}
                     devicesById={deviceById}
+                    vlansById={vlanById}
+                    virtualSwitchesById={virtualSwitchById}
                     onSelectPort={setSelectedPortId}
                     selectedPortId={selectedPortId}
                   />
@@ -636,6 +670,8 @@ export default function PortView() {
                         links={linkByPortId}
                         portsById={portById}
                         devicesById={deviceById}
+                        vlansById={vlanById}
+                        virtualSwitchesById={virtualSwitchById}
                         onSelectPort={setSelectedPortId}
                         selectedPortId={selectedPortId}
                       />
@@ -895,6 +931,38 @@ export default function PortView() {
                             </Field>
                           </>
                         )}
+
+                        <Field label="Virtual switch / bridge">
+                          <Select
+                            value={form.virtualSwitchId}
+                            onChange={(value) =>
+                              setForm((prev) =>
+                                prev
+                                  ? { ...prev, virtualSwitchId: value }
+                                  : prev,
+                              )
+                            }
+                          >
+                            <option value="">
+                              {candidateVirtualSwitches.length > 0
+                                ? "No bridge membership"
+                                : "No host bridges documented"}
+                            </option>
+                            {candidateVirtualSwitches.map((virtualSwitch) => (
+                              <option
+                                key={virtualSwitch.id}
+                                value={virtualSwitch.id}
+                              >
+                                {virtualSwitch.name}
+                              </option>
+                            ))}
+                          </Select>
+                          <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
+                            {candidateVirtualSwitches.length > 0
+                              ? "Use this to map VM NICs and host uplinks onto the same virtual switch or bridge."
+                              : "Create host bridges from the Compute workspace, then assign VM and host ports here."}
+                          </div>
+                        </Field>
 
                         <Field label="Description">
                           <textarea

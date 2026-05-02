@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import type { Device, Port, PortLink } from "@/lib/types";
+import type { Device, Port, PortLink, VirtualSwitch, Vlan } from "@/lib/types";
 import { cn, portTypeColor, portTypeLabel } from "@/lib/utils";
 import {
   Tooltip,
@@ -13,6 +13,8 @@ interface PortGridProps {
   links: Record<string, PortLink>;
   portsById: Record<string, Port>;
   devicesById: Record<string, Device>;
+  vlansById?: Record<string, Vlan>;
+  virtualSwitchesById?: Record<string, VirtualSwitch>;
   onSelectPort?: (portId: string) => void;
   selectedPortId?: string;
 }
@@ -23,6 +25,8 @@ export function PortGrid({
   links,
   portsById,
   devicesById,
+  vlansById = {},
+  virtualSwitchesById = {},
   onSelectPort,
   selectedPortId,
 }: PortGridProps) {
@@ -56,6 +60,8 @@ export function PortGrid({
               links={links}
               portsById={portsById}
               devicesById={devicesById}
+              vlansById={vlansById}
+              virtualSwitchesById={virtualSwitchesById}
               onSelectPort={onSelectPort}
               selectedPortId={selectedPortId}
             />
@@ -85,6 +91,8 @@ function PortSection({
   links,
   portsById,
   devicesById,
+  vlansById,
+  virtualSwitchesById,
   onSelectPort,
   selectedPortId,
 }: {
@@ -93,6 +101,8 @@ function PortSection({
   links: Record<string, PortLink>;
   portsById: Record<string, Port>;
   devicesById: Record<string, Device>;
+  vlansById: Record<string, Vlan>;
+  virtualSwitchesById: Record<string, VirtualSwitch>;
   onSelectPort?: (portId: string) => void;
   selectedPortId?: string;
 }) {
@@ -122,6 +132,8 @@ function PortSection({
               link={links[port.id]}
               portsById={portsById}
               devicesById={devicesById}
+              vlansById={vlansById}
+              virtualSwitchesById={virtualSwitchesById}
               onSelect={onSelectPort}
               selected={selectedPortId === port.id}
               delay={index * 0.012}
@@ -137,6 +149,8 @@ function PortSection({
                 link={links[port.id]}
                 portsById={portsById}
                 devicesById={devicesById}
+                vlansById={vlansById}
+                virtualSwitchesById={virtualSwitchesById}
                 onSelect={onSelectPort}
                 selected={selectedPortId === port.id}
                 delay={index * 0.012 + 0.05}
@@ -154,6 +168,8 @@ function PortCell({
   link,
   portsById,
   devicesById,
+  vlansById,
+  virtualSwitchesById,
   onSelect,
   selected,
   delay = 0,
@@ -162,6 +178,8 @@ function PortCell({
   link?: PortLink;
   portsById: Record<string, Port>;
   devicesById: Record<string, Device>;
+  vlansById: Record<string, Vlan>;
+  virtualSwitchesById: Record<string, VirtualSwitch>;
   onSelect?: (portId: string) => void;
   selected?: boolean;
   delay?: number;
@@ -265,8 +283,15 @@ function PortCell({
             </span>
           </div>
           <span className="text-[var(--text-tertiary)]">
-            {formatPortNetworkSummary(port)}
+            {formatPortNetworkSummary(port, vlansById)}
           </span>
+          {port.virtualSwitchId ? (
+            <span className="text-[var(--accent-secondary)]">
+              bridge{" "}
+              {virtualSwitchesById[port.virtualSwitchId]?.name ??
+                port.virtualSwitchId}
+            </span>
+          ) : null}
           {isLinked && otherDevice && otherPort ? (
             <span className="text-[var(--accent-secondary)]">
               linked to {otherDevice.hostname}:{otherPort.name}
@@ -286,18 +311,31 @@ function PortCell({
   );
 }
 
-function formatPortNetworkSummary(port: Port) {
+function formatPortNetworkSummary(
+  port: Port,
+  vlansById: Record<string, Vlan>,
+) {
   if (port.mode === "trunk") {
-    const taggedCount = port.allowedVlanIds?.length ?? 0;
+    const tagged = (port.allowedVlanIds ?? []).map((vlanId) =>
+      formatCompactVlanLabel(vlanId, vlansById),
+    );
     const nativeLabel = port.vlanId
-      ? `native ${port.vlanId}`
+      ? `native ${formatCompactVlanLabel(port.vlanId, vlansById)}`
       : "no native vlan";
-    return taggedCount > 0
-      ? `Trunk | ${nativeLabel} | ${taggedCount} tagged`
+    return tagged.length > 0
+      ? `Trunk | ${nativeLabel} | tagged ${tagged.join(", ")}`
       : `Trunk | ${nativeLabel}`;
   }
 
   return port.vlanId
-    ? `Access | VLAN ${port.vlanId}`
+    ? `Access | VLAN ${formatCompactVlanLabel(port.vlanId, vlansById)}`
     : "Access | unassigned vlan";
+}
+
+function formatCompactVlanLabel(
+  vlanId: string,
+  vlansById: Record<string, Vlan>,
+) {
+  const vlan = vlansById[vlanId];
+  return vlan ? String(vlan.vlanId) : vlanId;
 }

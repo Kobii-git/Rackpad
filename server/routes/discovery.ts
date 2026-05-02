@@ -20,10 +20,13 @@ const DEVICE_TYPES = [
   'router',
   'firewall',
   'server',
+  'rack_shelf',
   'ap',
   'endpoint',
   'vm',
   'patch_panel',
+  'brush_panel',
+  'blanking_panel',
   'storage',
   'pdu',
   'ups',
@@ -31,7 +34,7 @@ const DEVICE_TYPES = [
   'other',
 ] as const
 
-const DEVICE_PLACEMENTS = ['rack', 'room', 'wireless', 'virtual'] as const
+const DEVICE_PLACEMENTS = ['rack', 'room', 'wireless', 'virtual', 'shelf'] as const
 const DISCOVERY_STATUSES = ['new', 'imported', 'dismissed'] as const
 const execFileAsync = promisify(execFile)
 const OUI_VENDOR_MAP: Record<string, string> = {

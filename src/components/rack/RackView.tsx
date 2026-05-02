@@ -28,10 +28,13 @@ interface Slot {
 const DEVICE_ACCENT: Partial<Record<Device["deviceType"], string>> = {
   switch: "var(--accent-secondary)",
   patch_panel: "var(--info)",
+  brush_panel: "var(--accent-secondary)",
+  blanking_panel: "var(--neutral)",
   server: "var(--accent-primary)",
   storage: "var(--warning)",
   firewall: "var(--danger)",
   router: "var(--info)",
+  rack_shelf: "var(--warning)",
   pdu: "var(--neutral)",
   ups: "var(--neutral)",
 };

@@ -641,7 +641,7 @@ export default function VlansView() {
                             </div>
                             {linkedSubnets.length > 0 && (
                               <Link
-                                to="/ipam"
+                                to={`/ipam?subnetId=${linkedSubnets[0].id}&vlanId=${vlan.id}`}
                                 className="inline-flex items-center gap-1 text-[11px] text-[var(--color-accent)] hover:text-[var(--color-accent-strong)]"
                               >
                                 Open IPAM

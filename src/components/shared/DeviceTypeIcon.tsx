@@ -9,6 +9,7 @@ import {
   Monitor,
   Boxes,
   Wifi,
+  Minus,
 } from "lucide-react";
 import type { DeviceType } from "@/lib/types";
 
@@ -17,10 +18,13 @@ const map = {
   router: Network,
   firewall: Shield,
   server: Server,
+  rack_shelf: Boxes,
   ap: Wifi,
   endpoint: Monitor,
   vm: Boxes,
   patch_panel: Cable,
+  brush_panel: Cable,
+  blanking_panel: Minus,
   storage: HardDrive,
   pdu: Power,
   ups: Battery,

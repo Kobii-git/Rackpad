@@ -18,11 +18,14 @@ const TYPES: DeviceType[] = [
   "router",
   "firewall",
   "server",
+  "rack_shelf",
   "ap",
   "endpoint",
   "vm",
   "storage",
   "patch_panel",
+  "brush_panel",
+  "blanking_panel",
   "pdu",
   "ups",
 ];
@@ -252,6 +255,32 @@ export default function DevicesList() {
                                 </span>
                                 <span className="text-[var(--color-fg-subtle)]">
                                   {parentDevice.hostname}
+                                </span>
+                              </>
+                            )}
+                          </span>
+                        ) : device.placement === "shelf" ? (
+                          <span className="text-xs">
+                            <span className="text-[var(--color-fg-muted)]">
+                              Shelf
+                            </span>
+                            {parentDevice && (
+                              <>
+                                <span className="mx-1 text-[var(--color-fg-faint)]">
+                                  |
+                                </span>
+                                <span className="text-[var(--color-fg-subtle)]">
+                                  {parentDevice.hostname}
+                                </span>
+                              </>
+                            )}
+                            {rack && (
+                              <>
+                                <span className="mx-1 text-[var(--color-fg-faint)]">
+                                  |
+                                </span>
+                                <span className="text-[var(--color-fg-subtle)]">
+                                  {rack.name}
                                 </span>
                               </>
                             )}

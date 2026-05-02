@@ -39,6 +39,7 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
       racks: db.prepare('SELECT * FROM racks ORDER BY name, id').all(),
       devices: (db.prepare('SELECT * FROM devices ORDER BY hostname, id').all() as Record<string, unknown>[])
         .map((row) => parseRow(row, ['tags'])),
+      virtualSwitches: db.prepare('SELECT * FROM virtualSwitches ORDER BY hostDeviceId, name, id').all(),
       ports: (db.prepare('SELECT * FROM ports ORDER BY deviceId, position, id').all() as Record<string, unknown>[])
         .map((row) => parseRow(row, ['allowedVlanIds'])),
       portLinks: db.prepare('SELECT * FROM portLinks ORDER BY fromPortId, toPortId, id').all(),
@@ -101,6 +102,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const labs = normalizeArrayRecordArray(data.labs, 'data.labs')
   const racks = normalizeArrayRecordArray(data.racks, 'data.racks')
   const devices = normalizeArrayRecordArray(data.devices, 'data.devices')
+  const virtualSwitches = normalizeArrayRecordArray(data.virtualSwitches ?? [], 'data.virtualSwitches')
   const ports = normalizeArrayRecordArray(data.ports, 'data.ports')
   const portLinks = normalizeArrayRecordArray(data.portLinks, 'data.portLinks')
   const portTemplates = normalizeArrayRecordArray(data.portTemplates ?? [], 'data.portTemplates')
@@ -141,6 +143,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
     DELETE FROM discoveredDevices;
     DELETE FROM portLinks;
     DELETE FROM ports;
+    DELETE FROM virtualSwitches;
     DELETE FROM ipZones;
     DELETE FROM dhcpScopes;
     DELETE FROM subnets;
@@ -160,9 +163,13 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, placement, parentDeviceId, cpuCores, memoryGb, storageGb, specs, startU, heightU, face, tags, notes, lastSeen)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
+  const insertVirtualSwitch = db.prepare(`
+    INSERT INTO virtualSwitches (id, hostDeviceId, name, notes)
+    VALUES (?, ?, ?, ?)
+  `)
   const insertPort = db.prepare(`
-    INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertPortLink = db.prepare('INSERT INTO portLinks (id, fromPortId, toPortId, cableType, cableLength, color, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
   const insertPortTemplate = db.prepare(`
@@ -267,6 +274,14 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.lastSeen ?? null,
     )
   }
+  for (const row of virtualSwitches) {
+    insertVirtualSwitch.run(
+      row.id,
+      row.hostDeviceId,
+      row.name,
+      row.notes ?? null,
+    )
+  }
   for (const row of vlans) {
     insertVlan.run(row.id, row.labId, row.vlanId, row.name, row.description ?? null, row.color ?? null)
   }
@@ -290,6 +305,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.allowedVlanIds ? JSON.stringify(row.allowedVlanIds) : null,
       row.description ?? null,
       row.face ?? null,
+      row.virtualSwitchId ?? null,
     )
   }
   for (const row of portLinks) {
@@ -469,6 +485,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       labs: labs.length,
       racks: racks.length,
       devices: devices.length,
+      virtualSwitches: virtualSwitches.length,
       discoveredDevices: discoveredDevices.length,
       portTemplates: portTemplates.length,
       wifiControllers: wifiControllers.length,

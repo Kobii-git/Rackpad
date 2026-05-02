@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Mono } from "@/components/shared/Mono";
 import { Badge } from "@/components/ui/Badge";
+import { DeviceDrawer } from "@/components/shared/DeviceDrawer";
 import { cn } from "@/lib/utils";
 import {
   allocateIp,
   allocateVlan,
+  canEditInventory,
   previewNextStaticIp,
   previewNextVlanId,
   useStore,
@@ -122,6 +124,8 @@ function AllocateIpForm({
 }) {
   const subnets = useStore((s) => s.subnets);
   const ipAssignments = useStore((s) => s.ipAssignments);
+  const currentUser = useStore((s) => s.currentUser);
+  const canEdit = canEditInventory(currentUser);
 
   const [subnetId, setSubnetId] = useState(
     defaultSubnetId ?? subnets[0]?.id ?? "",
@@ -131,6 +135,7 @@ function AllocateIpForm({
   const [assignmentType, setAssignmentType] =
     useState<IpAssignmentType>("device");
   const [saving, setSaving] = useState(false);
+  const [deviceDrawerOpen, setDeviceDrawerOpen] = useState(false);
 
   const previewIp = useMemo(() => {
     if (!subnetId) return null;
@@ -139,6 +144,11 @@ function AllocateIpForm({
 
   const subnet = subnets.find((entry) => entry.id === subnetId);
   const canSubmit = !!previewIp && hostname.trim().length > 0;
+  const canRegisterDevice =
+    canEdit &&
+    !!previewIp &&
+    hostname.trim().length > 0 &&
+    (assignmentType === "device" || assignmentType === "vm");
 
   async function submit() {
     if (!canSubmit) return;
@@ -222,6 +232,16 @@ function AllocateIpForm({
         <Button variant="ghost" size="sm" onClick={onClose}>
           Cancel
         </Button>
+        {canRegisterDevice && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setDeviceDrawerOpen(true)}
+          >
+            Allocate & add device
+          </Button>
+        )}
         <Button
           variant="default"
           size="sm"
@@ -234,6 +254,25 @@ function AllocateIpForm({
           )}
         </Button>
       </div>
+      {previewIp && (
+        <DeviceDrawer
+          open={deviceDrawerOpen}
+          onClose={() => setDeviceDrawerOpen(false)}
+          defaults={{
+            hostname: hostname.trim(),
+            managementIp: previewIp,
+            deviceType: assignmentType === "vm" ? "vm" : "server",
+            placement: assignmentType === "vm" ? "virtual" : "room",
+            notes: description.trim(),
+          }}
+          onSaved={() => {
+            setHostname("");
+            setDescription("");
+            setDeviceDrawerOpen(false);
+            onClose();
+          }}
+        />
+      )}
     </div>
   );
 }

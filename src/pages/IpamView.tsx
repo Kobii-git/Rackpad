@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { TopBar } from "@/components/layout/TopBar";
 import {
   Card,
@@ -105,6 +106,7 @@ const EMPTY_ZONE_FORM: ZoneForm = {
 };
 
 export default function IpamView() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const currentUser = useStore((s) => s.currentUser);
   const activeLab = useStore((s) => s.lab);
   const subnets = useStore((s) => s.subnets);
@@ -137,13 +139,43 @@ export default function IpamView() {
   const [zoneSaving, setZoneSaving] = useState(false);
   const [zoneDeleting, setZoneDeleting] = useState(false);
   const [zoneError, setZoneError] = useState("");
+  const requestedSubnetId = searchParams.get("subnetId");
+  const requestedVlanId = searchParams.get("vlanId") ?? "";
 
   useEffect(() => {
     if (!subnets.length) return;
+    if (
+      requestedSubnetId &&
+      subnets.some((entry) => entry.id === requestedSubnetId)
+    ) {
+      if (subnetId !== requestedSubnetId) {
+        setSubnetId(requestedSubnetId);
+      }
+      return;
+    }
     if (!subnetId || !subnets.some((subnet) => subnet.id === subnetId)) {
       setSubnetId(subnets[0].id);
     }
-  }, [subnetId, subnets]);
+  }, [requestedSubnetId, subnetId, subnets]);
+
+  useEffect(() => {
+    const currentSubnetId = searchParams.get("subnetId") ?? "";
+    const nextSubnetId = subnetId ?? "";
+    if (currentSubnetId === nextSubnetId) return;
+
+    const next = new URLSearchParams(searchParams);
+    if (nextSubnetId) {
+      next.set("subnetId", nextSubnetId);
+    } else {
+      next.delete("subnetId");
+    }
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, subnetId]);
+
+  useEffect(() => {
+    if (!creatingSubnet || !requestedVlanId || subnetForm.vlanId) return;
+    setSubnetForm((prev) => ({ ...prev, vlanId: requestedVlanId }));
+  }, [creatingSubnet, requestedVlanId, subnetForm.vlanId]);
 
   const vlanById = useMemo(() => {
     return vlans.reduce<Record<string, Vlan>>((acc, vlan) => {

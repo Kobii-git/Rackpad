@@ -50,6 +50,8 @@ const EMPTY_FORM: RackForm = {
   notes: "",
 };
 
+const RACK_SHELF_TYPE = "rack_shelf";
+
 export default function RackViewPage() {
   const currentUser = useStore((s) => s.currentUser);
   const activeLab = useStore((s) => s.lab);
@@ -413,6 +415,9 @@ export default function RackViewPage() {
                               ? `-${selectedDevice.startU! + selectedDevice.heightU! - 1}`
                               : ""
                           }`}
+                          childDevices={devices.filter(
+                            (entry) => entry.parentDeviceId === selectedDevice.id,
+                          )}
                         />
                       </motion.div>
                     )}
@@ -445,6 +450,14 @@ export default function RackViewPage() {
       <DeviceDrawer
         open={drawerOpen}
         defaultRackId={viewingUnracked ? undefined : rack?.id}
+        defaults={
+          selectedDevice?.deviceType === RACK_SHELF_TYPE
+            ? {
+                placement: "shelf",
+                parentDeviceId: selectedDevice.id,
+              }
+            : undefined
+        }
         onClose={() => setDrawerOpen(false)}
       />
     </>
@@ -553,10 +566,12 @@ function DeviceSummaryCard({
   device,
   portCount,
   position,
+  childDevices = [],
 }: {
   device: Device;
   portCount: number;
   position?: string;
+  childDevices?: Device[];
 }) {
   return (
     <Card>
@@ -595,6 +610,9 @@ function DeviceSummaryCard({
           <Row label="Mgmt IP" value={device.managementIp} mono />
           <Row label="Position" value={position} />
           <Row label="Ports" value={String(portCount)} />
+          {device.deviceType === RACK_SHELF_TYPE && (
+            <Row label="Shelf devices" value={String(childDevices.length)} />
+          )}
         </dl>
 
         {device.tags && device.tags.length > 0 && (
@@ -602,6 +620,35 @@ function DeviceSummaryCard({
             {device.tags.map((tag) => (
               <Badge key={tag}>{tag}</Badge>
             ))}
+          </div>
+        )}
+
+        {device.deviceType === RACK_SHELF_TYPE && childDevices.length > 0 && (
+          <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-3">
+            <div className="mb-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+              On this shelf / tray
+            </div>
+            <div className="space-y-2">
+              {childDevices
+                .sort((a, b) => a.hostname.localeCompare(b.hostname))
+                .map((child) => (
+                  <div
+                    key={child.id}
+                    className="flex items-center justify-between gap-3 text-xs"
+                  >
+                    <span className="inline-flex min-w-0 items-center gap-2 text-[var(--color-fg)]">
+                      <DeviceTypeIcon
+                        type={child.deviceType}
+                        className="size-3.5 shrink-0 text-[var(--color-fg-muted)]"
+                      />
+                      <span className="truncate">{child.hostname}</span>
+                    </span>
+                    <span className="text-[var(--color-fg-subtle)]">
+                      {child.deviceType.replace("_", " ")}
+                    </span>
+                  </div>
+                ))}
+            </div>
           </div>
         )}
       </CardBody>
