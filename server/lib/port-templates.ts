@@ -1,14 +1,17 @@
 import { db, parseRow } from '../db.js'
 import { createId } from './ids.js'
 
-const PORT_KINDS = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb'] as const
+const PORT_KINDS = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb', 'virtual'] as const
 export type PortTemplateKind = (typeof PORT_KINDS)[number]
+export type PortTemplateMode = 'access' | 'trunk'
 
 export interface PortTemplatePort {
   name: string
   position: number
   kind: PortTemplateKind
   speed?: string
+  mode?: PortTemplateMode
+  allowedVlanIds?: string[] | null
   face?: 'front' | 'rear'
 }
 
@@ -31,13 +34,15 @@ function rangeNames(prefix: string, count: number, kind: PortTemplateKind, speed
 }
 
 function normalizePorts(
-  ports: Array<{ name: string; kind: PortTemplateKind; speed?: string; face?: 'front' | 'rear'; position?: number }>,
+  ports: Array<{ name: string; kind: PortTemplateKind; speed?: string; mode?: PortTemplateMode; allowedVlanIds?: string[] | null; face?: 'front' | 'rear'; position?: number }>,
 ) {
   return ports.map((port, index) => ({
     name: port.name,
     position: port.position ?? index + 1,
     kind: port.kind,
     speed: port.speed,
+    mode: port.mode ?? 'access',
+    allowedVlanIds: port.mode === 'trunk' ? port.allowedVlanIds ?? [] : [],
     face: port.face ?? 'front',
   }))
 }
@@ -120,6 +125,16 @@ export const BUILT_IN_PORT_TEMPLATES: PortTemplate[] = [
     ]),
   },
   {
+    id: 'vm-2xvirtio',
+    name: '2x VirtIO VM',
+    deviceTypes: ['vm'],
+    description: 'Virtual machine with two documented VirtIO network interfaces.',
+    ports: normalizePorts([
+      { name: 'eth0', kind: 'virtual', speed: 'virtio' },
+      { name: 'eth1', kind: 'virtual', speed: 'virtio' },
+    ]),
+  },
+  {
     id: 'patch-panel-24',
     name: '24-port patch panel',
     deviceTypes: ['patch_panel'],
@@ -159,6 +174,11 @@ function parsePortTemplateRow(row: Record<string, unknown>): PortTemplate {
             position: Number(port.position),
             kind: String(port.kind) as PortTemplateKind,
             speed: port.speed ? String(port.speed) : undefined,
+            mode: port.mode === 'trunk' ? 'trunk' : 'access',
+            allowedVlanIds:
+              port.mode === 'trunk' && Array.isArray(port.allowedVlanIds)
+                ? port.allowedVlanIds.map((entry) => String(entry))
+                : [],
             face: port.face === 'rear' ? 'rear' : 'front',
           }
         }),
@@ -196,7 +216,9 @@ export function createPortsFromTemplate(deviceId: string, templateId: string) {
     kind: port.kind,
     speed: port.speed ?? null,
     linkState: 'down',
+    mode: port.mode ?? 'access',
     vlanId: null,
+    allowedVlanIds: port.mode === 'trunk' ? JSON.stringify(port.allowedVlanIds ?? []) : null,
     description: null,
     face: port.face ?? 'front',
   }))

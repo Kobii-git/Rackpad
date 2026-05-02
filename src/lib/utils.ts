@@ -56,6 +56,7 @@ export const portTypeColor: Record<PortKind, string> = {
   power: 'var(--color-port-power)',
   console: 'var(--color-port-console)',
   usb: 'var(--color-port-usb)',
+  virtual: 'var(--color-port-virtual)',
 }
 
 export const portTypeLabel: Record<PortKind, string> = {
@@ -67,6 +68,7 @@ export const portTypeLabel: Record<PortKind, string> = {
   power: 'Power',
   console: 'Console',
   usb: 'USB',
+  virtual: 'Virtual NIC',
 }
 
 // ---------- Link state ----------

@@ -127,6 +127,38 @@ async function reverseLookup(ipAddress: string) {
   }
 }
 
+async function systemHostnameLookup(ipAddress: string) {
+  if (process.platform !== 'win32') {
+    try {
+      const { stdout } = await execFileAsync('getent', ['hosts', ipAddress], { timeout: 4000 })
+      const entry = String(stdout)
+        .trim()
+        .split(/\s+/)
+        .slice(1)
+        .find(Boolean)
+      if (entry) return entry.replace(/\.$/, '')
+    } catch {
+      // Ignore missing getent or empty results.
+    }
+  }
+
+  try {
+    const { stdout } = await execFileAsync('nslookup', [ipAddress], { timeout: 4000 })
+    const line = String(stdout)
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .find((entry) => /name\s*=|^name:/i.test(entry))
+    if (!line) return null
+    return line.split(/name\s*=|name:/i)[1]?.trim().replace(/\.$/, '') ?? null
+  } catch {
+    return null
+  }
+}
+
+async function resolveHostname(ipAddress: string) {
+  return (await reverseLookup(ipAddress)) ?? (await systemHostnameLookup(ipAddress))
+}
+
 function normalizeMacAddress(value: string | null | undefined) {
   if (!value) return null
   const normalized = value.trim().replaceAll('-', ':').toLowerCase()
@@ -144,9 +176,22 @@ async function lookupMacAddress(ipAddress: string) {
   const fromProc = await lookupMacFromProc(ipAddress)
   if (fromProc) return fromProc
 
+  const fromIpNeighbour = await lookupMacFromIpNeighbour(ipAddress)
+  if (fromIpNeighbour) return fromIpNeighbour
+
   try {
     const { stdout } = await execFileAsync('arp', ['-a'], { timeout: 4000 })
     return parseArpOutput(String(stdout), ipAddress)
+  } catch {
+    return null
+  }
+}
+
+async function lookupMacFromIpNeighbour(ipAddress: string) {
+  try {
+    const { stdout } = await execFileAsync('ip', ['neigh', 'show', ipAddress], { timeout: 4000 })
+    const match = String(stdout).match(/lladdr\s+((?:[0-9a-f]{2}:){5}[0-9a-f]{2})/i)
+    return normalizeMacAddress(match?.[1])
   } catch {
     return null
   }
@@ -188,7 +233,7 @@ async function scanHost(ipAddress: string) {
   const result = await runIcmpProbe(ipAddress)
   if (result.result !== 'online') return null
 
-  const [hostname, macAddress] = await Promise.all([reverseLookup(ipAddress), lookupMacAddress(ipAddress)])
+  const [hostname, macAddress] = await Promise.all([resolveHostname(ipAddress), lookupMacAddress(ipAddress)])
   const deviceType = inferDeviceType(hostname)
   const displayName = hostname ? hostname.split('.')[0] : null
 

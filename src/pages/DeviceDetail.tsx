@@ -25,7 +25,7 @@ import {
   updateDeviceMonitorConfig,
   useStore,
 } from '@/lib/store'
-import type { Device, DeviceMonitor, Port, PortLink } from '@/lib/types'
+import type { Device, DeviceMonitor, Port, PortLink, Vlan } from '@/lib/types'
 import { ArrowLeft, Pencil, Plus, RefreshCcw, Save, ShieldCheck, Trash2 } from 'lucide-react'
 import { relativeTime, statusLabel } from '@/lib/utils'
 
@@ -58,6 +58,7 @@ export default function DeviceDetail() {
   const devices = useStore((s) => s.devices)
   const ports = useStore((s) => s.ports)
   const portLinks = useStore((s) => s.portLinks)
+  const vlans = useStore((s) => s.vlans)
   const ipAssignments = useStore((s) => s.ipAssignments)
   const auditLog = useStore((s) => s.auditLog)
   const racks = useStore((s) => s.racks)
@@ -118,6 +119,12 @@ export default function DeviceDetail() {
       return acc
     }, {})
   }, [devices])
+  const vlanById = useMemo(() => {
+    return vlans.reduce<Record<string, Vlan>>((acc, entry) => {
+      acc[entry.id] = entry
+      return acc
+    }, {})
+  }, [vlans])
 
   useEffect(() => {
     setSelectedMonitorId(null)
@@ -633,6 +640,7 @@ export default function DeviceDetail() {
                   peerPort={peerPort}
                   peerDevice={peerDevice}
                   link={selectedLink}
+                  vlansById={vlanById}
                 />
               </div>
             </div>
@@ -977,12 +985,17 @@ function PortInspectorCard({
   peerPort,
   peerDevice,
   link,
+  vlansById,
 }: {
   port?: Port
   peerPort?: Port
   peerDevice?: Device
   link?: PortLink
+  vlansById: Record<string, Vlan>
 }) {
+  const primaryVlan = port?.vlanId ? vlansById[port.vlanId] : undefined
+  const allowedVlanLabels = port?.allowedVlanIds?.map((vlanId) => formatVlanReference(vlanId, vlansById)) ?? []
+
   return (
     <Card>
       <CardHeader>
@@ -1007,9 +1020,25 @@ function PortInspectorCard({
                 </span>
               </InspectorRow>
               <InspectorRow label="Speed" value={port.speed ?? 'Not set'} mono />
+              <InspectorRow label="Mode" value={port.mode ?? 'access'} />
               <InspectorRow label="Face" value={port.face ?? 'front'} />
               <InspectorRow label="Position" value={String(port.position)} mono />
-              <InspectorRow label="VLAN" value={port.vlanId ?? 'Unassigned'} mono />
+              <InspectorRow
+                label={port.mode === 'trunk' ? 'Native VLAN' : 'Access VLAN'}
+                value={
+                  primaryVlan
+                    ? formatVlanReference(primaryVlan.id, vlansById)
+                    : port.mode === 'trunk'
+                      ? 'None (tagged only)'
+                      : 'Unassigned'
+                }
+              />
+              {port.mode === 'trunk' && (
+                <InspectorRow
+                  label="Tagged VLANs"
+                  value={allowedVlanLabels.length > 0 ? allowedVlanLabels.join(', ') : 'None documented'}
+                />
+              )}
               <InspectorRow label="Type" value={port.kind.replace('_', ' ')} />
             </div>
 
@@ -1213,6 +1242,11 @@ function formatLinkState(state: Port['linkState']) {
     default:
       return 'Unknown'
   }
+}
+
+function formatVlanReference(vlanId: string, vlansById: Record<string, Vlan>) {
+  const vlan = vlansById[vlanId]
+  return vlan ? `${vlan.vlanId} - ${vlan.name}` : vlanId
 }
 
 function formatPlacement(placement?: Device['placement']) {

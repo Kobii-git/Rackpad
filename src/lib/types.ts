@@ -24,9 +24,11 @@ export type PortKind =
   | 'power'
   | 'console'
   | 'usb'
+  | 'virtual'
 
 export type RackFace = 'front' | 'rear'
 export type LinkState = 'up' | 'down' | 'disabled' | 'unknown'
+export type PortMode = 'access' | 'trunk'
 export type DeviceStatus = 'online' | 'offline' | 'warning' | 'unknown' | 'maintenance'
 export type DevicePlacement = 'rack' | 'room' | 'wireless' | 'virtual'
 export type IpAssignmentType =
@@ -111,7 +113,9 @@ export interface Port {
   kind: PortKind
   speed?: string
   linkState: LinkState
+  mode: PortMode
   vlanId?: ID
+  allowedVlanIds?: ID[]
   description?: string
   face?: RackFace
 }
@@ -308,6 +312,8 @@ export interface PortTemplatePort {
   position: number
   kind: PortKind
   speed?: string
+  mode?: PortMode
+  allowedVlanIds?: ID[] | null
   linkState?: LinkState | null
   vlanId?: ID | null
   description?: string | null

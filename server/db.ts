@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 8
+const CURRENT_SCHEMA_VERSION = 9
 
 export const db = new Database(DB_PATH)
 
@@ -464,6 +464,13 @@ const SCHEMA_MIGRATIONS = [
 
       CREATE INDEX IF NOT EXISTS idx_wifi_client_associations_radio_id
         ON wifiClientAssociations (radioId);
+    `,
+  },
+  {
+    version: 9,
+    sql: `
+      ALTER TABLE ports ADD COLUMN mode TEXT NOT NULL DEFAULT 'access';
+      ALTER TABLE ports ADD COLUMN allowedVlanIds TEXT;
     `,
   },
 ] as const

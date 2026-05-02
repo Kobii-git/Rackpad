@@ -98,7 +98,9 @@ function makePorts(
       kind,
       speed,
       linkState: linkedPositions.includes(pos) ? 'up' : 'down',
+      mode: 'access',
       vlanId: vlanId ?? null,
+      allowedVlanIds: null,
       description: null,
       face: 'front',
     })
@@ -436,7 +438,10 @@ export function seedIfEmpty() {
       (@id, @labId, @rackId, @hostname, @displayName, @deviceType, @manufacturer, @model, @serial, @managementIp, @status,
        @startU, @heightU, @face, @tags, @notes, @lastSeen, @placement, @parentDeviceId, @cpuCores, @memoryGb, @storageGb, @specs)
   `)
-  const insertPort = db.prepare('INSERT INTO ports VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @vlanId, @description, @face)')
+  const insertPort = db.prepare(`
+    INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
+    VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face)
+  `)
   const insertPortTemplate = db.prepare('INSERT INTO portTemplates VALUES (@id, @name, @description, @deviceTypes, @ports, @createdAt, @updatedAt)')
   const insertVlan = db.prepare('INSERT INTO vlans VALUES (@id, @labId, @vlanId, @name, @description, @color)')
   const insertVlanRange = db.prepare('INSERT INTO vlanRanges VALUES (@id, @labId, @name, @startVlan, @endVlan, @purpose, @color)')
@@ -511,7 +516,13 @@ export function seedIfEmpty() {
         specs: d.specs ?? capacity.specs ?? null,
       })
     }
-    for (const p of ports) insertPort.run(p)
+    for (const p of ports) {
+      insertPort.run({
+        ...p,
+        mode: p.mode ?? 'access',
+        allowedVlanIds: p.allowedVlanIds ? JSON.stringify(p.allowedVlanIds) : null,
+      })
+    }
     for (const template of portTemplates) insertPortTemplate.run(template)
     for (const l of portLinks) insertPortLink.run(l)
 

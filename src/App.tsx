@@ -10,6 +10,7 @@ const DeviceDetail = lazy(() => import('@/pages/DeviceDetail'))
 const ComputeView = lazy(() => import('@/pages/ComputeView'))
 const WifiView = lazy(() => import('@/pages/WifiView'))
 const DiscoveryView = lazy(() => import('@/pages/DiscoveryView'))
+const MonitoringView = lazy(() => import('@/pages/MonitoringView'))
 const PortView = lazy(() => import('@/pages/PortView'))
 const CableView = lazy(() => import('@/pages/CableView'))
 const VlansView = lazy(() => import('@/pages/VlansView'))
@@ -28,6 +29,7 @@ export default function App() {
         <Route path="/compute" element={<RouteFrame><ComputeView /></RouteFrame>} />
         <Route path="/wifi" element={<RouteFrame><WifiView /></RouteFrame>} />
         <Route path="/discovery" element={<RouteFrame><DiscoveryView /></RouteFrame>} />
+        <Route path="/monitoring" element={<RouteFrame><MonitoringView /></RouteFrame>} />
         <Route path="/ports" element={<RouteFrame><PortView /></RouteFrame>} />
         <Route path="/cables" element={<RouteFrame><CableView /></RouteFrame>} />
         <Route path="/vlans" element={<RouteFrame><VlansView /></RouteFrame>} />

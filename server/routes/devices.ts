@@ -184,8 +184,8 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `)
     const insertPort = db.prepare(`
-      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face)
-      VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @vlanId, @description, @face)
+      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
+      VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face)
     `)
 
     const createDevice = db.transaction(() => {
@@ -350,8 +350,8 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         throw new ValidationError('Selected port template does not exist.')
       }
       const insertPort = db.prepare(`
-        INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face)
-        VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @vlanId, @description, @face)
+        INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
+        VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face)
       `)
       const applyPorts = db.transaction(() => {
         for (const port of createPortsFromTemplate(req.params.id, template.id)) {

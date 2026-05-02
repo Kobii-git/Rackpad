@@ -1196,7 +1196,7 @@ export async function updatePort(
   if (!existing) return null
 
   const patch: PortPatch = {}
-  const allowedKeys = ['name', 'kind', 'speed', 'linkState', 'vlanId', 'description', 'face'] as const
+  const allowedKeys = ['name', 'kind', 'speed', 'linkState', 'mode', 'vlanId', 'allowedVlanIds', 'description', 'face'] as const
   for (const key of allowedKeys) {
     if (Object.prototype.hasOwnProperty.call(changes, key)) {
       ;(patch as Record<string, unknown>)[key] = changes[key] ?? null

@@ -24,6 +24,7 @@ export function PortList({ ports, links, portsById, devicesById, onSelectPort, s
             <Th>Port</Th>
             <Th>Type</Th>
             <Th>Speed</Th>
+            <Th>Mode</Th>
             <Th>Linked to</Th>
             <Th>Cable</Th>
           </tr>
@@ -67,7 +68,12 @@ export function PortList({ ports, links, portsById, devicesById, onSelectPort, s
                   </span>
                 </Td>
                 <Td>
-                  <Mono className="text-[var(--color-fg-muted)]">{p.speed}</Mono>
+                  <Mono className="text-[var(--color-fg-muted)]">{p.speed ?? 'n/a'}</Mono>
+                </Td>
+                <Td>
+                  <div className="text-xs text-[var(--color-fg-muted)]">
+                    {formatPortModeSummary(p)}
+                  </div>
                 </Td>
                 <Td>
                   {otherDevice && otherPort ? (
@@ -114,4 +120,14 @@ function Th({ className, children }: { className?: string; children: ReactNode }
 
 function Td({ className, children }: { className?: string; children: ReactNode }) {
   return <td className={cn('px-3 py-2 align-middle', className)}>{children}</td>
+}
+
+function formatPortModeSummary(port: Port) {
+  if (port.mode === 'trunk') {
+    const taggedCount = port.allowedVlanIds?.length ?? 0
+    const nativeLabel = port.vlanId ? `native ${port.vlanId}` : 'no native'
+    return taggedCount > 0 ? `trunk · ${nativeLabel} · ${taggedCount} tagged` : `trunk · ${nativeLabel}`
+  }
+
+  return port.vlanId ? `access · VLAN ${port.vlanId}` : 'access · unassigned'
 }

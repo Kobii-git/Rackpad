@@ -12,6 +12,7 @@ import {
   Boxes,
   X,
   ChevronRight,
+  Activity,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ const PAGES: SearchResult[] = [
   { id: 'p-dash', group: 'Pages', title: 'Dashboard', subtitle: 'Overview', href: '/', Icon: LayoutDashboard },
   { id: 'p-racks', group: 'Pages', title: 'Racks', subtitle: 'Physical layout', href: '/racks', Icon: Server },
   { id: 'p-devices', group: 'Pages', title: 'Devices', subtitle: 'Inventory', href: '/devices', Icon: Boxes },
+  { id: 'p-monitoring', group: 'Pages', title: 'Monitoring', subtitle: 'Health overview', href: '/monitoring', Icon: Activity },
   { id: 'p-ports', group: 'Pages', title: 'Ports', subtitle: 'Port management', href: '/ports', Icon: Cable },
   { id: 'p-cables', group: 'Pages', title: 'Cables', subtitle: 'Connections', href: '/cables', Icon: Workflow },
   { id: 'p-vlans', group: 'Pages', title: 'VLANs', subtitle: 'Layer 2 segmentation', href: '/vlans', Icon: Hash },

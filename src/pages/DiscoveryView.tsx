@@ -335,7 +335,12 @@ export default function DiscoveryView() {
                             </span>
                           </Td>
                           <Td className="capitalize text-[var(--color-fg-muted)]">{device.placement ?? 'room'}</Td>
-                          <Td className="text-[11px] text-[var(--color-fg-subtle)]">{device.vendor ?? device.macAddress ?? '-'}</Td>
+                          <Td>
+                            <div className="space-y-0.5 text-[11px] text-[var(--color-fg-subtle)]">
+                              <div>{device.vendor ?? '-'}</div>
+                              <Mono className="text-[10px] text-[var(--color-fg-faint)]">{device.macAddress ?? 'no MAC'}</Mono>
+                            </div>
+                          </Td>
                           <Td>
                             {matches.length > 0 ? (
                               <Badge tone="warn">

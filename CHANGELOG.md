@@ -4,6 +4,31 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.6] - 2026-05-02
+
+### Added
+
+- A dedicated Monitoring workspace that rolls all monitored devices and targets into one operational view, with filters, recent results, and per-device or global check actions.
+- Support for documenting `virtual` VM interfaces and building VM-friendly port templates, including the built-in `2x VirtIO VM` template.
+- Better best-effort discovery enrichment that now tries additional hostname and MAC lookup paths when plain reverse DNS is not enough.
+
+### Changed
+
+- Port modeling is now more accurate for switches, firewalls, servers, and VMs: access ports use a single access VLAN, while trunk ports can document multiple tagged VLANs plus an optional native VLAN or no native VLAN at all.
+- Port editor, port list, port grid, and device port inspector now surface access/native/tagged VLAN information directly instead of hiding it behind a single VLAN field.
+- Discovery inbox rows now show vendor and MAC address separately so review and duplicate checks are easier to trust at a glance.
+- Custom port templates now preserve per-port mode so VM, firewall, and trunk-oriented templates can be reused cleanly.
+
+### Schema
+
+- Added `mode` and `allowedVlanIds` to `ports`.
+- Bumped the SQLite schema version to `9`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.9.5] - 2026-05-02
 
 ### Fixed

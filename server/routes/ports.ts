@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { db } from '../db.js'
+import { db, parseRow } from '../db.js'
 import { BUILT_IN_PORT_TEMPLATES, listPortTemplates } from '../lib/port-templates.js'
 import { createId } from '../lib/ids.js'
 import {
@@ -13,14 +13,18 @@ import {
   ValidationError,
 } from '../lib/validation.js'
 
-const PORT_KINDS = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb'] as const
+const PORT_KINDS = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb', 'virtual'] as const
 const LINK_STATES = ['up', 'down', 'disabled', 'unknown'] as const
 const PORT_FACES = ['front', 'rear'] as const
+const PORT_MODES = ['access', 'trunk'] as const
 const DEVICE_TYPES = [
   'switch',
   'router',
   'firewall',
   'server',
+  'ap',
+  'endpoint',
+  'vm',
   'patch_panel',
   'storage',
   'pdu',
@@ -39,6 +43,8 @@ function parseTemplatePorts(value: unknown) {
     const name = requiredString(port, 'name', { maxLength: 120 })
     const kind = requiredEnum(port, 'kind', PORT_KINDS)
     const speed = optionalString(port, 'speed', { maxLength: 20 })
+    const mode = optionalEnum(port, 'mode', PORT_MODES) ?? 'access'
+    const allowedVlanIds = normalizeAllowedVlanIds(optionalStringArray(port, 'allowedVlanIds', { maxItems: 128 }))
     const face = optionalEnum(port, 'face', PORT_FACES) ?? 'front'
 
     return {
@@ -46,9 +52,20 @@ function parseTemplatePorts(value: unknown) {
       position: index + 1,
       kind,
       speed: speed ?? undefined,
+      mode,
+      allowedVlanIds: mode === 'trunk' ? allowedVlanIds ?? [] : [],
       face,
     }
   })
+}
+
+function parsePortRow(row: Record<string, unknown>) {
+  return parseRow(row, ['allowedVlanIds']) as Record<string, unknown>
+}
+
+function normalizeAllowedVlanIds(value: string[] | null | undefined) {
+  if (!value) return null
+  return [...new Set(value.map((entry) => entry.trim()).filter(Boolean))]
 }
 
 export const portsRoutes: FastifyPluginAsync = async (app) => {
@@ -151,15 +168,17 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
 
   app.get<{ Querystring: { deviceId?: string } }>('/', async (req) => {
     if (req.query.deviceId) {
-      return db.prepare('SELECT * FROM ports WHERE deviceId = ? ORDER BY position').all(req.query.deviceId)
+      return (db.prepare('SELECT * FROM ports WHERE deviceId = ? ORDER BY position').all(req.query.deviceId) as Record<string, unknown>[])
+        .map(parsePortRow)
     }
-    return db.prepare('SELECT * FROM ports ORDER BY deviceId, position').all()
+    return (db.prepare('SELECT * FROM ports ORDER BY deviceId, position').all() as Record<string, unknown>[])
+      .map(parsePortRow)
   })
 
   app.get<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    const row = db.prepare('SELECT * FROM ports WHERE id = ?').get(req.params.id)
+    const row = db.prepare('SELECT * FROM ports WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
     if (!row) return reply.status(404).send({ error: 'Port not found' })
-    return row
+    return parsePortRow(row)
   })
 
   app.post('/', async (req, reply) => {
@@ -169,7 +188,9 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     const kind = requiredEnum(body, 'kind', PORT_KINDS)
     const speed = optionalString(body, 'speed', { maxLength: 20 })
     const linkState = optionalEnum(body, 'linkState', LINK_STATES) ?? 'down'
+    const mode = optionalEnum(body, 'mode', PORT_MODES) ?? 'access'
     const vlanId = optionalString(body, 'vlanId', { maxLength: 80 })
+    const allowedVlanIds = normalizeAllowedVlanIds(optionalStringArray(body, 'allowedVlanIds', { maxItems: 128 }))
     const description = optionalString(body, 'description', { maxLength: 500 })
     const face = optionalEnum(body, 'face', PORT_FACES) ?? 'front'
     const requestedPosition = optionalInteger(body, 'position', { min: 1, max: 500 })
@@ -184,16 +205,31 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     const id = createId('p')
 
     db.prepare(`
-      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, deviceId, name, position, kind, speed ?? null, linkState, vlanId ?? null, description ?? null, face)
+      INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      deviceId,
+      name,
+      position,
+      kind,
+      speed ?? null,
+      linkState,
+      mode,
+      vlanId ?? null,
+      mode === 'trunk' && allowedVlanIds ? JSON.stringify(allowedVlanIds) : null,
+      description ?? null,
+      face,
+    )
 
-    return reply.status(201).send(db.prepare('SELECT * FROM ports WHERE id = ?').get(id))
+    const created = db.prepare('SELECT * FROM ports WHERE id = ?').get(id) as Record<string, unknown>
+    return reply.status(201).send(parsePortRow(created))
   })
 
   app.patch<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    const existing = db.prepare('SELECT id FROM ports WHERE id = ?').get(req.params.id)
+    const existing = db.prepare('SELECT * FROM ports WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
     if (!existing) return reply.status(404).send({ error: 'Port not found' })
+    const current = parsePortRow(existing) as Record<string, unknown>
 
     const body = asObject(req.body)
     const updates: string[] = []
@@ -202,7 +238,11 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     const name = optionalString(body, 'name', { maxLength: 120 })
     const speed = optionalString(body, 'speed', { maxLength: 20 })
     const vlanId = optionalString(body, 'vlanId', { maxLength: 80 })
+    const allowedVlanIds = normalizeAllowedVlanIds(optionalStringArray(body, 'allowedVlanIds', { maxItems: 128 }))
     const description = optionalString(body, 'description', { maxLength: 500 })
+    const nextMode = 'mode' in body
+      ? requiredEnum(body, 'mode', PORT_MODES)
+      : (String(current.mode ?? 'access') as (typeof PORT_MODES)[number])
 
     if (name !== undefined) { updates.push('name = ?'); values.push(name) }
     if (speed !== undefined) { updates.push('speed = ?'); values.push(speed) }
@@ -212,12 +252,25 @@ export const portsRoutes: FastifyPluginAsync = async (app) => {
     if ('kind' in body) { updates.push('kind = ?'); values.push(requiredEnum(body, 'kind', PORT_KINDS)) }
     if ('linkState' in body) { updates.push('linkState = ?'); values.push(requiredEnum(body, 'linkState', LINK_STATES)) }
     if ('face' in body) { updates.push('face = ?'); values.push(requiredEnum(body, 'face', PORT_FACES)) }
+    if ('mode' in body) { updates.push('mode = ?'); values.push(nextMode) }
+    if ('mode' in body || allowedVlanIds !== undefined) {
+      const persistedAllowed =
+        nextMode === 'trunk'
+          ? JSON.stringify(
+              allowedVlanIds ??
+              (Array.isArray(current.allowedVlanIds) ? current.allowedVlanIds.map((entry) => String(entry)) : []),
+            )
+          : null
+      updates.push('allowedVlanIds = ?')
+      values.push(persistedAllowed)
+    }
 
     if (updates.length === 0) return reply.status(400).send({ error: 'No valid fields to update' })
 
     values.push(req.params.id)
     db.prepare(`UPDATE ports SET ${updates.join(', ')} WHERE id = ?`).run(...values)
-    return db.prepare('SELECT * FROM ports WHERE id = ?').get(req.params.id)
+    const updated = db.prepare('SELECT * FROM ports WHERE id = ?').get(req.params.id) as Record<string, unknown>
+    return parsePortRow(updated)
   })
 
   app.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {

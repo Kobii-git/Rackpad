@@ -287,6 +287,7 @@ function make(deviceId: string, prefix: string, count: number, kind: Port['kind'
       kind,
       speed,
       linkState: isLinked ? 'up' : 'down',
+      mode: 'access',
       vlanId: options.vlanId,
       face: 'front',
     } satisfies Port

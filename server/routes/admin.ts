@@ -39,7 +39,8 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
       racks: db.prepare('SELECT * FROM racks ORDER BY name, id').all(),
       devices: (db.prepare('SELECT * FROM devices ORDER BY hostname, id').all() as Record<string, unknown>[])
         .map((row) => parseRow(row, ['tags'])),
-      ports: db.prepare('SELECT * FROM ports ORDER BY deviceId, position, id').all(),
+      ports: (db.prepare('SELECT * FROM ports ORDER BY deviceId, position, id').all() as Record<string, unknown>[])
+        .map((row) => parseRow(row, ['allowedVlanIds'])),
       portLinks: db.prepare('SELECT * FROM portLinks ORDER BY fromPortId, toPortId, id').all(),
       portTemplates: (db.prepare('SELECT * FROM portTemplates ORDER BY name, id').all() as Record<string, unknown>[])
         .map((row) => parseRow(row, ['deviceTypes', 'ports'])),
@@ -159,7 +160,10 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, placement, parentDeviceId, cpuCores, memoryGb, storageGb, specs, startU, heightU, face, tags, notes, lastSeen)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
-  const insertPort = db.prepare('INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+  const insertPort = db.prepare(`
+    INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
   const insertPortLink = db.prepare('INSERT INTO portLinks (id, fromPortId, toPortId, cableType, cableLength, color, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
   const insertPortTemplate = db.prepare(`
     INSERT INTO portTemplates (id, name, description, deviceTypes, ports, createdAt, updatedAt)
@@ -281,7 +285,9 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.kind,
       row.speed ?? null,
       row.linkState,
+      row.mode ?? 'access',
       row.vlanId ?? null,
+      row.allowedVlanIds ? JSON.stringify(row.allowedVlanIds) : null,
       row.description ?? null,
       row.face ?? null,
     )

@@ -14,6 +14,7 @@ import {
   Shield,
   Wifi,
   Cpu,
+  Activity,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { selectLab, useStore } from '@/lib/store'
@@ -27,6 +28,7 @@ const baseNavItems = [
   { to: '/compute', icon: Cpu, label: 'Compute' },
   { to: '/wifi', icon: Wifi, label: 'WiFi' },
   { to: '/discovery', icon: Search, label: 'Discovery' },
+  { to: '/monitoring', icon: Activity, label: 'Monitoring' },
   { to: '/ports', icon: Cable, label: 'Ports' },
   { to: '/cables', icon: Workflow, label: 'Cables' },
   { to: '/vlans', icon: Hash, label: 'VLANs' },

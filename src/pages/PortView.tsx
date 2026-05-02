@@ -28,9 +28,14 @@ const PORT_BEARING: Device['deviceType'][] = [
   'firewall',
   'ap',
   'endpoint',
+  'vm',
   'patch_panel',
   'server',
   'storage',
+  'pdu',
+  'ups',
+  'kvm',
+  'other',
 ]
 
 const TEMPLATE_DEVICE_TYPES: DeviceType[] = [
@@ -50,14 +55,17 @@ const TEMPLATE_DEVICE_TYPES: DeviceType[] = [
 ]
 
 const LINK_STATES: Port['linkState'][] = ['up', 'down', 'disabled', 'unknown']
-const PORT_KINDS: Port['kind'][] = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb']
+const PORT_KINDS: Port['kind'][] = ['rj45', 'sfp', 'sfp_plus', 'qsfp', 'fiber', 'power', 'console', 'usb', 'virtual']
+const PORT_MODES: NonNullable<Port['mode']>[] = ['access', 'trunk']
 
 interface PortFormState {
   name: string
   kind: Port['kind']
   speed: string
   linkState: Port['linkState']
+  mode: NonNullable<Port['mode']>
   vlanId: string
+  allowedVlanIds: string[]
   description: string
   face: NonNullable<Port['face']>
 }
@@ -66,6 +74,7 @@ interface TemplatePortFormState {
   name: string
   kind: Port['kind']
   speed: string
+  mode: NonNullable<Port['mode']>
   face: NonNullable<Port['face']>
 }
 
@@ -82,7 +91,9 @@ function portToForm(port: Port): PortFormState {
     kind: port.kind,
     speed: port.speed ?? '',
     linkState: port.linkState,
+    mode: port.mode ?? 'access',
     vlanId: port.vlanId ?? '',
+    allowedVlanIds: port.allowedVlanIds ?? [],
     description: port.description ?? '',
     face: port.face ?? 'front',
   }
@@ -93,16 +104,19 @@ function templateToForm(template: PortTemplate): TemplateFormState {
     name: template.name,
     description: template.description,
     deviceTypes: template.deviceTypes,
-    ports: template.ports.map((port) => ({
-      name: port.name,
-      kind: port.kind,
-      speed: port.speed ?? '',
-      face: port.face ?? 'front',
-    })),
+      ports: template.ports.map((port) => ({
+        name: port.name,
+        kind: port.kind,
+        speed: port.speed ?? '',
+        mode: port.mode ?? 'access',
+        face: port.face ?? 'front',
+      })),
   }
 }
 
 function blankTemplateForm(deviceType: DeviceType = 'switch'): TemplateFormState {
+  const defaultKind: Port['kind'] = deviceType === 'vm' ? 'virtual' : 'rj45'
+  const defaultSpeed = deviceType === 'vm' ? 'virtio' : ''
   return {
     name: '',
     description: '',
@@ -110,22 +124,28 @@ function blankTemplateForm(deviceType: DeviceType = 'switch'): TemplateFormState
     ports: [
       {
         name: '',
-        kind: 'rj45',
-        speed: '',
+        kind: defaultKind,
+        speed: defaultSpeed,
+        mode: 'access',
         face: 'front',
       },
     ],
   }
 }
 
-const EMPTY_PORT_FORM: PortFormState = {
-  name: '',
-  kind: 'rj45',
-  speed: '',
-  linkState: 'down',
-  vlanId: '',
-  description: '',
-  face: 'front',
+function blankPortForm(device?: Device): PortFormState {
+  const isVirtualDevice = device?.deviceType === 'vm'
+  return {
+    name: '',
+    kind: isVirtualDevice ? 'virtual' : 'rj45',
+    speed: isVirtualDevice ? 'virtio' : '',
+    linkState: 'down',
+    mode: 'access',
+    vlanId: '',
+    allowedVlanIds: [],
+    description: '',
+    face: 'front',
+  }
 }
 
 export default function PortView() {
@@ -228,13 +248,13 @@ export default function PortView() {
 
   useEffect(() => {
     if (creating) {
-      setForm(EMPTY_PORT_FORM)
+      setForm(blankPortForm(device))
       setError('')
       return
     }
     setForm(selectedPort ? portToForm(selectedPort) : null)
     setError('')
-  }, [creating, selectedPort])
+  }, [creating, device, selectedPort])
 
   useEffect(() => {
     if (creatingTemplate) return
@@ -263,7 +283,9 @@ export default function PortView() {
           kind: form.kind,
           speed: form.speed.trim() || undefined,
           linkState: form.linkState,
+          mode: form.mode,
           vlanId: form.vlanId || undefined,
+          allowedVlanIds: form.mode === 'trunk' ? form.allowedVlanIds : undefined,
           description: form.description.trim() || undefined,
           face: form.face,
           position: (devicePorts.at(-1)?.position ?? 0) + 1,
@@ -276,7 +298,9 @@ export default function PortView() {
           kind: form.kind,
           speed: form.speed.trim() || undefined,
           linkState: form.linkState,
+          mode: form.mode,
           vlanId: form.vlanId || undefined,
+          allowedVlanIds: form.mode === 'trunk' ? form.allowedVlanIds : undefined,
           description: form.description.trim() || undefined,
           face: form.face,
         })
@@ -323,12 +347,13 @@ export default function PortView() {
       name: `${device.hostname} template`,
       description: `Template captured from ${device.hostname}`,
       deviceTypes: [device.deviceType],
-      ports:
+            ports:
         devicePorts.length > 0
           ? devicePorts.map((port) => ({
               name: port.name,
               kind: port.kind,
               speed: port.speed ?? '',
+              mode: port.mode ?? 'access',
               face: port.face ?? 'front',
             }))
           : blankTemplateForm(device.deviceType).ports,
@@ -342,6 +367,7 @@ export default function PortView() {
         name: port.name.trim(),
         kind: port.kind,
         speed: port.speed.trim() || undefined,
+        mode: port.mode,
         face: port.face,
       }))
       .filter((port) => port.name)
@@ -440,6 +466,7 @@ export default function PortView() {
               onClick={() => {
                 setCreating(true)
                 setSelectedPortId(undefined)
+                setForm(blankPortForm(device))
               }}
             >
               <Plus className="size-3.5" />
@@ -617,12 +644,37 @@ export default function PortView() {
                               ))}
                             </Select>
                           </Field>
-                          <Field label="VLAN">
+                          <Field label="Mode">
+                            <Select
+                              value={form.mode}
+                              onChange={(value) =>
+                                setForm((prev) => (
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        mode: value as PortFormState['mode'],
+                                        allowedVlanIds: value === 'trunk' ? prev.allowedVlanIds : [],
+                                      }
+                                    : prev
+                                ))
+                              }
+                            >
+                              {PORT_MODES.map((mode) => (
+                                <option key={mode} value={mode}>
+                                  {mode}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
+
+                        <div className={`grid gap-3 ${form.mode === 'trunk' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                          <Field label={form.mode === 'trunk' ? 'Native VLAN' : 'Access VLAN'}>
                             <Select
                               value={form.vlanId}
                               onChange={(value) => setForm((prev) => (prev ? { ...prev, vlanId: value } : prev))}
                             >
-                              <option value="">Unassigned</option>
+                              <option value="">{form.mode === 'trunk' ? 'No native VLAN' : 'Unassigned'}</option>
                               {vlans.map((vlan) => (
                                 <option key={vlan.id} value={vlan.id}>
                                   {vlan.vlanId} - {vlan.name}
@@ -630,7 +682,70 @@ export default function PortView() {
                               ))}
                             </Select>
                           </Field>
+                          {form.mode === 'trunk' && (
+                            <Field label="Add tagged VLAN">
+                              <Select
+                                value=""
+                                onChange={(value) => {
+                                  if (!value) return
+                                  setForm((prev) => (
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          allowedVlanIds: prev.allowedVlanIds.includes(value)
+                                            ? prev.allowedVlanIds
+                                            : [...prev.allowedVlanIds, value],
+                                        }
+                                      : prev
+                                  ))
+                                }}
+                              >
+                                <option value="">Add tagged VLAN...</option>
+                                {vlans
+                                  .filter((vlan) => vlan.id !== form.vlanId && !form.allowedVlanIds.includes(vlan.id))
+                                  .map((vlan) => (
+                                    <option key={vlan.id} value={vlan.id}>
+                                      {vlan.vlanId} - {vlan.name}
+                                    </option>
+                                ))}
+                              </Select>
+                            </Field>
+                          )}
                         </div>
+
+                        {form.mode === 'trunk' && (
+                          <>
+                            <Field label="Tagged VLANs">
+                              <div className="flex flex-wrap gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-2">
+                                {form.allowedVlanIds.length === 0 ? (
+                                  <div className="px-1 py-1 text-xs text-[var(--color-fg-subtle)]">
+                                    No tagged VLANs documented yet.
+                                  </div>
+                                ) : (
+                                  form.allowedVlanIds.map((vlanId) => {
+                                    const vlan = vlans.find((entry) => entry.id === vlanId)
+                                    return (
+                                      <button
+                                        key={vlanId}
+                                        type="button"
+                                        onClick={() =>
+                                          setForm((prev) => (
+                                            prev
+                                              ? { ...prev, allowedVlanIds: prev.allowedVlanIds.filter((entry) => entry !== vlanId) }
+                                              : prev
+                                          ))
+                                        }
+                                        className="rounded-[var(--radius-xs)] border border-[var(--color-accent-soft)]/40 bg-[var(--color-accent)]/10 px-2 py-1 text-xs text-[var(--color-fg)] transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/15"
+                                      >
+                                        {vlan ? `${vlan.vlanId} - ${vlan.name}` : vlanId} ×
+                                      </button>
+                                    )
+                                  })
+                                )}
+                              </div>
+                            </Field>
+                          </>
+                        )}
 
                         <Field label="Description">
                           <textarea
@@ -811,7 +926,7 @@ export default function PortView() {
                                     ...prev,
                                     ports: [
                                       ...prev.ports,
-                                      { name: '', kind: 'rj45', speed: '', face: 'front' },
+                                      { name: '', kind: 'rj45', speed: '', mode: 'access', face: 'front' },
                                     ],
                                   }))
                                 }
@@ -825,7 +940,7 @@ export default function PortView() {
                           <div className="space-y-2">
                             {templateForm.ports.map((port, index) => (
                               <div key={`${index}-${port.name}`} className="grid grid-cols-12 gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] p-2">
-                                <div className="col-span-4">
+                                <div className="col-span-3">
                                   <Field label={`Port ${index + 1}`}>
                                     <Input
                                       value={port.name}
@@ -842,7 +957,7 @@ export default function PortView() {
                                     />
                                   </Field>
                                 </div>
-                                <div className="col-span-3">
+                                <div className="col-span-2">
                                   <Field label="Kind">
                                     <Select
                                       value={port.kind}
@@ -879,6 +994,28 @@ export default function PortView() {
                                       }
                                       placeholder="10G"
                                     />
+                                  </Field>
+                                </div>
+                                <div className="col-span-2">
+                                  <Field label="Mode">
+                                    <Select
+                                      value={port.mode}
+                                      disabled={Boolean(selectedTemplate?.builtIn)}
+                                      onChange={(value) =>
+                                        setTemplateForm((prev) => ({
+                                          ...prev,
+                                          ports: prev.ports.map((entry, entryIndex) =>
+                                            entryIndex === index ? { ...entry, mode: value as TemplatePortFormState['mode'] } : entry,
+                                          ),
+                                        }))
+                                      }
+                                    >
+                                      {PORT_MODES.map((mode) => (
+                                        <option key={mode} value={mode}>
+                                          {mode}
+                                        </option>
+                                      ))}
+                                    </Select>
                                   </Field>
                                 </div>
                                 <div className="col-span-2">

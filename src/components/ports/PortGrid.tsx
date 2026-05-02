@@ -224,9 +224,10 @@ function PortCell({ port, link, portsById, devicesById, onSelect, selected, dela
           <div className="flex items-center gap-2">
             <span className="font-medium">{port.name}</span>
             <span className="text-[var(--color-fg-subtle)]">
-              {portTypeLabel[port.kind]} · {port.speed}
+              {portTypeLabel[port.kind]} · {port.speed ?? 'n/a'}
             </span>
           </div>
+          <span className="text-[var(--color-fg-subtle)]">{formatPortNetworkSummary(port)}</span>
           {isLinked && otherDevice && otherPort ? (
             <span className="text-[var(--color-cyan)]">
               ↔ {otherDevice.hostname}:{otherPort.name}
@@ -243,4 +244,14 @@ function PortCell({ port, link, portsById, devicesById, onSelect, selected, dela
       </TooltipContent>
     </Tooltip>
   )
+}
+
+function formatPortNetworkSummary(port: Port) {
+  if (port.mode === 'trunk') {
+    const taggedCount = port.allowedVlanIds?.length ?? 0
+    const nativeLabel = port.vlanId ? `native ${port.vlanId}` : 'no native VLAN'
+    return taggedCount > 0 ? `Trunk · ${nativeLabel} · ${taggedCount} tagged` : `Trunk · ${nativeLabel}`
+  }
+
+  return port.vlanId ? `Access · VLAN ${port.vlanId}` : 'Access · unassigned VLAN'
 }
