@@ -7,6 +7,13 @@ if (navToggle && navMenu) {
     navMenu.setAttribute("data-open", String(!open));
     navToggle.setAttribute("aria-expanded", String(!open));
   });
+
+  navMenu.querySelectorAll("a").forEach((link) => {
+    link.addEventListener("click", () => {
+      navMenu.setAttribute("data-open", "false");
+      navToggle.setAttribute("aria-expanded", "false");
+    });
+  });
 }
 
 document.querySelectorAll("[data-copy-target]").forEach((button) => {

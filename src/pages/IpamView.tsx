@@ -148,15 +148,18 @@ export default function IpamView() {
       requestedSubnetId &&
       subnets.some((entry) => entry.id === requestedSubnetId)
     ) {
-      if (subnetId !== requestedSubnetId) {
-        setSubnetId(requestedSubnetId);
-      }
+      setSubnetId((current) =>
+        current === requestedSubnetId ? current : requestedSubnetId,
+      );
       return;
     }
-    if (!subnetId || !subnets.some((subnet) => subnet.id === subnetId)) {
-      setSubnetId(subnets[0].id);
-    }
-  }, [requestedSubnetId, subnetId, subnets]);
+
+    setSubnetId((current) =>
+      current && subnets.some((subnet) => subnet.id === current)
+        ? current
+        : subnets[0].id,
+    );
+  }, [requestedSubnetId, subnets]);
 
   useEffect(() => {
     const currentSubnetId = searchParams.get("subnetId") ?? "";

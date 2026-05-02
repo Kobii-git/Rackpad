@@ -101,79 +101,86 @@
               </p>
             </div>
 
-            <table class="comparison-table">
-              <thead>
-                <tr>
-                  <th>Area</th>
-                  <th>Recommended starting point</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Host OS</strong></td>
-                  <td>64-bit Linux VM or server</td>
-                  <td>
-                    Ubuntu or Debian-class hosts are the easiest path for Docker
-                    and Node-based testing.
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>CPU and RAM</strong></td>
-                  <td>2 vCPU / 4 GB RAM minimum, 4 vCPU / 8 GB recommended</td>
-                  <td>
-                    Enough for the app, SQLite, monitoring, and a moderate lab
-                    inventory without contention.
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Disk</strong></td>
-                  <td>10 GB free minimum, 20+ GB SSD preferred</td>
-                  <td>
-                    Allows room for images, rebuilds, backup exports, and growth
-                    in audit and discovery data.
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Networking</strong></td>
-                  <td>Port 3000 reachable from the admin network</td>
-                  <td>
-                    Use a reverse proxy and TLS if the app leaves a private LAN
-                    or VPN-only environment.
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Operational reach</strong></td>
-                  <td>
-                    ICMP and TCP reachability from the Rackpad host or container
-                  </td>
-                  <td>
-                    Discovery, monitoring, and some WiFi or bridge workflows are
-                    only useful if Rackpad can actually reach the subnets,
-                    controllers, and host uplinks you want it to observe.
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Alert egress</strong></td>
-                  <td>
-                    Outbound SMTP, Discord webhook, or Telegram API access if
-                    notifications are enabled
-                  </td>
-                  <td>
-                    Optional, but needed for alert delivery beyond the in-app
-                    monitoring workspace.
-                  </td>
-                </tr>
-                <tr>
-                  <td><strong>Runtime</strong></td>
-                  <td>Docker Engine + Compose plugin, or Node 22 LTS + npm</td>
-                  <td>
-                    Docker is the recommended test path. Native Node is best for
-                    custom service deployments.
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th>Area</th>
+                    <th>Recommended starting point</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Host OS</strong></td>
+                    <td>64-bit Linux VM or server</td>
+                    <td>
+                      Ubuntu or Debian-class hosts are the easiest path for
+                      Docker and Node-based testing.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>CPU and RAM</strong></td>
+                    <td>
+                      2 vCPU / 4 GB RAM minimum, 4 vCPU / 8 GB recommended
+                    </td>
+                    <td>
+                      Enough for the app, SQLite, monitoring, and a moderate lab
+                      inventory without contention.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Disk</strong></td>
+                    <td>10 GB free minimum, 20+ GB SSD preferred</td>
+                    <td>
+                      Allows room for images, rebuilds, backup exports, and
+                      growth in audit and discovery data.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Networking</strong></td>
+                    <td>Port 3000 reachable from the admin network</td>
+                    <td>
+                      Use a reverse proxy and TLS if the app leaves a private
+                      LAN or VPN-only environment.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Operational reach</strong></td>
+                    <td>
+                      ICMP and TCP reachability from the Rackpad host or
+                      container
+                    </td>
+                    <td>
+                      Discovery, monitoring, and some WiFi or bridge workflows
+                      are only useful if Rackpad can actually reach the subnets,
+                      controllers, and host uplinks you want it to observe.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Alert egress</strong></td>
+                    <td>
+                      Outbound SMTP, Discord webhook, or Telegram API access if
+                      notifications are enabled
+                    </td>
+                    <td>
+                      Optional, but needed for alert delivery beyond the in-app
+                      monitoring workspace.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td><strong>Runtime</strong></td>
+                    <td>
+                      Docker Engine + Compose plugin, or Node 22 LTS + npm
+                    </td>
+                    <td>
+                      Docker is the recommended test path. Native Node is best
+                      for custom service deployments.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 

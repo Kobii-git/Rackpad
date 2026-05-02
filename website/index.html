@@ -373,103 +373,151 @@
         <section class="section" id="screenshots">
           <div class="container">
             <div class="section-header">
-              <div class="kicker">Demo screenshots</div>
-              <h2>Demo-based product views for the full Rackpad workflow.</h2>
+              <div class="kicker">Live demo screenshots</div>
+              <h2>Current Rackpad views from the working demo environment.</h2>
               <p>
-                These visuals are based on the shipped Rackpad demo environment
-                and cover the current app shape around racks, shelf-mounted
-                gear, bridge-aware networking, monitoring, WiFi, discovery, and
-                compute. They are meant to show what operators get before they
-                document a real lab.
+                These screenshots are pulled from the current running Rackpad
+                demo, not stylized placeholders. They show the app as it
+                actually operates today across rack inventory, device
+                management, WiFi, discovery, virtualization, monitoring, ports,
+                and IPAM.
               </p>
             </div>
 
             <div class="screenshot-grid">
-              <figure class="screenshot-card screenshot-card-wide">
+              <figure
+                class="screenshot-card screenshot-card-wide screenshot-card-live"
+              >
                 <img
-                  src="assets/demo-dashboard.svg"
-                  alt="Rackpad dashboard screenshot with monitoring, capacity, and recent activity"
+                  src="assets/screenshot-dashboard.png"
+                  alt="Rackpad dashboard showing inventory counts, health, aggregate capacity, and recent activity"
                 />
                 <figcaption>
-                  <strong>Dashboard and monitoring overview</strong>
+                  <strong>Dashboard and operational overview</strong>
                   <span
-                    >Multi-lab totals, device health, capacity, alerts, and
-                    recent operational activity in one screen.</span
+                    >Inventory counts, device health, saved-capacity estimates,
+                    audit activity, and category rollups in one operator-first
+                    home view.</span
                   >
                 </figcaption>
               </figure>
 
-              <figure class="screenshot-card">
+              <figure class="screenshot-card screenshot-card-live">
                 <img
-                  src="assets/demo-racks.svg"
-                  alt="Rackpad rack screenshot showing mounted gear and shelf-mounted devices"
+                  src="assets/screenshot-racks.png"
+                  alt="Rackpad racks page showing rack layout and mounted equipment"
                 />
                 <figcaption>
-                  <strong
-                    >Racks, shelves, blanking panels, and mounted gear</strong
-                  >
+                  <strong>Racks, mounted gear, and room-tech context</strong>
                   <span
-                    >Physical rack units, switch and server placement, blanking
-                    and brush panels, and shelf or tray-mounted small devices
-                    modeled cleanly.</span
+                    >Physical rack placement with device health, unit-level
+                    positioning, and clean separation between rack-mounted and
+                    loose room equipment.</span
                   >
                 </figcaption>
               </figure>
 
-              <figure class="screenshot-card">
+              <figure class="screenshot-card screenshot-card-live">
                 <img
-                  src="assets/demo-network.svg"
-                  alt="Rackpad ports screenshot showing trunk VLANs and virtual switch memberships"
+                  src="assets/screenshot-devices.png"
+                  alt="Rackpad devices inventory page showing filtered device table"
                 />
                 <figcaption>
-                  <strong>Ports, trunks, and virtual switching</strong>
+                  <strong>Device inventory with placement and health</strong>
                   <span
-                    >Access and trunk ports, native and tagged VLANs, AP and
-                    host uplinks, and VM NICs mapped onto shared virtual
-                    bridges.</span
+                    >Dense device listings with type, management IP, rack or
+                    WiFi placement, linked port counts, and status all kept in
+                    one searchable screen.</span
                   >
                 </figcaption>
               </figure>
 
-              <figure class="screenshot-card">
+              <figure class="screenshot-card screenshot-card-live">
                 <img
-                  src="assets/demo-wireless.svg"
-                  alt="Rackpad WiFi and discovery screenshot with controllers, SSIDs, and staged devices"
+                  src="assets/screenshot-compute.png"
+                  alt="Rackpad compute page showing hosts, VMs, capacity, and virtual switches"
                 />
                 <figcaption>
-                  <strong>Controller-aware WiFi and discovery</strong>
+                  <strong>Compute hosts, VMs, capacity, and bridges</strong>
                   <span
-                    >Controllers, SSIDs, radios, clients, and discovered hosts
-                    with MAC, vendor, and import or link decisions.</span
+                    >Virtualization-aware inventory with host sizing, guest
+                    mapping, and bridge space ready for internal, private, and
+                    external switch patterns.</span
                   >
                 </figcaption>
               </figure>
 
-              <figure class="screenshot-card">
+              <figure class="screenshot-card screenshot-card-live">
                 <img
-                  src="assets/demo-compute.svg"
-                  alt="Rackpad compute screenshot showing host capacity, VMs, and bridges"
+                  src="assets/screenshot-wifi.png"
+                  alt="Rackpad WiFi page showing controllers, SSIDs, radios, and clients"
                 />
                 <figcaption>
-                  <strong>Compute hosts, guests, bridges, and capacity</strong>
+                  <strong>Controller-aware WiFi inventory</strong>
                   <span
-                    >CPU, memory, and storage planning with guest mappings and
-                    host-level bridge inventories, including external, internal,
-                    and private switching patterns.</span
+                    >Controllers, SSIDs, radios, channels, client associations,
+                    VLAN ties, and wireless signal context are modeled as
+                    first-class records.</span
                   >
                 </figcaption>
               </figure>
 
-              <figure class="screenshot-card">
+              <figure class="screenshot-card screenshot-card-live">
                 <img
-                  src="assets/demo-ipam.svg"
-                  alt="Rackpad IPAM and monitoring screenshot with subnets, scopes, and monitor status"
+                  src="assets/screenshot-discovery.png"
+                  alt="Rackpad discovery page showing staged discovered hosts and the inspector"
                 />
                 <figcaption>
-                  <strong>IPAM, DHCP scopes, and monitor context</strong>
+                  <strong>Discovery inbox and staging workflow</strong>
                   <span
-                    >Linked VLANs, subnets, scopes, zones, and the monitoring
-                    workspace in one operational path.</span
+                    >Scan a subnet, review hostnames, MACs, vendors, duplicate
+                    matches, and then import, link, dismiss, or rescan from one
+                    queue.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card screenshot-card-live">
+                <img
+                  src="assets/screenshot-ports.png"
+                  alt="Rackpad ports page showing switch ports and the inspector"
+                />
+                <figcaption>
+                  <strong>Ports, uplinks, and patching context</strong>
+                  <span
+                    >Structured RJ45 and SFP views with link peers, inspector
+                    details, cable metadata, and virtual-switch membership
+                    assignment for hosts and guests.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card screenshot-card-live">
+                <img
+                  src="assets/screenshot-monitoring.png"
+                  alt="Rackpad monitoring page showing multiple devices and target checks"
+                />
+                <figcaption>
+                  <strong>Multi-target monitoring and alerts</strong>
+                  <span
+                    >Device-level rollups with per-target ICMP, TCP, and HTTPS
+                    checks, fast rechecks, and alert-ready status in a dedicated
+                    operations workspace.</span
+                  >
+                </figcaption>
+              </figure>
+
+              <figure class="screenshot-card screenshot-card-live">
+                <img
+                  src="assets/screenshot-ipam.png"
+                  alt="Rackpad IPAM page showing subnets, allocations, scopes, and zones"
+                />
+                <figcaption>
+                  <strong>VLAN-linked IPAM and address allocation</strong>
+                  <span
+                    >Subnets, linked VLANs, utilization, DHCP scopes, static
+                    zones, and assigned inventory stay tied together instead of
+                    drifting across separate tools.</span
                   >
                 </figcaption>
               </figure>
