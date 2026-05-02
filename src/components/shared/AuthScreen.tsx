@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -7,6 +8,7 @@ import { bootstrapAdmin, initializeApp, login, useStore } from '@/lib/store'
 type Mode = 'login' | 'bootstrap'
 
 export function AuthScreen() {
+  const navigate = useNavigate()
   const needsBootstrap = useStore((s) => s.needsBootstrap)
   const authLoading = useStore((s) => s.authLoading)
   const authError = useStore((s) => s.authError)
@@ -29,6 +31,7 @@ export function AuthScreen() {
         password: bootstrapForm.password,
         loadDemoData: bootstrapForm.loadDemoData,
       })
+      navigate('/', { replace: true })
       return
     }
 
@@ -36,6 +39,7 @@ export function AuthScreen() {
       username: loginForm.username.trim(),
       password: loginForm.password,
     })
+    navigate('/', { replace: true })
   }
 
   return (
@@ -158,7 +162,7 @@ export function AuthScreen() {
                 onClick={() => void initializeApp(true)}
                 className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--color-fg-subtle)] hover:text-[var(--color-fg)]"
               >
-                Recheck server state
+                {mode === 'bootstrap' ? 'Go to sign in' : 'Recheck server state'}
               </button>
               <Button type="submit" disabled={authLoading}>
                 {authLoading

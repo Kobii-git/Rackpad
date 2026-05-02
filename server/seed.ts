@@ -445,7 +445,41 @@ export function seedIfEmpty() {
   const insertDhcpScope = db.prepare('INSERT INTO dhcpScopes VALUES (@id, @subnetId, @name, @startIp, @endIp, @gateway, @dnsServers, @description)')
   const insertIpZone = db.prepare('INSERT INTO ipZones VALUES (@id, @subnetId, @kind, @startIp, @endIp, @description)')
   const insertIpAssignment = db.prepare('INSERT INTO ipAssignments VALUES (@id, @subnetId, @ipAddress, @assignmentType, @deviceId, @portId, @vmId, @containerId, @hostname, @description)')
-  const insertDiscoveredDevice = db.prepare('INSERT INTO discoveredDevices VALUES (@id, @labId, @ipAddress, @hostname, @displayName, @deviceType, @placement, @macAddress, @vendor, @source, @status, @notes, @importedDeviceId, @lastSeen, @lastScannedAt)')
+  const insertDiscoveredDevice = db.prepare(`
+    INSERT INTO discoveredDevices (
+      id,
+      labId,
+      ipAddress,
+      hostname,
+      displayName,
+      deviceType,
+      placement,
+      source,
+      status,
+      notes,
+      importedDeviceId,
+      lastSeen,
+      lastScannedAt,
+      macAddress,
+      vendor
+    ) VALUES (
+      @id,
+      @labId,
+      @ipAddress,
+      @hostname,
+      @displayName,
+      @deviceType,
+      @placement,
+      @source,
+      @status,
+      @notes,
+      @importedDeviceId,
+      @lastSeen,
+      @lastScannedAt,
+      @macAddress,
+      @vendor
+    )
+  `)
   const insertDeviceMonitor = db.prepare('INSERT INTO deviceMonitors VALUES (@id, @deviceId, @name, @type, @target, @port, @path, @intervalMs, @enabled, @sortOrder, @lastCheckAt, @lastResult, @lastMessage, @lastAlertAt)')
   const insertWifiController = db.prepare('INSERT INTO wifiControllers VALUES (@id, @labId, @deviceId, @name, @vendor, @model, @managementIp, @notes)')
   const insertWifiSsid = db.prepare('INSERT INTO wifiSsids VALUES (@id, @labId, @name, @purpose, @security, @hidden, @vlanId, @color)')

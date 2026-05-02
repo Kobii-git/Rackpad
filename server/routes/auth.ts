@@ -102,28 +102,47 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
     const userId = createId('u')
     const createdAt = new Date().toISOString()
-    db.prepare(`
-      INSERT INTO users (id, username, displayName, passwordHash, role, disabled, createdAt, lastLoginAt)
-      VALUES (?, ?, ?, ?, 'admin', 0, ?, ?)
-    `).run(userId, username, displayName, hashPassword(password), createdAt, createdAt)
-    setBootstrapState(false)
+    const bootstrap = db.transaction(() => {
+      db.prepare(`
+        INSERT INTO users (id, username, displayName, passwordHash, role, disabled, createdAt, lastLoginAt)
+        VALUES (?, ?, ?, ?, 'admin', 0, ?, ?)
+      `).run(userId, username, displayName, hashPassword(password), createdAt, createdAt)
 
-    if (loadDemoData) {
-      seedIfEmpty()
-    } else {
-      ensureDefaultLab()
+      if (loadDemoData) {
+        seedIfEmpty()
+      } else {
+        ensureDefaultLab()
+      }
+
+      const session = createSession(userId)
+      writeAuthAudit(
+        'auth.bootstrap',
+        username,
+        userId,
+        `Created the initial admin account and ${loadDemoData ? 'loaded demo data' : 'started with an empty workspace'}.`,
+      )
+      setBootstrapState(false)
+      return session
+    })
+
+    let session
+    try {
+      session = bootstrap()
+    } catch (error) {
+      setBootstrapState(null)
+      req.log.error({ err: error }, 'Failed to complete initial bootstrap')
+      if (error instanceof ValidationError) {
+        throw error
+      }
+      return reply.status(500).send({
+        error: loadDemoData
+          ? 'Failed to create the admin account while loading demo data. No changes were saved.'
+          : 'Failed to create the admin account. No changes were saved.',
+      })
     }
 
-    const session = createSession(userId)
     const user = getPublicUserById(userId)
     clearFailedAttempts(rateLimitKey)
-    writeAuthAudit(
-      'auth.bootstrap',
-      username,
-      userId,
-      `Created the initial admin account and ${loadDemoData ? 'loaded demo data' : 'started with an empty workspace'}.`,
-    )
-
     return reply.status(201).send({
       token: session.token,
       expiresAt: session.expiresAt,

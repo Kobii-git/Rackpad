@@ -4,6 +4,24 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.5] - 2026-05-02
+
+### Fixed
+
+- Initial admin bootstrap is now atomic, so creating the first account with demo data either completes fully or rolls back cleanly instead of leaving a partial user behind.
+- Demo seeding now inserts discovered-device rows using an explicit column list that matches the current SQLite schema, which fixes the broken first-run demo load path.
+- Successful bootstrap and login now redirect to the dashboard instead of dropping the user back onto whichever protected page was open underneath the auth screen.
+
+### Changed
+
+- The bootstrap screen now labels its secondary action `Go to sign in` instead of `Recheck server state`, which better matches what the action actually does after first-run state changes.
+- Bootstrap failures now return a clearer message when demo-data setup does not complete, making it obvious that no partial changes were saved.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.9.4] - 2026-05-02
 
 ### Added
