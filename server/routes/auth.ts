@@ -19,6 +19,21 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000
 const MAX_LOGIN_ATTEMPTS = 8
 const loginAttempts = new Map<string, { count: number; windowStartedAt: number; blockedUntil: number | null }>()
 
+function writeAuthAudit(action: string, actor: string, entityId: string, summary: string) {
+  db.prepare(`
+    INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    createId('a'),
+    new Date().toISOString(),
+    actor,
+    action,
+    'Session',
+    entityId,
+    summary,
+  )
+}
+
 function getAuthRateLimitKey(ipAddress: string) {
   return ipAddress || 'unknown'
 }
@@ -102,6 +117,12 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const session = createSession(userId)
     const user = getPublicUserById(userId)
     clearFailedAttempts(rateLimitKey)
+    writeAuthAudit(
+      'auth.bootstrap',
+      username,
+      userId,
+      `Created the initial admin account and ${loadDemoData ? 'loaded demo data' : 'started with an empty workspace'}.`,
+    )
 
     return reply.status(201).send({
       token: session.token,
@@ -138,6 +159,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const session = createSession(String(row.id))
     const user = parsePublicUser({ ...row, lastLoginAt: now })
     clearFailedAttempts(rateLimitKey)
+    writeAuthAudit('auth.login', user.username, user.id, 'Signed in to Rackpad.')
 
     return {
       token: session.token,
@@ -171,6 +193,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     const session = lookupSession(token)
     if (session) {
       db.prepare('DELETE FROM userSessions WHERE id = ?').run(session.sessionId)
+      writeAuthAudit('auth.logout', session.username, session.id, 'Signed out of Rackpad.')
     }
     return reply.status(204).send()
   })

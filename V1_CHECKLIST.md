@@ -64,7 +64,7 @@ Acceptance:
 
 ### `v0.9.4` Demo expansion and release hardening
 
-Status: `planned`
+Status: `done`
 
 - Expand demo data to showcase every major feature in a believable environment
 - Add multi-NIC servers, firewalls, APs, SSIDs, wireless clients, hosts, VMs, discovery findings, alerts, custom port templates, room tech, and multiple labs

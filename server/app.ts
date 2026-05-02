@@ -23,9 +23,92 @@ import { ValidationError } from './lib/validation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '../dist')
+const DEV_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173'])
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
+
+function envFlag(name: string, fallback = false) {
+  const raw = process.env[name]?.trim().toLowerCase()
+  if (!raw) return fallback
+  return ['1', 'true', 'yes', 'on'].includes(raw)
+}
+
+function parseDelimitedEnv(name: string) {
+  const raw = process.env[name]
+  if (!raw) return []
+  return raw
+    .split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean)
+}
+
+function normalizeOrigin(value: string) {
+  try {
+    return new URL(value.trim()).origin.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+function normalizeHost(value: string) {
+  const trimmed = value.trim().replace(/\/+$/, '')
+  if (!trimmed) return null
+  if (trimmed.includes('://')) {
+    try {
+      return new URL(trimmed).host.toLowerCase()
+    } catch {
+      return null
+    }
+  }
+  return trimmed.toLowerCase()
+}
+
+function stripHostPort(host: string) {
+  if (host.startsWith('[')) {
+    const match = host.match(/^\[[^\]]+\]/)
+    return match ? match[0].toLowerCase() : host.toLowerCase()
+  }
+  return host.split(':')[0].toLowerCase()
+}
+
+function getRequestHost(headers: Record<string, unknown>) {
+  const forwarded = headers['x-forwarded-host']
+  const hostHeader = forwarded ?? headers.host
+  if (!hostHeader) return null
+  const firstValue = String(hostHeader).split(',')[0]?.trim()
+  return firstValue ? normalizeHost(firstValue) : null
+}
+
+function hostAllowed(host: string | null, trustedHosts: Set<string>) {
+  if (!host) return false
+  const hostOnly = stripHostPort(host)
+  if (LOOPBACK_HOSTS.has(hostOnly)) return true
+  for (const allowed of trustedHosts) {
+    if (allowed === host) return true
+    if (stripHostPort(allowed) === hostOnly) return true
+  }
+  return false
+}
+
+function getRequestOrigin(headers: Record<string, unknown>) {
+  const raw = headers.origin
+  if (!raw) return null
+  return normalizeOrigin(String(raw))
+}
 
 export async function createApp() {
+  const trustedHosts = new Set(
+    parseDelimitedEnv('TRUSTED_HOSTS')
+      .map(normalizeHost)
+      .filter((value): value is string => Boolean(value)),
+  )
+  const trustedOrigins = new Set(
+    parseDelimitedEnv('TRUSTED_ORIGINS')
+      .map(normalizeOrigin)
+      .filter((value): value is string => Boolean(value)),
+  )
+
   const app = Fastify({
+    trustProxy: envFlag('TRUST_PROXY'),
     logger: process.env.NODE_ENV === 'production'
       ? true
       : {
@@ -41,8 +124,15 @@ export async function createApp() {
 
   await app.register(cors, {
     origin: process.env.NODE_ENV === 'production'
-      ? false
-      : ['http://localhost:5173', 'http://127.0.0.1:5173'],
+      ? (origin, callback) => {
+          if (!origin) {
+            callback(null, true)
+            return
+          }
+          const normalized = normalizeOrigin(origin)
+          callback(null, normalized ? trustedOrigins.has(normalized) : false)
+        }
+      : [...DEV_ORIGINS],
   })
 
   app.addHook('onSend', async (req, reply, payload) => {
@@ -53,7 +143,14 @@ export async function createApp() {
     reply.header('Cross-Origin-Resource-Policy', 'same-origin')
     reply.header('X-DNS-Prefetch-Control', 'off')
     reply.header('Permissions-Policy', 'camera=(), geolocation=(), microphone=()')
-    if ((req.headers['x-forwarded-proto'] ?? '').toString().includes('https')) {
+    reply.header(
+      'Content-Security-Policy',
+      "default-src 'self'; base-uri 'self'; connect-src 'self'; font-src 'self' data:; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+    )
+    if (req.url.startsWith('/api/')) {
+      reply.header('Cache-Control', 'no-store')
+    }
+    if (req.protocol === 'https' || (req.headers['x-forwarded-proto'] ?? '').toString().includes('https')) {
       reply.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
     }
     return payload
@@ -97,6 +194,20 @@ export async function createApp() {
   const writeWhitelist = new Set(['/api/auth/logout'])
 
   app.addHook('onRequest', async (req, reply) => {
+    if (process.env.NODE_ENV === 'production' && trustedHosts.size > 0) {
+      const requestHost = getRequestHost(req.headers as Record<string, unknown>)
+      if (!hostAllowed(requestHost, trustedHosts)) {
+        return reply.status(400).send({ error: 'Request host is not allowed by this Rackpad deployment.' })
+      }
+    }
+
+    if (process.env.NODE_ENV === 'production' && trustedOrigins.size > 0) {
+      const requestOrigin = getRequestOrigin(req.headers as Record<string, unknown>)
+      if (requestOrigin && !trustedOrigins.has(requestOrigin)) {
+        return reply.status(403).send({ error: 'Request origin is not allowed by this Rackpad deployment.' })
+      }
+    }
+
     if (!req.url.startsWith('/api/')) return
     const urlPath = req.url.split('?')[0]
     if (publicPaths.has(urlPath)) return

@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.9.3`
+Current release: `v0.9.4`
 
 It is a full-stack app:
 - React + Vite frontend
@@ -39,6 +39,7 @@ It is a full-stack app:
 - Device health-check configuration, alert destinations, repeat-alert controls, and on-demand monitor runs
 - Multiple monitor targets per device so servers, firewalls, and multi-NIC systems can track separate management, service, storage, or VIP endpoints
 - SMTP/email alert delivery beside Discord and Telegram, plus recent alert activity in the admin area
+- Expanded demo data with multiple labs, discovery states, custom templates, multi-target monitors, room tech, compute, and WiFi examples
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
 
@@ -106,6 +107,9 @@ PORT=3000
 DATABASE_PATH=./rackpad.db
 MONITOR_INTERVAL_MS=300000
 NODE_ENV=production
+TRUST_PROXY=0
+TRUSTED_HOSTS=
+TRUSTED_ORIGINS=
 ```
 
 ## First run
@@ -115,7 +119,8 @@ On the first boot there are no users yet.
 1. Open Rackpad in the browser.
 2. Create the initial admin account.
 3. Sign in.
-4. Start documenting racks, devices, VLANs, and IPAM.
+4. Choose whether to start empty or preload the expanded demo environment.
+5. Start documenting racks, devices, VLANs, and IPAM.
 
 ## Docker
 
@@ -129,6 +134,7 @@ The compose stack:
 - exposes Rackpad on `${RACKPAD_PORT:-3000}`
 - stores SQLite data in the named volume `rackpad_data`
 - serves the compiled frontend and API from the same container
+- runs with a read-only root filesystem except for `/data` and `/tmp`
 - uses `/api/health` for the container health check
 
 To stop it:
@@ -159,6 +165,33 @@ If `better-sqlite3` needs to compile during `npm install`, install build tools f
 sudo apt-get update
 sudo apt-get install -y python3 make g++
 ```
+
+## Reverse proxy / TLS
+
+For any public-facing or VPN-exposed deployment, put Rackpad behind a TLS reverse proxy and set the trusted proxy/origin environment values.
+
+Recommended environment shape:
+
+```bash
+TRUST_PROXY=1
+TRUSTED_HOSTS=rackpad.example.com
+TRUSTED_ORIGINS=https://rackpad.example.com
+```
+
+Example proxy files are included in:
+
+- [deploy/Caddyfile.example](./deploy/Caddyfile.example)
+- [deploy/nginx-rackpad.conf](./deploy/nginx-rackpad.conf)
+
+The app already sets:
+
+- `Content-Security-Policy`
+- `Strict-Transport-Security` when the request arrives over HTTPS
+- `X-Frame-Options`
+- `X-Content-Type-Options`
+- `Referrer-Policy`
+
+So the main deployment job is to terminate TLS, forward the correct `X-Forwarded-*` headers, and keep Rackpad reachable only through the hostname you trust.
 
 ## Windows note
 

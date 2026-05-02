@@ -4,6 +4,33 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.4] - 2026-05-02
+
+### Added
+
+- A much richer demo seed that now spans multiple labs, room tech, a detached office rack, additional compute examples, discovery inbox states, custom port templates, and multi-target monitor examples.
+- Demo wireless data for a second lab so lab switching feels real across WiFi, inventory, compute, and IPAM workflows.
+- Trusted proxy, trusted host, and trusted origin environment controls for harder production deployments.
+- Copy-paste reverse proxy examples for both Caddy and Nginx in the new `deploy/` directory.
+
+### Changed
+
+- Docker compose now runs the app with a read-only root filesystem plus a `/tmp` tmpfs while keeping SQLite persistence on `/data`.
+- Bootstrap copy now explains that the demo install includes multiple labs, monitoring, discovery, compute, and WiFi examples.
+- User-account security is tighter: password changes and account disables now invalidate active sessions, and login/bootstrap/logout events are written to the audit log.
+
+### Security
+
+- Rackpad now rejects production requests whose `Host` header is outside the configured trusted host list.
+- Rackpad now rejects production browser requests whose `Origin` header is outside the configured trusted origin list.
+- API responses now carry `Cache-Control: no-store`, and the app sends a baseline `Content-Security-Policy` header by default.
+
+### Notes
+
+- The SQLite schema version remains `8`.
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.9.3] - 2026-05-02
 
 ### Added

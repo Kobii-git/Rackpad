@@ -115,7 +115,7 @@ export function AuthScreen() {
                     >
                       <div className="font-medium">Load demo data</div>
                       <div className="mt-1 text-xs">
-                        Preload a sample homelab so you can click around before entering your own inventory.
+                        Preload a complete sample environment with multiple labs, racks, WiFi, discovery findings, VMs, and monitoring targets.
                       </div>
                     </button>
                   </div>

@@ -11,6 +11,21 @@ import {
   ValidationError,
 } from '../lib/validation.js'
 
+function auditUserChange(actor: string, action: string, entityId: string, summary: string) {
+  db.prepare(`
+    INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    createId('a'),
+    new Date().toISOString(),
+    actor,
+    action,
+    'User',
+    entityId,
+    summary,
+  )
+}
+
 export const usersRoutes: FastifyPluginAsync = async (app) => {
   app.get('/', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
@@ -53,6 +68,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       FROM users
       WHERE id = ?
     `).get(id) as Record<string, unknown>
+    auditUserChange(req.authUser.username, 'user.create', id, `Created ${username} with role ${role}.`)
 
     return reply.status(201).send(parsePublicUser(row))
   })
@@ -65,9 +81,21 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(404).send({ error: 'User not found.' })
     }
 
+    const current = db.prepare(`
+      SELECT id, username, displayName, role, disabled
+      FROM users
+      WHERE id = ?
+    `).get(req.params.id) as
+      | { id: string; username: string; displayName: string; role: string; disabled: number }
+      | undefined
+    if (!current) {
+      return reply.status(404).send({ error: 'User not found.' })
+    }
+
     const body = asObject(req.body)
     const updates: string[] = []
     const values: unknown[] = []
+    const changeNotes: string[] = []
 
     const username = optionalString(body, 'username', { maxLength: 40 })
     if (username !== undefined) {
@@ -82,6 +110,9 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       }
       updates.push('username = ?')
       values.push(normalized)
+      if (normalized !== current.username) {
+        changeNotes.push(`username ${current.username} -> ${normalized}`)
+      }
     }
 
     const displayName = optionalString(body, 'displayName', { maxLength: 80 })
@@ -92,17 +123,27 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       }
       updates.push('displayName = ?')
       values.push(displayName)
+      if (displayName !== current.displayName) {
+        changeNotes.push('display name updated')
+      }
     }
 
     if ('role' in body) {
+      const nextRole = requiredEnum(body, 'role', USER_ROLES)
       updates.push('role = ?')
-      values.push(requiredEnum(body, 'role', USER_ROLES))
+      values.push(nextRole)
+      if (nextRole !== current.role) {
+        changeNotes.push(`role ${current.role} -> ${nextRole}`)
+      }
     }
 
     const disabled = optionalBoolean(body, 'disabled')
     if (disabled !== undefined) {
       updates.push('disabled = ?')
       values.push(disabled ? 1 : 0)
+      if (Number(current.disabled ?? 0) !== (disabled ? 1 : 0)) {
+        changeNotes.push(disabled ? 'account disabled' : 'account re-enabled')
+      }
     }
 
     if ('password' in body) {
@@ -112,6 +153,7 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       }
       updates.push('passwordHash = ?')
       values.push(hashPassword(password))
+      changeNotes.push('password rotated')
     }
 
     if (updates.length === 0) {
@@ -120,12 +162,21 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
 
     values.push(req.params.id)
     db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+    if ('password' in body || disabled === true) {
+      db.prepare('DELETE FROM userSessions WHERE userId = ?').run(req.params.id)
+    }
 
     const row = db.prepare(`
       SELECT id, username, displayName, role, disabled, createdAt, lastLoginAt
       FROM users
       WHERE id = ?
     `).get(req.params.id) as Record<string, unknown>
+    auditUserChange(
+      req.authUser.username,
+      'user.update',
+      req.params.id,
+      changeNotes.length > 0 ? `Updated ${current.username}: ${changeNotes.join('; ')}.` : `Updated ${current.username}.`,
+    )
 
     return parsePublicUser(row)
   })
@@ -142,7 +193,15 @@ export const usersRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: 'You cannot delete your own account.' })
     }
 
+    const target = db.prepare('SELECT username FROM users WHERE id = ?').get(req.params.id) as { username?: string } | undefined
+    db.prepare('DELETE FROM userSessions WHERE userId = ?').run(req.params.id)
     db.prepare('DELETE FROM users WHERE id = ?').run(req.params.id)
+    auditUserChange(
+      req.authUser.username,
+      'user.delete',
+      req.params.id,
+      `Deleted ${target?.username ?? req.params.id}.`,
+    )
     return reply.status(204).send()
   })
 }

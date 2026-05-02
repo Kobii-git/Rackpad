@@ -7,7 +7,7 @@ This guide gives you two ways to install Rackpad:
 
 Docker is the recommended path for first testing because it handles the Node runtime and keeps the SQLite database in a persistent volume.
 
-Current version in this guide: `v0.9.3`
+Current version in this guide: `v0.9.4`
 
 ## Before you start
 
@@ -38,7 +38,7 @@ newgrp docker
 
 ```bash
 cd /opt
-git clone --branch v0.9.3 --depth 1 https://github.com/Kobii-git/Rackpad.git
+git clone --branch v0.9.4 --depth 1 https://github.com/Kobii-git/Rackpad.git
 cd Rackpad
 ```
 
@@ -58,6 +58,14 @@ Optional monitoring cadence override:
 
 ```bash
 MONITOR_INTERVAL_MS=300000
+```
+
+If you plan to put Rackpad behind a reverse proxy, also set:
+
+```bash
+TRUST_PROXY=1
+TRUSTED_HOSTS=rackpad.example.com
+TRUSTED_ORIGINS=https://rackpad.example.com
 ```
 
 ### Step 4: Build and start Rackpad
@@ -112,11 +120,11 @@ Update it after new code changes:
 
 ```bash
 git fetch --tags
-git checkout v0.9.3
+git checkout v0.9.4
 docker compose up --build -d
 ```
 
-When a newer release exists, replace `v0.9.3` with the newer version tag.
+When a newer release exists, replace `v0.9.4` with the newer version tag.
 
 Remove the app and database completely:
 
@@ -157,7 +165,7 @@ This matches the included `rackpad.service`, which starts Rackpad with `/usr/bin
 
 ```bash
 cd /opt
-git clone --branch v0.9.3 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
+git clone --branch v0.9.4 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
 cd /opt/rackpad
 ```
 
@@ -245,6 +253,30 @@ After Rackpad loads in the browser and you have signed in, test these flows:
 11. Open `WiFi` and confirm controllers, SSIDs, AP radios, and wireless clients all appear with meaningful relationships.
 12. Run a discovery scan against a small subnet, confirm duplicate warnings work, and import one discovered host.
 13. Open `Users` as an admin, send a test notification, and download a JSON backup.
+
+## Reverse proxy with TLS
+
+If Rackpad will be reachable outside a private test LAN, terminate TLS at a reverse proxy and forward the correct headers.
+
+Included examples:
+
+- [deploy/Caddyfile.example](./deploy/Caddyfile.example)
+- [deploy/nginx-rackpad.conf](./deploy/nginx-rackpad.conf)
+
+Recommended environment settings when proxied:
+
+```bash
+TRUST_PROXY=1
+TRUSTED_HOSTS=rackpad.example.com
+TRUSTED_ORIGINS=https://rackpad.example.com
+```
+
+The proxy should pass:
+
+- `Host`
+- `X-Forwarded-Host`
+- `X-Forwarded-Proto`
+- `X-Forwarded-For`
 
 ## Troubleshooting
 

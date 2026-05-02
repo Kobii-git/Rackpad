@@ -15,9 +15,19 @@ const lab = {
   location: 'Basement / NW closet',
 }
 
+const studioLab = {
+  id: 'lab_studio',
+  name: 'Studio / Office',
+  description: 'Detached office and maker-space network with its own edge gear.',
+  location: 'Garden studio / upstairs office',
+}
+
+const labs = [lab, studioLab]
+
 const racks = [
   { id: 'rack_net', labId: 'lab_home', name: 'NET-01', totalU: 24, description: 'Network rack. Switching, firewall, controllers.', location: 'Wall-mount, eye-level', notes: null },
   { id: 'rack_cmp', labId: 'lab_home', name: 'CMP-01', totalU: 42, description: 'Compute rack. Hypervisors, storage, GPU host.', location: 'Floor-standing', notes: null },
+  { id: 'rack_studio', labId: 'lab_studio', name: 'STU-01', totalU: 18, description: 'Detached office mini-rack. Edge, switching, and a compact hypervisor.', location: 'Wall rack by the workbench', notes: null },
 ]
 
 const devices = [
@@ -45,6 +55,16 @@ const devices = [
   { id: 'd_wifi_laptop', labId: 'lab_home', rackId: null,     hostname: 'x1-carbon',    displayName: 'Work Laptop',         deviceType: 'endpoint',    manufacturer: 'Lenovo',      model: 'ThinkPad X1 Carbon', serial: null,           managementIp: '10.0.10.61', status: 'online',      placement: 'wireless', parentDeviceId: 'd_ap_office', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'laptop']),               notes: 'Normally docks in the office.', lastSeen: new Date(now - 40_000).toISOString() },
   { id: 'd_wifi_tv',     labId: 'lab_home', rackId: null,     hostname: 'lounge-tv',    displayName: 'Lounge TV',           deviceType: 'endpoint',    manufacturer: 'Samsung',     model: 'QN90',               serial: null,           managementIp: '10.0.50.120', status: 'online',     placement: 'wireless', parentDeviceId: 'd_ap_lounge', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'media']),                notes: 'Streaming TV in the lounge.', lastSeen: new Date(now - 90_000).toISOString() },
   { id: 'd_wifi_doorbell', labId: 'lab_home', rackId: null,   hostname: 'doorbell-01',  displayName: 'Front Door Bell',     deviceType: 'endpoint',    manufacturer: 'Reolink',     model: 'Doorbell WiFi',      serial: null,           managementIp: '10.0.20.13', status: 'warning',     placement: 'wireless', parentDeviceId: 'd_ap_lounge', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'iot', 'camera']),        notes: 'Occasionally roams poorly at night.', lastSeen: new Date(now - 600_000).toISOString() },
+  { id: 'd_room_macmini',  labId: 'lab_home', rackId: null,   hostname: 'build-mini-01', displayName: 'Build Mini',         deviceType: 'server',      manufacturer: 'Apple',       model: 'Mac mini M2 Pro',    serial: null,           managementIp: '10.0.10.81', status: 'online',      placement: 'room', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['desktop', 'ci']),              notes: 'Loose room tech used for CI, test builds, and ad-hoc virtualization.', lastSeen: new Date(now - 22_000).toISOString(), cpuCores: 10, memoryGb: 32, storageGb: 1000, specs: '10 CPU cores | 32 GB unified memory | 1 TB SSD' },
+  { id: 'd_room_printer',  labId: 'lab_home', rackId: null,   hostname: 'printer-01',   displayName: 'Brother Laser',      deviceType: 'endpoint',    manufacturer: 'Brother',     model: 'HL-L3270CDW',        serial: null,           managementIp: '10.0.10.82', status: 'online',      placement: 'room', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['printer', 'office']),         notes: 'Shared office printer in the upstairs study.', lastSeen: new Date(now - 180_000).toISOString() },
+  { id: 'd_room_pi',       labId: 'lab_home', rackId: null,   hostname: 'pi-dashboard', displayName: 'Wall Dashboard Pi',  deviceType: 'endpoint',    manufacturer: 'Raspberry Pi', model: 'Pi 4 8GB',        serial: null,           managementIp: '10.0.20.40', status: 'online',      placement: 'room', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['raspberry-pi', 'iot']),     notes: 'Room-mounted touchscreen and printer relay helper.', lastSeen: new Date(now - 55_000).toISOString() },
+  { id: 'd_studio_fw',     labId: 'lab_studio', rackId: 'rack_studio', hostname: 'studio-fw-01', displayName: 'Studio Firewall',  deviceType: 'firewall', manufacturer: 'Protectli', model: 'VP2420', serial: 'PT-ST-2420', managementIp: '10.42.10.1', status: 'online', startU: 18, heightU: 1, face: 'front', tags: JSON.stringify(['opnsense', 'edge']), notes: 'Detached office perimeter firewall.', lastSeen: new Date(now - 35_000).toISOString() },
+  { id: 'd_studio_sw',     labId: 'lab_studio', rackId: 'rack_studio', hostname: 'studio-sw-01', displayName: 'Studio Switch',   deviceType: 'switch', manufacturer: 'MikroTik', model: 'CRS326-24G-2S+', serial: 'MT-326-2401', managementIp: '10.42.10.2', status: 'online', startU: 17, heightU: 1, face: 'front', tags: JSON.stringify(['studio', 'core']), notes: 'Small office access switch.', lastSeen: new Date(now - 28_000).toISOString() },
+  { id: 'd_studio_host',   labId: 'lab_studio', rackId: 'rack_studio', hostname: 'studio-pve-01', displayName: 'Studio Hypervisor', deviceType: 'server', manufacturer: 'Intel NUC', model: 'NUC 13 Pro', serial: 'NUC13-ST-01', managementIp: '10.42.10.10', status: 'online', startU: 15, heightU: 1, face: 'front', tags: JSON.stringify(['hypervisor', 'compact']), notes: 'Runs workshop tooling and utility VMs.', lastSeen: new Date(now - 18_000).toISOString(), cpuCores: 14, memoryGb: 64, storageGb: 2000, specs: '14 cores | 64 GB RAM | 2 TB NVMe' },
+  { id: 'd_studio_vm_git', labId: 'lab_studio', rackId: null, hostname: 'studio-ci-01', displayName: 'Studio CI Runner', deviceType: 'vm', manufacturer: 'Ubuntu', model: 'Utility VM', serial: null, managementIp: null, status: 'online', placement: 'virtual', parentDeviceId: 'd_studio_host', startU: null, heightU: null, face: null, tags: JSON.stringify(['ci', 'runner']), notes: 'Lightweight build agent for the detached office lab.', lastSeen: new Date(now - 85_000).toISOString(), cpuCores: 4, memoryGb: 8, storageGb: 120, specs: '4 vCPU | 8 GB RAM | 120 GB SSD' },
+  { id: 'd_studio_ap',     labId: 'lab_studio', rackId: null, hostname: 'studio-ap-01', displayName: 'Studio AP',       deviceType: 'ap', manufacturer: 'Ubiquiti', model: 'U6-Mesh', serial: 'UB-ST-AP01', managementIp: '10.42.10.30', status: 'online', placement: 'wireless', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'studio']), notes: 'Covers the detached office and patio.', lastSeen: new Date(now - 12_000).toISOString() },
+  { id: 'd_studio_tablet', labId: 'lab_studio', rackId: null, hostname: 'studio-ipad', displayName: 'Studio Tablet',   deviceType: 'endpoint', manufacturer: 'Apple', model: 'iPad Air', serial: null, managementIp: '10.42.10.60', status: 'online', placement: 'wireless', parentDeviceId: 'd_studio_ap', startU: null, heightU: null, face: null, tags: JSON.stringify(['wifi', 'tablet']), notes: 'Used for dashboards and media controls in the studio.', lastSeen: new Date(now - 30_000).toISOString() },
+  { id: 'd_studio_printer', labId: 'lab_studio', rackId: null, hostname: 'maker-printer', displayName: 'Label Printer', deviceType: 'endpoint', manufacturer: 'Brother', model: 'QL-820NWB', serial: null, managementIp: '10.42.20.25', status: 'online', placement: 'room', parentDeviceId: null, startU: null, heightU: null, face: null, tags: JSON.stringify(['printer', 'maker']), notes: 'Bench-side label printer for cabling and storage bins.', lastSeen: new Date(now - 600_000).toISOString() },
 ]
 
 const deviceCapacityById: Record<string, { cpuCores?: number; memoryGb?: number; storageGb?: number; specs?: string }> = {
@@ -121,6 +141,18 @@ const ports = [
 
   // Backup: 4 RJ45 (all down — forced offline)
   ...makePorts('d_srv_backup', 'eno', 4, 'rj45', '1G', [], (pos) => `eno${pos}`),
+
+  ...makePorts('d_room_macmini', 'en', 1, 'rj45', '1G', [1], () => 'en0'),
+  ...makePorts('d_room_printer', 'lan', 1, 'rj45', '1G', [1], () => 'lan0'),
+  ...makePorts('d_room_pi', 'eth', 1, 'rj45', '1G', [1], () => 'eth0'),
+
+  ...makePorts('d_studio_fw', 'igb', 6, 'rj45', '1G', [1, 2], (pos) => `igb${pos - 1}`),
+  ...makePorts('d_studio_sw', '', 24, 'rj45', '1G', [5, 8, 9, 23, 24]),
+  ...makePorts('d_studio_sw', 'SFP+', 2, 'sfp_plus', '10G', [], (pos) => `SFP+${pos}`).map((p, i) => ({ ...p, id: `p_d_studio_sw_${24 + i + 1}`, position: 24 + i + 1 })),
+  ...makePorts('d_studio_host', 'eno', 2, 'rj45', '1G', [1], (pos) => `eno${pos}`),
+  ...makePorts('d_studio_host', 'enp', 2, 'sfp_plus', '10G', [], (pos) => `enp1s0f${pos - 1}`).map((p, i) => ({ ...p, id: `p_d_studio_host_${2 + i + 1}`, position: 2 + i + 1 })),
+  ...makePorts('d_studio_ap', 'eth', 1, 'rj45', '1G', [1], () => 'eth0'),
+  ...makePorts('d_studio_printer', 'lan', 1, 'rj45', '1G', [1], () => 'lan0'),
 ]
 
 const portLinks = [
@@ -144,6 +176,14 @@ const portLinks = [
   { id: 'l_18', fromPortId: 'p_d_srv_nas_4',    toPortId: 'p_d_sw_tor_33', cableType: 'OM4 LC-LC', cableLength: '3m',  color: 'aqua',   notes: null },
   { id: 'l_19', fromPortId: 'p_d_srv_pve1_1',   toPortId: 'p_d_sw_tor_25', cableType: 'Cat6',     cableLength: '3m',   color: 'gray',   notes: null },
   { id: 'l_20', fromPortId: 'p_d_srv_pve2_1',   toPortId: 'p_d_sw_tor_8',  cableType: 'Cat6',     cableLength: '3m',   color: 'gray',   notes: null },
+  { id: 'l_21', fromPortId: 'p_d_room_macmini_1', toPortId: 'p_d_sw_tor_17', cableType: 'Cat6',   cableLength: '12m',  color: 'white',  notes: 'Office build node uplink' },
+  { id: 'l_22', fromPortId: 'p_d_room_printer_1', toPortId: 'p_d_sw_tor_22', cableType: 'Cat6',   cableLength: '15m',  color: 'green',  notes: 'Upstairs printer drop' },
+  { id: 'l_23', fromPortId: 'p_d_room_pi_1',     toPortId: 'p_d_sw_tor_12', cableType: 'Cat6',    cableLength: '8m',   color: 'orange', notes: 'Wall dashboard and relay' },
+  { id: 'l_24', fromPortId: 'p_d_studio_fw_1',   toPortId: 'p_d_studio_sw_23', cableType: 'Cat6', cableLength: '0.5m', color: 'red',    notes: 'Studio LAN handoff' },
+  { id: 'l_25', fromPortId: 'p_d_studio_fw_2',   toPortId: 'p_d_studio_sw_24', cableType: 'Cat6', cableLength: '0.5m', color: 'green',  notes: 'Studio uplink / secondary VLAN trunk' },
+  { id: 'l_26', fromPortId: 'p_d_studio_host_1', toPortId: 'p_d_studio_sw_5', cableType: 'Cat6',  cableLength: '1m',   color: 'gray',   notes: 'Studio hypervisor management' },
+  { id: 'l_27', fromPortId: 'p_d_studio_ap_1',   toPortId: 'p_d_studio_sw_8', cableType: 'Cat6',  cableLength: '10m',  color: 'blue',   notes: 'Ceiling AP run' },
+  { id: 'l_28', fromPortId: 'p_d_studio_printer_1', toPortId: 'p_d_studio_sw_9', cableType: 'Cat6', cableLength: '4m', color: 'yellow', notes: 'Maker-space label printer' },
 ]
 
 const vlans = [
@@ -152,6 +192,8 @@ const vlans = [
   { id: 'v_dmz',     labId: 'lab_home', vlanId: 30, name: 'DMZ',      description: 'Public-facing services',   color: '#d46060' },
   { id: 'v_storage', labId: 'lab_home', vlanId: 40, name: 'Storage',  description: 'iSCSI, NFS, replication',  color: '#b574d4' },
   { id: 'v_guest',   labId: 'lab_home', vlanId: 50, name: 'Guest',    description: 'Guest WiFi',               color: '#d4a13c' },
+  { id: 'v_studio_default', labId: 'lab_studio', vlanId: 10, name: 'Studio Default', description: 'Trusted office clients and infrastructure', color: '#7dd3fc' },
+  { id: 'v_studio_iot',     labId: 'lab_studio', vlanId: 20, name: 'Studio IoT',     description: 'Makerspace gear, printers, and helpers', color: '#f59e0b' },
 ]
 
 const vlanRanges = [
@@ -160,6 +202,7 @@ const vlanRanges = [
   { id: 'vr_dmz',     labId: 'lab_home', name: 'DMZ',        startVlan: 30,  endVlan: 39,  purpose: 'Public-facing services',             color: '#d46060' },
   { id: 'vr_storage', labId: 'lab_home', name: 'Storage',    startVlan: 40,  endVlan: 49,  purpose: 'Storage traffic',                    color: '#b574d4' },
   { id: 'vr_user',    labId: 'lab_home', name: 'User',       startVlan: 50,  endVlan: 99,  purpose: 'Guest and user VLANs',               color: '#d4a13c' },
+  { id: 'vr_studio_core', labId: 'lab_studio', name: 'Studio Core', startVlan: 1, endVlan: 29, purpose: 'Studio office networks and edge services', color: '#7dd3fc' },
 ]
 
 const subnets = [
@@ -168,12 +211,16 @@ const subnets = [
   { id: 's_dmz',     labId: 'lab_home', cidr: '10.0.30.0/24', name: 'DMZ',            description: null, vlanId: 'v_dmz' },
   { id: 's_storage', labId: 'lab_home', cidr: '10.0.40.0/24', name: 'Storage',        description: null, vlanId: 'v_storage' },
   { id: 's_guest',   labId: 'lab_home', cidr: '10.0.50.0/24', name: 'Guest',          description: null, vlanId: 'v_guest' },
+  { id: 's_studio_default', labId: 'lab_studio', cidr: '10.42.10.0/24', name: 'Studio Default', description: 'Studio office management and trusted clients', vlanId: 'v_studio_default' },
+  { id: 's_studio_iot',     labId: 'lab_studio', cidr: '10.42.20.0/24', name: 'Studio IoT',     description: 'Studio bench gear and label printers',     vlanId: 'v_studio_iot' },
 ]
 
 const dhcpScopes = [
   { id: 'sc_default', subnetId: 's_default', name: 'default-pool', startIp: '10.0.10.100', endIp: '10.0.10.199', gateway: '10.0.10.1',  dnsServers: JSON.stringify(['10.0.10.1', '1.1.1.1']), description: null },
   { id: 'sc_iot',     subnetId: 's_iot',     name: 'iot-pool',     startIp: '10.0.20.100', endIp: '10.0.20.250', gateway: '10.0.20.1',  dnsServers: null, description: null },
   { id: 'sc_dmz',     subnetId: 's_dmz',     name: 'dmz-pool',     startIp: '10.0.30.100', endIp: '10.0.30.150', gateway: '10.0.30.1',  dnsServers: null, description: null },
+  { id: 'sc_studio_default', subnetId: 's_studio_default', name: 'studio-default-pool', startIp: '10.42.10.100', endIp: '10.42.10.180', gateway: '10.42.10.1', dnsServers: JSON.stringify(['10.42.10.1', '1.1.1.1']), description: 'Studio office DHCP scope' },
+  { id: 'sc_studio_iot', subnetId: 's_studio_iot', name: 'studio-iot-pool', startIp: '10.42.20.100', endIp: '10.42.20.200', gateway: '10.42.20.1', dnsServers: null, description: 'Studio makerspace helpers' },
 ]
 
 const ipZones = [
@@ -181,6 +228,9 @@ const ipZones = [
   { id: 'iz_default_static',  subnetId: 's_default', kind: 'static',         startIp: '10.0.10.10',  endIp: '10.0.10.99',  description: 'Static assignments' },
   { id: 'iz_default_dhcp',    subnetId: 's_default', kind: 'dhcp',           startIp: '10.0.10.100', endIp: '10.0.10.199', description: 'DHCP pool' },
   { id: 'iz_default_reserved',subnetId: 's_default', kind: 'reserved',       startIp: '10.0.10.200', endIp: '10.0.10.254', description: 'Reserved' },
+  { id: 'iz_studio_default_static', subnetId: 's_studio_default', kind: 'static', startIp: '10.42.10.1', endIp: '10.42.10.80', description: 'Studio static infrastructure and APs' },
+  { id: 'iz_studio_default_dhcp', subnetId: 's_studio_default', kind: 'dhcp', startIp: '10.42.10.100', endIp: '10.42.10.180', description: 'Studio trusted DHCP clients' },
+  { id: 'iz_studio_iot_static', subnetId: 's_studio_iot', kind: 'static', startIp: '10.42.20.1', endIp: '10.42.20.80', description: 'Studio label printers and bench helpers' },
 ]
 
 const ipAssignments = [
@@ -215,21 +265,35 @@ const ipAssignments = [
   { id: 'ip_wc2', subnetId: 's_default', ipAddress: '10.0.10.61', assignmentType: 'device',   deviceId: 'd_wifi_laptop', portId: null, vmId: null, containerId: null, hostname: 'x1-carbon',     description: 'Main SSID client' },
   { id: 'ip_wc3', subnetId: 's_guest',   ipAddress: '10.0.50.120', assignmentType: 'device',  deviceId: 'd_wifi_tv',     portId: null, vmId: null, containerId: null, hostname: 'lounge-tv',     description: 'Guest SSID client' },
   { id: 'ip_wc4', subnetId: 's_iot',     ipAddress: '10.0.20.13', assignmentType: 'device',   deviceId: 'd_wifi_doorbell', portId: null, vmId: null, containerId: null, hostname: 'doorbell-01', description: 'IoT SSID client' },
+  { id: 'ip_room_1', subnetId: 's_default', ipAddress: '10.0.10.81', assignmentType: 'device', deviceId: 'd_room_macmini', portId: null, vmId: null, containerId: null, hostname: 'build-mini-01', description: 'Room-based build node' },
+  { id: 'ip_room_2', subnetId: 's_default', ipAddress: '10.0.10.82', assignmentType: 'device', deviceId: 'd_room_printer', portId: null, vmId: null, containerId: null, hostname: 'printer-01', description: 'Shared office printer' },
+  { id: 'ip_room_3', subnetId: 's_iot', ipAddress: '10.0.20.40', assignmentType: 'device', deviceId: 'd_room_pi', portId: null, vmId: null, containerId: null, hostname: 'pi-dashboard', description: 'Wall dashboard helper' },
+  { id: 'ip_studio_1', subnetId: 's_studio_default', ipAddress: '10.42.10.1', assignmentType: 'device', deviceId: 'd_studio_fw', portId: null, vmId: null, containerId: null, hostname: 'studio-fw-01', description: 'Studio edge firewall' },
+  { id: 'ip_studio_2', subnetId: 's_studio_default', ipAddress: '10.42.10.2', assignmentType: 'device', deviceId: 'd_studio_sw', portId: null, vmId: null, containerId: null, hostname: 'studio-sw-01', description: 'Studio switch management' },
+  { id: 'ip_studio_3', subnetId: 's_studio_default', ipAddress: '10.42.10.10', assignmentType: 'device', deviceId: 'd_studio_host', portId: null, vmId: null, containerId: null, hostname: 'studio-pve-01', description: 'Studio hypervisor' },
+  { id: 'ip_studio_4', subnetId: 's_studio_default', ipAddress: '10.42.10.30', assignmentType: 'device', deviceId: 'd_studio_ap', portId: null, vmId: null, containerId: null, hostname: 'studio-ap-01', description: 'Studio AP management' },
+  { id: 'ip_studio_5', subnetId: 's_studio_default', ipAddress: '10.42.10.60', assignmentType: 'device', deviceId: 'd_studio_tablet', portId: null, vmId: null, containerId: null, hostname: 'studio-ipad', description: 'Studio trusted wireless client' },
+  { id: 'ip_studio_6', subnetId: 's_studio_iot', ipAddress: '10.42.20.25', assignmentType: 'device', deviceId: 'd_studio_printer', portId: null, vmId: null, containerId: null, hostname: 'maker-printer', description: 'Studio label printer' },
+  { id: 'ip_studio_vm_1', subnetId: 's_studio_default', ipAddress: '10.42.10.50', assignmentType: 'vm', deviceId: null, portId: null, vmId: 'vm_studio_ci', containerId: null, hostname: 'studio-ci-01', description: 'CI runner on studio hypervisor' },
 ]
 
 const wifiControllers = [
   { id: 'wctrl_unifi', labId: 'lab_home', deviceId: 'd_unifi', name: 'UniFi Network', vendor: 'Ubiquiti', model: 'Cloud Key Gen2 Plus', managementIp: '10.0.10.4', notes: 'Primary house WiFi controller.' },
+  { id: 'wctrl_studio', labId: 'lab_studio', deviceId: null, name: 'Studio Wireless', vendor: 'Ubiquiti', model: 'Hosted controller', managementIp: null, notes: 'Controller profile for the detached office AP.' },
 ]
 
 const wifiSsids = [
   { id: 'wssid_main',  labId: 'lab_home', name: 'Home-Main',  purpose: 'Primary trusted wireless LAN', security: 'WPA2/WPA3 Personal', hidden: 0, vlanId: 'v_default', color: '#6a9bd4' },
   { id: 'wssid_iot',   labId: 'lab_home', name: 'Home-IoT',   purpose: 'IoT isolation SSID',            security: 'WPA2 Personal',      hidden: 0, vlanId: 'v_iot',     color: '#6abf69' },
   { id: 'wssid_guest', labId: 'lab_home', name: 'Home-Guest', purpose: 'Guest-only internet access',     security: 'WPA2 Personal',      hidden: 0, vlanId: 'v_guest',   color: '#d4a13c' },
+  { id: 'wssid_studio_main', labId: 'lab_studio', name: 'Studio-Main', purpose: 'Trusted office clients and dashboards', security: 'WPA2/WPA3 Personal', hidden: 0, vlanId: 'v_studio_default', color: '#7dd3fc' },
+  { id: 'wssid_studio_iot', labId: 'lab_studio', name: 'Studio-IoT', purpose: 'Maker-space helpers and wireless accessories', security: 'WPA2 Personal', hidden: 0, vlanId: 'v_studio_iot', color: '#f59e0b' },
 ]
 
 const wifiAccessPoints = [
   { deviceId: 'd_ap_lounge', controllerId: 'wctrl_unifi', location: 'Ground floor lounge ceiling', firmwareVersion: '6.7.18', notes: 'Covers lounge, patio doors, and hallway.' },
   { deviceId: 'd_ap_office', controllerId: 'wctrl_unifi', location: 'Office wall mount', firmwareVersion: '6.7.18', notes: 'Covers office, landing, and upstairs bedrooms.' },
+  { deviceId: 'd_studio_ap', controllerId: 'wctrl_studio', location: 'Detached office ceiling mount', firmwareVersion: '7.0.15', notes: 'Studio AP for office clients and maker-space sensors.' },
 ]
 
 const wifiRadios = [
@@ -237,6 +301,8 @@ const wifiRadios = [
   { id: 'wr_lounge_5',  apDeviceId: 'd_ap_lounge', slotName: 'radio1', band: '5ghz',   channel: '44', channelWidth: '80 MHz', txPower: 'high',   notes: 'Primary downstairs high-speed radio.' },
   { id: 'wr_office_24', apDeviceId: 'd_ap_office', slotName: 'radio0', band: '2.4ghz', channel: '1', channelWidth: '20 MHz', txPower: 'medium', notes: 'Office 2.4 GHz coverage.' },
   { id: 'wr_office_5',  apDeviceId: 'd_ap_office', slotName: 'radio1', band: '5ghz',   channel: '149', channelWidth: '80 MHz', txPower: 'high',  notes: 'Primary upstairs high-speed radio.' },
+  { id: 'wr_studio_24', apDeviceId: 'd_studio_ap', slotName: 'radio0', band: '2.4ghz', channel: '11', channelWidth: '20 MHz', txPower: 'medium', notes: 'Studio IoT and long-range coverage.' },
+  { id: 'wr_studio_5',  apDeviceId: 'd_studio_ap', slotName: 'radio1', band: '5ghz',   channel: '36', channelWidth: '80 MHz', txPower: 'high',  notes: 'Primary studio office client radio.' },
 ]
 
 const wifiRadioSsids = [
@@ -249,6 +315,9 @@ const wifiRadioSsids = [
   { radioId: 'wr_office_24', ssidId: 'wssid_iot' },
   { radioId: 'wr_office_5', ssidId: 'wssid_main' },
   { radioId: 'wr_office_5', ssidId: 'wssid_guest' },
+  { radioId: 'wr_studio_24', ssidId: 'wssid_studio_main' },
+  { radioId: 'wr_studio_24', ssidId: 'wssid_studio_iot' },
+  { radioId: 'wr_studio_5', ssidId: 'wssid_studio_main' },
 ]
 
 const wifiClientAssociations = [
@@ -256,6 +325,84 @@ const wifiClientAssociations = [
   { clientDeviceId: 'd_wifi_laptop', apDeviceId: 'd_ap_office', radioId: 'wr_office_5', ssidId: 'wssid_main', band: '5ghz', channel: '149', signalDbm: -47, lastSeen: new Date(now - 40_000).toISOString(), lastRoamAt: new Date(now - 35 * 60_000).toISOString(), notes: 'Roams to the office AP when docked.' },
   { clientDeviceId: 'd_wifi_tv', apDeviceId: 'd_ap_lounge', radioId: 'wr_lounge_5', ssidId: 'wssid_guest', band: '5ghz', channel: '44', signalDbm: -60, lastSeen: new Date(now - 90_000).toISOString(), lastRoamAt: new Date(now - 5 * 3600_000).toISOString(), notes: 'Guest SSID keeps the smart TV isolated.' },
   { clientDeviceId: 'd_wifi_doorbell', apDeviceId: 'd_ap_lounge', radioId: 'wr_lounge_24', ssidId: 'wssid_iot', band: '2.4ghz', channel: '6', signalDbm: -71, lastSeen: new Date(now - 600_000).toISOString(), lastRoamAt: new Date(now - 8 * 3600_000).toISOString(), notes: 'Edge-of-coverage IoT client.' },
+  { clientDeviceId: 'd_studio_tablet', apDeviceId: 'd_studio_ap', radioId: 'wr_studio_5', ssidId: 'wssid_studio_main', band: '5ghz', channel: '36', signalDbm: -49, lastSeen: new Date(now - 30_000).toISOString(), lastRoamAt: new Date(now - 65 * 60_000).toISOString(), notes: 'Pinned to the studio trusted SSID for dashboards and media.' },
+]
+
+const portTemplates = [
+  {
+    id: 'tpl_lab_mini_firewall',
+    name: '4x2.5G + 2x10G Firewall',
+    description: 'Compact firewall template captured from a modern multi-NIC edge appliance.',
+    deviceTypes: JSON.stringify(['firewall', 'router']),
+    ports: JSON.stringify([
+      { name: 'wan0', position: 1, kind: 'rj45', speed: '2.5G', face: 'front' },
+      { name: 'wan1', position: 2, kind: 'rj45', speed: '2.5G', face: 'front' },
+      { name: 'lan0', position: 3, kind: 'rj45', speed: '2.5G', face: 'front' },
+      { name: 'lan1', position: 4, kind: 'rj45', speed: '2.5G', face: 'front' },
+      { name: 'sfp+1', position: 5, kind: 'sfp_plus', speed: '10G', face: 'front' },
+      { name: 'sfp+2', position: 6, kind: 'sfp_plus', speed: '10G', face: 'front' },
+    ]),
+    createdAt: new Date(now - 14 * 24 * 3600_000).toISOString(),
+    updatedAt: new Date(now - 2 * 24 * 3600_000).toISOString(),
+  },
+  {
+    id: 'tpl_micro_hypervisor',
+    name: '2x1G + 2x10G Micro Host',
+    description: 'Small-form-factor hypervisor with two copper ports and dual SFP+ uplinks.',
+    deviceTypes: JSON.stringify(['server', 'storage']),
+    ports: JSON.stringify([
+      { name: 'eno1', position: 1, kind: 'rj45', speed: '1G', face: 'front' },
+      { name: 'eno2', position: 2, kind: 'rj45', speed: '1G', face: 'front' },
+      { name: 'enp1s0f0', position: 3, kind: 'sfp_plus', speed: '10G', face: 'front' },
+      { name: 'enp1s0f1', position: 4, kind: 'sfp_plus', speed: '10G', face: 'front' },
+    ]),
+    createdAt: new Date(now - 10 * 24 * 3600_000).toISOString(),
+    updatedAt: new Date(now - 3 * 24 * 3600_000).toISOString(),
+  },
+]
+
+const discoveredDevices = [
+  { id: 'disc_home_dup', labId: 'lab_home', ipAddress: '10.0.10.82', hostname: 'printer-01', displayName: 'Brother Laser Upstairs', deviceType: 'endpoint', placement: 'room', macAddress: '3c:22:fb:11:22:33', vendor: 'Brother', source: 'seed-demo', status: 'new', notes: 'Scan result matches the upstairs printer and demonstrates duplicate detection.', importedDeviceId: null, lastSeen: new Date(now - 4 * 60_000).toISOString(), lastScannedAt: new Date(now - 4 * 60_000).toISOString() },
+  { id: 'disc_home_imported', labId: 'lab_home', ipAddress: '10.0.10.81', hostname: 'build-mini-01', displayName: 'Build Mini', deviceType: 'server', placement: 'room', macAddress: 'f0:18:98:44:55:66', vendor: 'Apple', source: 'seed-demo', status: 'imported', notes: 'Previously linked into inventory to showcase the imported state.', importedDeviceId: 'd_room_macmini', lastSeen: new Date(now - 12 * 60_000).toISOString(), lastScannedAt: new Date(now - 12 * 60_000).toISOString() },
+  { id: 'disc_home_dismissed', labId: 'lab_home', ipAddress: '10.0.20.77', hostname: 'temp-cam-probe', displayName: 'Unknown camera probe', deviceType: 'endpoint', placement: 'room', macAddress: 'd8:3a:dd:ab:cd:ef', vendor: 'TP-Link', source: 'seed-demo', status: 'dismissed', notes: 'Dismissed after determining it was a transient test client.', importedDeviceId: null, lastSeen: new Date(now - 36 * 60_000).toISOString(), lastScannedAt: new Date(now - 36 * 60_000).toISOString() },
+  { id: 'disc_studio_new', labId: 'lab_studio', ipAddress: '10.42.20.50', hostname: 'laser-cutter-probe', displayName: 'Laser cutter bridge', deviceType: 'endpoint', placement: 'room', macAddress: 'b8:27:eb:77:88:99', vendor: 'Raspberry Pi', source: 'seed-demo', status: 'new', notes: 'Awaiting manual review before import into the studio lab.', importedDeviceId: null, lastSeen: new Date(now - 9 * 60_000).toISOString(), lastScannedAt: new Date(now - 9 * 60_000).toISOString() },
+]
+
+const deviceMonitors = [
+  { id: 'mon_fw_icmp', deviceId: 'd_fw', name: 'Management ICMP', type: 'icmp', target: '10.0.10.1', port: null, path: null, intervalMs: 60000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 20_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'ICMP 10.0.10.1 reachable.' },
+  { id: 'mon_fw_https', deviceId: 'd_fw', name: 'Firewall UI', type: 'https', target: '10.0.10.1', port: 443, path: '/', intervalMs: 120000, enabled: 1, sortOrder: 1, lastCheckAt: new Date(now - 24_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'https://10.0.10.1:443/ returned 200.' },
+  { id: 'mon_pve1_icmp', deviceId: 'd_srv_pve1', name: 'Management ICMP', type: 'icmp', target: '10.0.10.11', port: null, path: null, intervalMs: 60000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 18_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'ICMP 10.0.10.11 reachable.' },
+  { id: 'mon_pve1_ssh', deviceId: 'd_srv_pve1', name: 'SSH', type: 'tcp', target: '10.0.10.11', port: 22, path: null, intervalMs: 120000, enabled: 1, sortOrder: 1, lastCheckAt: new Date(now - 18_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'TCP 10.0.10.11:22 reachable.' },
+  { id: 'mon_pve1_storage', deviceId: 'd_srv_pve1', name: 'Storage VLAN', type: 'icmp', target: '10.0.40.11', port: null, path: null, intervalMs: 180000, enabled: 1, sortOrder: 2, lastCheckAt: new Date(now - 32_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'ICMP 10.0.40.11 reachable.' },
+  { id: 'mon_backup_icmp', deviceId: 'd_srv_backup', name: 'Management ICMP', type: 'icmp', target: '10.0.10.21', port: null, path: null, intervalMs: 60000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 45_000).toISOString(), lastAlertAt: new Date(now - 40 * 60_000).toISOString(), lastResult: 'offline', lastMessage: 'ICMP 10.0.10.21 failed: Request timeout.' },
+  { id: 'mon_ap_lounge_icmp', deviceId: 'd_ap_lounge', name: 'AP ICMP', type: 'icmp', target: '10.0.10.30', port: null, path: null, intervalMs: 120000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 16_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'ICMP 10.0.10.30 reachable.' },
+  { id: 'mon_studio_fw_icmp', deviceId: 'd_studio_fw', name: 'Studio ICMP', type: 'icmp', target: '10.42.10.1', port: null, path: null, intervalMs: 60000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 21_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'ICMP 10.42.10.1 reachable.' },
+  { id: 'mon_studio_host_https', deviceId: 'd_studio_host', name: 'Hypervisor UI', type: 'https', target: '10.42.10.10', port: 8006, path: '/', intervalMs: 120000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 26_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'https://10.42.10.10:8006/ returned 200.' },
+  { id: 'mon_studio_ap_icmp', deviceId: 'd_studio_ap', name: 'AP ICMP', type: 'icmp', target: '10.42.10.30', port: null, path: null, intervalMs: 120000, enabled: 1, sortOrder: 0, lastCheckAt: new Date(now - 22_000).toISOString(), lastAlertAt: null, lastResult: 'online', lastMessage: 'ICMP 10.42.10.30 reachable.' },
+]
+
+const appSettings = [
+  {
+    key: 'alertSettings',
+    value: JSON.stringify({
+      enabled: false,
+      notifyOnDown: true,
+      notifyOnRecovery: true,
+      repeatWhileOffline: true,
+      repeatIntervalMinutes: 180,
+      discordWebhookUrl: null,
+      telegramBotToken: null,
+      telegramChatId: null,
+      smtpHost: null,
+      smtpPort: 587,
+      smtpSecure: false,
+      smtpUsername: null,
+      smtpPassword: null,
+      smtpFrom: null,
+      smtpTo: null,
+    }),
+    updatedAt: new Date(now - 3 * 24 * 3600_000).toISOString(),
+  },
 ]
 
 const auditLog = [
@@ -265,6 +412,10 @@ const auditLog = [
   { id: 'a4', ts: new Date(now - 2 * 3600_000).toISOString(),       user: 'editor', action: 'device.create', entityType: 'Device',       entityId: 'd_srv_pve3',   summary: 'Created pve-03 in CMP-01 U36-37' },
   { id: 'a5', ts: new Date(now - 4 * 3600_000).toISOString(),       user: 'admin',  action: 'subnet.create', entityType: 'Subnet',       entityId: 's_storage',    summary: 'Created subnet 10.0.40.0/24 (Storage)' },
   { id: 'a6', ts: new Date(now - 26 * 3600_000).toISOString(),      user: 'editor', action: 'device.move',   entityType: 'Device',       entityId: 'd_srv_backup', summary: 'Moved backup-01 to maintenance' },
+  { id: 'a7', ts: new Date(now - 7 * 60_000).toISOString(),         user: 'system', action: 'alert.down', entityType: 'Alert', entityId: 'mon_backup_icmp', summary: 'Rackpad outage alert for backup-01 / Management ICMP delivered via email and Discord.' },
+  { id: 'a8', ts: new Date(now - 65 * 60_000).toISOString(),        user: 'admin',  action: 'discovery.link', entityType: 'DiscoveredDevice', entityId: 'disc_home_imported', summary: 'Linked discovered build-mini-01 to the Build Mini inventory record.' },
+  { id: 'a9', ts: new Date(now - 95 * 60_000).toISOString(),        user: 'editor', action: 'wifi.client.update', entityType: 'WifiClientAssociation', entityId: 'd_studio_tablet', summary: 'Updated studio-ipad association to Studio-Main on studio-ap-01.' },
+  { id: 'a10', ts: new Date(now - 7 * 3600_000).toISOString(),      user: 'admin',  action: 'port-template.create', entityType: 'PortTemplate', entityId: 'tpl_micro_hypervisor', summary: 'Captured a custom micro-host port template from studio-pve-01.' },
 ]
 
 // ── Insert ─────────────────────────────────────────────────────
@@ -286,6 +437,7 @@ export function seedIfEmpty() {
        @startU, @heightU, @face, @tags, @notes, @lastSeen, @placement, @parentDeviceId, @cpuCores, @memoryGb, @storageGb, @specs)
   `)
   const insertPort = db.prepare('INSERT INTO ports VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @vlanId, @description, @face)')
+  const insertPortTemplate = db.prepare('INSERT INTO portTemplates VALUES (@id, @name, @description, @deviceTypes, @ports, @createdAt, @updatedAt)')
   const insertVlan = db.prepare('INSERT INTO vlans VALUES (@id, @labId, @vlanId, @name, @description, @color)')
   const insertVlanRange = db.prepare('INSERT INTO vlanRanges VALUES (@id, @labId, @name, @startVlan, @endVlan, @purpose, @color)')
   const insertPortLink = db.prepare('INSERT INTO portLinks VALUES (@id, @fromPortId, @toPortId, @cableType, @cableLength, @color, @notes)')
@@ -293,17 +445,20 @@ export function seedIfEmpty() {
   const insertDhcpScope = db.prepare('INSERT INTO dhcpScopes VALUES (@id, @subnetId, @name, @startIp, @endIp, @gateway, @dnsServers, @description)')
   const insertIpZone = db.prepare('INSERT INTO ipZones VALUES (@id, @subnetId, @kind, @startIp, @endIp, @description)')
   const insertIpAssignment = db.prepare('INSERT INTO ipAssignments VALUES (@id, @subnetId, @ipAddress, @assignmentType, @deviceId, @portId, @vmId, @containerId, @hostname, @description)')
+  const insertDiscoveredDevice = db.prepare('INSERT INTO discoveredDevices VALUES (@id, @labId, @ipAddress, @hostname, @displayName, @deviceType, @placement, @macAddress, @vendor, @source, @status, @notes, @importedDeviceId, @lastSeen, @lastScannedAt)')
+  const insertDeviceMonitor = db.prepare('INSERT INTO deviceMonitors VALUES (@id, @deviceId, @name, @type, @target, @port, @path, @intervalMs, @enabled, @sortOrder, @lastCheckAt, @lastResult, @lastMessage, @lastAlertAt)')
   const insertWifiController = db.prepare('INSERT INTO wifiControllers VALUES (@id, @labId, @deviceId, @name, @vendor, @model, @managementIp, @notes)')
   const insertWifiSsid = db.prepare('INSERT INTO wifiSsids VALUES (@id, @labId, @name, @purpose, @security, @hidden, @vlanId, @color)')
   const insertWifiAccessPoint = db.prepare('INSERT INTO wifiAccessPoints VALUES (@deviceId, @controllerId, @location, @firmwareVersion, @notes)')
   const insertWifiRadio = db.prepare('INSERT INTO wifiRadios VALUES (@id, @apDeviceId, @slotName, @band, @channel, @channelWidth, @txPower, @notes)')
   const insertWifiRadioSsid = db.prepare('INSERT INTO wifiRadioSsids VALUES (@radioId, @ssidId)')
   const insertWifiClientAssociation = db.prepare('INSERT INTO wifiClientAssociations VALUES (@clientDeviceId, @apDeviceId, @radioId, @ssidId, @band, @channel, @signalDbm, @lastSeen, @lastRoamAt, @notes)')
+  const insertAppSetting = db.prepare('INSERT INTO appSettings VALUES (@key, @value, @updatedAt)')
   const insertAudit = db.prepare('INSERT INTO auditLog VALUES (@id, @ts, @user, @action, @entityType, @entityId, @summary)')
 
   // Wrap everything in a transaction so seed is atomic
   const seed = db.transaction(() => {
-    insertLab.run(lab)
+    for (const entry of labs) insertLab.run(entry)
     for (const r of racks) insertRack.run(r)
 
     // VLANs must come before ports (foreign key vlanId)
@@ -323,18 +478,22 @@ export function seedIfEmpty() {
       })
     }
     for (const p of ports) insertPort.run(p)
+    for (const template of portTemplates) insertPortTemplate.run(template)
     for (const l of portLinks) insertPortLink.run(l)
 
     for (const s of subnets) insertSubnet.run(s)
     for (const sc of dhcpScopes) insertDhcpScope.run(sc)
     for (const iz of ipZones) insertIpZone.run(iz)
     for (const ip of ipAssignments) insertIpAssignment.run(ip)
+    for (const discovered of discoveredDevices) insertDiscoveredDevice.run(discovered)
+    for (const monitor of deviceMonitors) insertDeviceMonitor.run(monitor)
     for (const controller of wifiControllers) insertWifiController.run(controller)
     for (const ssid of wifiSsids) insertWifiSsid.run(ssid)
     for (const accessPoint of wifiAccessPoints) insertWifiAccessPoint.run(accessPoint)
     for (const radio of wifiRadios) insertWifiRadio.run(radio)
     for (const radioSsid of wifiRadioSsids) insertWifiRadioSsid.run(radioSsid)
     for (const association of wifiClientAssociations) insertWifiClientAssociation.run(association)
+    for (const setting of appSettings) insertAppSetting.run(setting)
     for (const a of auditLog) insertAudit.run(a)
   })
 
