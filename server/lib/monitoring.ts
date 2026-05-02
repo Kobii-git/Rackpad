@@ -19,6 +19,7 @@ export interface DeviceMonitor {
   enabled: boolean
   sortOrder: number
   lastCheckAt?: string | null
+  lastAlertAt?: string | null
   lastResult?: string | null
   lastMessage?: string | null
 }
@@ -38,6 +39,7 @@ export function parseMonitor(row: Record<string, unknown>): DeviceMonitor {
     enabled: Number(row.enabled ?? 0) === 1,
     sortOrder: row.sortOrder == null ? 0 : Number(row.sortOrder),
     lastCheckAt: row.lastCheckAt ? String(row.lastCheckAt) : null,
+    lastAlertAt: row.lastAlertAt ? String(row.lastAlertAt) : null,
     lastResult: row.lastResult ? String(row.lastResult) : null,
     lastMessage: row.lastMessage ? String(row.lastMessage) : null,
   }
@@ -129,11 +131,9 @@ async function persistMonitorResult(
 
   refreshDeviceMonitorRollup(monitor.deviceId, currentDevice.status, payload.checkedAt)
 
-  if (!monitor.lastResult || monitor.lastResult === payload.result) {
-    return
-  }
-
-  await sendMonitorTransitionAlert(monitor.lastResult, {
+  await sendMonitorTransitionAlert(monitor.lastResult, monitor.lastAlertAt, {
+    deviceId: monitor.deviceId,
+    monitorId: monitor.id,
     hostname: currentDevice.hostname ?? monitor.deviceId,
     displayName: currentDevice.displayName ?? null,
     deviceType: currentDevice.deviceType ?? null,

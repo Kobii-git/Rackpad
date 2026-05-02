@@ -43,10 +43,20 @@ export type DiscoveryStatus = 'new' | 'imported' | 'dismissed'
 
 export interface AlertSettings {
   enabled: boolean
+  notifyOnDown: boolean
   notifyOnRecovery: boolean
+  repeatWhileOffline: boolean
+  repeatIntervalMinutes: number
   discordWebhookUrl: string | null
   telegramBotToken: string | null
   telegramChatId: string | null
+  smtpHost: string | null
+  smtpPort: number | null
+  smtpSecure: boolean
+  smtpUsername: string | null
+  smtpPassword: string | null
+  smtpFrom: string | null
+  smtpTo: string | null
 }
 
 export interface Lab {
@@ -214,6 +224,7 @@ export interface DeviceMonitor {
   enabled: boolean
   sortOrder: number
   lastCheckAt?: string | null
+  lastAlertAt?: string | null
   lastResult?: string | null
   lastMessage?: string | null
 }

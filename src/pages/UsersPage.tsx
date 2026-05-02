@@ -14,7 +14,7 @@ import {
   updateUserAccount,
   useStore,
 } from '@/lib/store'
-import type { AlertSettings, AppUser, UserRole } from '@/lib/types'
+import type { AlertSettings, AuditEntry, AppUser, UserRole } from '@/lib/types'
 import { APP_VERSION_TAG } from '@/lib/version'
 import { Download, Plus, Save, Shield, Trash2, Upload, UserRound, BellRing } from 'lucide-react'
 
@@ -36,10 +36,20 @@ const EMPTY_FORM: FormState = {
 
 const DEFAULT_ALERT_SETTINGS: AlertSettings = {
   enabled: false,
+  notifyOnDown: true,
   notifyOnRecovery: true,
+  repeatWhileOffline: false,
+  repeatIntervalMinutes: 60,
   discordWebhookUrl: null,
   telegramBotToken: null,
   telegramChatId: null,
+  smtpHost: null,
+  smtpPort: 587,
+  smtpSecure: false,
+  smtpUsername: null,
+  smtpPassword: null,
+  smtpFrom: null,
+  smtpTo: null,
 }
 
 export default function UsersPage() {
@@ -62,6 +72,9 @@ export default function UsersPage() {
   const [alertTesting, setAlertTesting] = useState(false)
   const [alertError, setAlertError] = useState('')
   const [alertSuccess, setAlertSuccess] = useState('')
+  const [alertHistory, setAlertHistory] = useState<AuditEntry[]>([])
+  const [alertHistoryLoading, setAlertHistoryLoading] = useState(true)
+  const [alertHistoryError, setAlertHistoryError] = useState('')
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
 
   useEffect(() => {
@@ -101,6 +114,7 @@ export default function UsersPage() {
   useEffect(() => {
     if (!isAdmin(currentUser)) {
       setAlertsLoading(false)
+      setAlertHistoryLoading(false)
       return
     }
 
@@ -126,6 +140,36 @@ export default function UsersPage() {
     }
 
     void loadAlertSettings()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!isAdmin(currentUser)) return
+
+    let cancelled = false
+
+    async function loadAlertHistory() {
+      setAlertHistoryLoading(true)
+      setAlertHistoryError('')
+      try {
+        const entries = await api.getAuditLog({ entityType: 'Alert', limit: 40 })
+        if (!cancelled) {
+          setAlertHistory(entries)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setAlertHistoryError(err instanceof Error ? err.message : 'Failed to load alert history.')
+        }
+      } finally {
+        if (!cancelled) {
+          setAlertHistoryLoading(false)
+        }
+      }
+    }
+
+    void loadAlertHistory()
     return () => {
       cancelled = true
     }
@@ -263,6 +307,8 @@ export default function UsersPage() {
     try {
       const result = await api.sendAlertSettingsTest()
       setAlertSuccess(`Test alert delivered via ${result.channels.map((channel) => channel.channel).join(', ')}.`)
+      const entries = await api.getAuditLog({ entityType: 'Alert', limit: 40 })
+      setAlertHistory(entries)
     } catch (err) {
       setAlertError(err instanceof Error ? err.message : 'Failed to send test alert.')
     } finally {
@@ -530,12 +576,12 @@ export default function UsersPage() {
                 </CardTitle>
                 <Badge tone="info">
                   <BellRing className="size-3" />
-                  Discord / Telegram
+                  Discord / Telegram / Email
                 </Badge>
               </CardHeader>
               <CardBody className="space-y-4">
                 <div className="text-sm text-[var(--color-fg-subtle)]">
-                  Rackpad can alert when device monitors transition to offline and optionally when they recover.
+                  Rackpad can alert when targets go down, when they recover, and when they stay offline long enough to need another reminder.
                 </div>
 
                 <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
@@ -551,12 +597,48 @@ export default function UsersPage() {
                 <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
                   <input
                     type="checkbox"
+                    checked={alertSettings.notifyOnDown}
+                    onChange={(event) => setAlertSettings((prev) => ({ ...prev, notifyOnDown: event.target.checked }))}
+                    disabled={alertsLoading}
+                  />
+                  Notify when a device or monitor target goes down
+                </label>
+
+                <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                  <input
+                    type="checkbox"
                     checked={alertSettings.notifyOnRecovery}
                     onChange={(event) => setAlertSettings((prev) => ({ ...prev, notifyOnRecovery: event.target.checked }))}
                     disabled={alertsLoading}
                   />
                   Notify again when a device recovers
                 </label>
+
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+                  <label className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                    <input
+                      type="checkbox"
+                      checked={alertSettings.repeatWhileOffline}
+                      onChange={(event) => setAlertSettings((prev) => ({ ...prev, repeatWhileOffline: event.target.checked }))}
+                      disabled={alertsLoading}
+                    />
+                    Repeat reminders while a target stays offline
+                  </label>
+                  <Field label="Repeat every (minutes)">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={String(alertSettings.repeatIntervalMinutes)}
+                      onChange={(event) =>
+                        setAlertSettings((prev) => ({
+                          ...prev,
+                          repeatIntervalMinutes: Math.max(1, Number.parseInt(event.target.value, 10) || 60),
+                        }))
+                      }
+                      disabled={alertsLoading || !alertSettings.repeatWhileOffline}
+                    />
+                  </Field>
+                </div>
 
                 <Field label="Discord webhook URL">
                   <Input
@@ -586,6 +668,96 @@ export default function UsersPage() {
                   </Field>
                 </div>
 
+                <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                        SMTP / Email
+                      </div>
+                      <div className="mt-1 text-sm text-[var(--color-fg-subtle)]">
+                        Recipients can be comma or newline separated.
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm text-[var(--color-fg)]">
+                      <input
+                        type="checkbox"
+                        checked={alertSettings.smtpSecure}
+                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpSecure: event.target.checked }))}
+                        disabled={alertsLoading}
+                      />
+                      SSL/TLS
+                    </label>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="SMTP host">
+                      <Input
+                        value={alertSettings.smtpHost ?? ''}
+                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpHost: event.target.value || null }))}
+                        placeholder="smtp.example.com"
+                        disabled={alertsLoading}
+                      />
+                    </Field>
+                    <Field label="SMTP port">
+                      <Input
+                        type="number"
+                        min={1}
+                        max={65535}
+                        value={String(alertSettings.smtpPort ?? 587)}
+                        onChange={(event) =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            smtpPort: Number.parseInt(event.target.value, 10) || null,
+                          }))
+                        }
+                        placeholder="587"
+                        disabled={alertsLoading}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Field label="SMTP username">
+                      <Input
+                        value={alertSettings.smtpUsername ?? ''}
+                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpUsername: event.target.value || null }))}
+                        placeholder="username"
+                        disabled={alertsLoading}
+                      />
+                    </Field>
+                    <Field label="SMTP password">
+                      <Input
+                        type="password"
+                        value={alertSettings.smtpPassword ?? ''}
+                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpPassword: event.target.value || null }))}
+                        placeholder="password or app password"
+                        disabled={alertsLoading}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <Field label="From address">
+                      <Input
+                        value={alertSettings.smtpFrom ?? ''}
+                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpFrom: event.target.value || null }))}
+                        placeholder="rackpad@example.com"
+                        disabled={alertsLoading}
+                      />
+                    </Field>
+                    <Field label="Recipients">
+                      <textarea
+                        value={alertSettings.smtpTo ?? ''}
+                        onChange={(event) => setAlertSettings((prev) => ({ ...prev, smtpTo: event.target.value || null }))}
+                        placeholder={'ops@example.com, noc@example.com'}
+                        rows={3}
+                        disabled={alertsLoading}
+                        className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] placeholder:text-[var(--color-fg-faint)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                      />
+                    </Field>
+                  </div>
+                </div>
+
                 {alertError && (
                   <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
                     {alertError}
@@ -613,6 +785,47 @@ export default function UsersPage() {
                     </Button>
                   </div>
                 </div>
+              </CardBody>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>Alerting</CardLabel>
+                  <CardHeading>Recent alert activity</CardHeading>
+                </CardTitle>
+                <Badge tone="neutral">{alertHistory.length} entries</Badge>
+              </CardHeader>
+              <CardBody>
+                {alertHistoryError && (
+                  <div className="mb-4 rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                    {alertHistoryError}
+                  </div>
+                )}
+
+                {alertHistoryLoading ? (
+                  <div className="text-sm text-[var(--color-fg-subtle)]">Loading alert history...</div>
+                ) : alertHistory.length === 0 ? (
+                  <div className="text-sm text-[var(--color-fg-subtle)]">No alert activity recorded yet.</div>
+                ) : (
+                  <ul className="divide-y divide-[var(--color-line)] rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)]">
+                    {alertHistory.map((entry) => (
+                      <li key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm text-[var(--color-fg)]">{entry.summary}</div>
+                          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+                            {entry.action}
+                            <span className="mx-1.5 text-[var(--color-fg-faint)]">|</span>
+                            {entry.user}
+                          </div>
+                        </div>
+                        <div className="whitespace-nowrap text-xs text-[var(--color-fg-subtle)]">
+                          {new Date(entry.ts).toLocaleString()}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardBody>
             </Card>
           </div>

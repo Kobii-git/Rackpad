@@ -7,7 +7,7 @@ This guide gives you two ways to install Rackpad:
 
 Docker is the recommended path for first testing because it handles the Node runtime and keeps the SQLite database in a persistent volume.
 
-Current version in this guide: `v0.9.1`
+Current version in this guide: `v0.9.2`
 
 ## Before you start
 
@@ -38,7 +38,7 @@ newgrp docker
 
 ```bash
 cd /opt
-git clone --branch v0.9.1 --depth 1 https://github.com/Kobii-git/Rackpad.git
+git clone --branch v0.9.2 --depth 1 https://github.com/Kobii-git/Rackpad.git
 cd Rackpad
 ```
 
@@ -112,11 +112,11 @@ Update it after new code changes:
 
 ```bash
 git fetch --tags
-git checkout v0.9.1
+git checkout v0.9.2
 docker compose up --build -d
 ```
 
-When a newer release exists, replace `v0.9.1` with the newer version tag.
+When a newer release exists, replace `v0.9.2` with the newer version tag.
 
 Remove the app and database completely:
 
@@ -157,7 +157,7 @@ This matches the included `rackpad.service`, which starts Rackpad with `/usr/bin
 
 ```bash
 cd /opt
-git clone --branch v0.9.1 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
+git clone --branch v0.9.2 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
 cd /opt/rackpad
 ```
 
@@ -244,7 +244,7 @@ After Rackpad loads in the browser and you have signed in, test these flows:
 10. Open `Compute` and confirm a host and linked VM appear in the virtualization workspace.
 11. Open `WiFi` and confirm APs or wireless clients appear in their own workspace when placed there.
 12. Run a discovery scan against a small subnet, confirm duplicate warnings work, and import one discovered host.
-13. Open `Users` as an admin and download a JSON backup.
+13. Open `Users` as an admin, send a test notification, and download a JSON backup.
 
 ## Troubleshooting
 

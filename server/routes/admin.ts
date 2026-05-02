@@ -6,7 +6,7 @@ import { db, parseRow } from '../db.js'
 import { requireAdmin, setBootstrapState } from '../lib/auth.js'
 import { loadAlertSettings, saveAlertSettings, sendTestAlert } from '../lib/alerts.js'
 import { createId } from '../lib/ids.js'
-import { asObject, optionalBoolean, optionalString, ValidationError } from '../lib/validation.js'
+import { asObject, optionalBoolean, optionalInteger, optionalString, ValidationError } from '../lib/validation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = path.resolve(__dirname, '../..')
@@ -167,8 +167,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertDeviceMonitor = db.prepare(`
-    INSERT INTO deviceMonitors (id, deviceId, name, type, target, port, path, intervalMs, enabled, sortOrder, lastCheckAt, lastResult, lastMessage)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO deviceMonitors (id, deviceId, name, type, target, port, path, intervalMs, enabled, sortOrder, lastCheckAt, lastAlertAt, lastResult, lastMessage)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertAppSetting = db.prepare(`
     INSERT INTO appSettings (key, value, updatedAt)
@@ -321,6 +321,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       Number(row.enabled ?? 0),
       row.sortOrder ?? 0,
       row.lastCheckAt ?? null,
+      row.lastAlertAt ?? null,
       row.lastResult ?? null,
       row.lastMessage ?? null,
     )
@@ -372,18 +373,41 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   app.put('/alert-settings', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
     const body = asObject(req.body)
-    return saveAlertSettings({
+    const saved = saveAlertSettings({
       enabled: optionalBoolean(body, 'enabled') ?? false,
+      notifyOnDown: optionalBoolean(body, 'notifyOnDown') ?? true,
       notifyOnRecovery: optionalBoolean(body, 'notifyOnRecovery') ?? true,
+      repeatWhileOffline: optionalBoolean(body, 'repeatWhileOffline') ?? false,
+      repeatIntervalMinutes: optionalInteger(body, 'repeatIntervalMinutes', { min: 1, max: 10080 }) ?? 60,
       discordWebhookUrl: optionalString(body, 'discordWebhookUrl', { maxLength: 1000 }),
       telegramBotToken: optionalString(body, 'telegramBotToken', { maxLength: 255 }),
       telegramChatId: optionalString(body, 'telegramChatId', { maxLength: 255 }),
+      smtpHost: optionalString(body, 'smtpHost', { maxLength: 255 }),
+      smtpPort: optionalInteger(body, 'smtpPort', { min: 1, max: 65535 }),
+      smtpSecure: optionalBoolean(body, 'smtpSecure') ?? false,
+      smtpUsername: optionalString(body, 'smtpUsername', { maxLength: 255 }),
+      smtpPassword: optionalString(body, 'smtpPassword', { maxLength: 255, allowEmpty: true }),
+      smtpFrom: optionalString(body, 'smtpFrom', { maxLength: 255 }),
+      smtpTo: optionalString(body, 'smtpTo', { maxLength: 1000 }),
     })
+    db.prepare(`
+      INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      createId('a'),
+      new Date().toISOString(),
+      req.authUser.username,
+      'alert.settings.update',
+      'AlertSettings',
+      'alert-settings',
+      'Updated notification channels and delivery controls.',
+    )
+    return saved
   })
 
   app.post('/alert-settings/test', async (req, reply) => {
     if (!requireAdmin(req, reply)) return
-    return sendTestAlert()
+    return sendTestAlert(req.authUser.username)
   })
 
   app.get('/export', async (req, reply) => {

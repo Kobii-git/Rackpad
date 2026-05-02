@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.9.1`
+Current release: `v0.9.2`
 
 It is a full-stack app:
 - React + Vite frontend
@@ -35,8 +35,9 @@ It is a full-stack app:
 - Audit log writes for the main workflows
 - User bootstrap, login, logout, and user management
 - Admin-only JSON backup export from the users screen
-- Device health-check configuration, alert destinations, and on-demand monitor runs
+- Device health-check configuration, alert destinations, repeat-alert controls, and on-demand monitor runs
 - Multiple monitor targets per device so servers, firewalls, and multi-NIC systems can track separate management, service, storage, or VIP endpoints
+- SMTP/email alert delivery beside Discord and Telegram, plus recent alert activity in the admin area
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
 

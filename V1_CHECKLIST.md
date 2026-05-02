@@ -10,7 +10,7 @@ Rackpad `v1.0.0` should be:
 
 - feature-complete for core homelab inventory and monitoring
 - polished enough that demo data shows the full product clearly
-- safe enough to self-host behind a reverse proxy without “early alpha” caveats
+- safe enough to self-host behind a reverse proxy without "early alpha" caveats
 - validated in Linux and Docker, not just by local Windows build/lint checks
 
 ## Milestones
@@ -32,18 +32,21 @@ Acceptance:
 
 ### `v0.9.2` Email notifications
 
-Status: `planned`
+Status: `done`
 
 - Add SMTP/email delivery beside Discord and Telegram
 - Support sender address, host, port, auth, TLS mode, and recipients
 - Add test-send from the admin UI
 - Support down and recovery notifications
+- Support optional repeat reminders while a target stays offline
+- Show recent alert activity from the admin UI
 
 Acceptance:
 
 - An admin can configure and test email alerts from the app
 - Monitor notifications can be sent to Discord, Telegram, or SMTP
 - Alert settings survive backup/restore and redeploys
+- Repeated offline reminders are throttled instead of firing every monitor interval
 
 ### `v0.9.3` Controller-aware WiFi
 

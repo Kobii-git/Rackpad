@@ -4,6 +4,33 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.9.2] - 2026-05-02
+
+### Added
+
+- SMTP/email notification delivery alongside the existing Discord and Telegram channels.
+- Admin UI fields for SMTP host, port, TLS mode, credentials, sender identity, and multi-recipient delivery.
+- A test-send action that exercises the currently configured notification channels and records the result in the audit log.
+- A recent alert-activity view in the admin area backed by alert-related audit entries.
+
+### Changed
+
+- Alert settings now support separate controls for down alerts, recovery alerts, and repeat reminders while a target stays offline.
+- Monitor transitions now persist the last successful alert timestamp so Rackpad can throttle repeat reminders instead of spamming every monitor pass.
+- Alert payloads now include the monitor target name across Discord, Telegram, and email delivery so multi-target outages are easier to understand.
+- Backup export and restore now preserve the richer alert settings and per-monitor alert timing state.
+
+### Schema
+
+- Added `lastAlertAt` to `deviceMonitors`.
+- Bumped the SQLite schema version to `7`.
+
+### Notes
+
+- Added runtime dependency `nodemailer` and dev dependency `@types/nodemailer`.
+- `npm run build` passes.
+- `npm run lint` passes.
+
 ## [0.9.1] - 2026-05-02
 
 ### Added
