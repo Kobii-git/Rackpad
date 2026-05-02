@@ -4,6 +4,27 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.8.0] - 2026-05-02
+
+### Added
+
+- A dedicated `Compute` workspace for virtualization hosts and VMs, including per-host guest listings and an unassigned-VM queue.
+- Fast VM creation flows that can start from the compute workspace globally or directly from a specific host card.
+- Duplicate awareness in the discovery inbox so scanned devices can be compared against existing inventory by management IP and hostname before import.
+- Discovery summary cards and filter shortcuts for `new`, `duplicates`, `imported`, and `dismissed` records.
+
+### Changed
+
+- The sidebar now includes a direct `Compute` workspace alongside the existing WiFi and Discovery views.
+- Discovery rows now show whether a scanned host already appears to exist in inventory, instead of treating every reachable host as a clean new record.
+- The discovery inspector now links duplicate candidates so you can review existing devices before importing anything new.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- This release improves operator workflow rather than the underlying discovery probe itself; discovery is still ICMP plus reverse-DNS enrichment, not SNMP or agent-based inventory.
+
 ## [0.7.0] - 2026-05-02
 
 ### Added
