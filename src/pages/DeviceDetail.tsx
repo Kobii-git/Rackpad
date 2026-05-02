@@ -130,6 +130,8 @@ export default function DeviceDetail() {
   const devicePorts = device?.id ? portsByDeviceId[device.id] ?? [] : []
   const rack = device?.rackId ? racks.find((entry) => entry.id === device.rackId) : undefined
   const deviceIps = device?.id ? ipAssignments.filter((assignment) => assignment.deviceId === device.id) : []
+  const parentDevice = device?.parentDeviceId ? deviceById[device.parentDeviceId] : undefined
+  const childDevices = device ? devices.filter((entry) => entry.parentDeviceId === device.id) : []
   const selectedPort = selectedPortId ? devicePorts.find((port) => port.id === selectedPortId) : undefined
   const selectedLink = selectedPort ? linkByPortId[selectedPort.id] : undefined
   const peerPortId = selectedPort && selectedLink
@@ -404,7 +406,12 @@ export default function DeviceDetail() {
                 </CardHeader>
                 <CardBody>
                   <dl className="space-y-2 text-xs">
+                    <Row label="Placement" value={formatPlacement(device.placement)} />
                     <Row label="Rack" value={rack?.name} />
+                    <Row
+                      label={device.placement === 'wireless' ? 'Connected AP' : device.placement === 'virtual' ? 'Host device' : 'Parent'}
+                      value={parentDevice?.hostname}
+                    />
                     <Row label="Face" value={device.face} />
                     <Row
                       label="U position"
@@ -418,6 +425,39 @@ export default function DeviceDetail() {
                   </dl>
                 </CardBody>
               </Card>
+              {childDevices.length > 0 && (
+                <Card className="col-span-12">
+                  <CardHeader>
+                    <CardTitle>
+                      <CardLabel>Relationships</CardLabel>
+                      <CardHeading>
+                        {device.deviceType === 'ap' ? 'Connected clients' : 'Hosted / child devices'}
+                      </CardHeading>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardBody>
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                      {childDevices
+                        .sort((a, b) => a.hostname.localeCompare(b.hostname))
+                        .map((child) => (
+                          <Link
+                            key={child.id}
+                            to={`/devices/${child.id}`}
+                            className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 transition-colors hover:border-[var(--color-line-strong)] hover:bg-[var(--color-surface)]"
+                          >
+                            <div className="flex items-center gap-2">
+                              <DeviceTypeIcon type={child.deviceType} className="size-4 text-[var(--color-accent)]" />
+                              <span className="text-sm text-[var(--color-fg)]">{child.hostname}</span>
+                            </div>
+                            <div className="mt-1 text-[11px] text-[var(--color-fg-subtle)]">
+                              {child.displayName || child.managementIp || formatPlacement(child.placement)}
+                            </div>
+                          </Link>
+                        ))}
+                    </div>
+                  </CardBody>
+                </Card>
+              )}
               {device.tags && device.tags.length > 0 && (
                 <Card className="col-span-12">
                   <CardHeader>
@@ -940,5 +980,20 @@ function formatLinkState(state: Port['linkState']) {
       return 'Disabled'
     default:
       return 'Unknown'
+  }
+}
+
+function formatPlacement(placement?: Device['placement']) {
+  switch (placement) {
+    case 'rack':
+      return 'Rack mounted'
+    case 'wireless':
+      return 'WiFi linked'
+    case 'virtual':
+      return 'Virtual'
+    case 'room':
+      return 'Loose / room'
+    default:
+      return 'Loose / room'
   }
 }

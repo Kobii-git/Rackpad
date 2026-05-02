@@ -4,7 +4,7 @@ import { db } from '../db.js'
 
 export const MONITOR_TYPES = ['none', 'icmp', 'tcp', 'http', 'https'] as const
 export type MonitorType = (typeof MONITOR_TYPES)[number]
-type MonitorResult = { result: 'online' | 'offline' | 'unknown'; message: string }
+export type MonitorResult = { result: 'online' | 'offline' | 'unknown'; message: string }
 
 export interface DeviceMonitor {
   id: string
@@ -130,7 +130,7 @@ async function executeCheck(monitor: DeviceMonitor) {
     }
 
     if (monitor.type === 'icmp') {
-      return icmpCheck(monitor.target)
+      return runIcmpProbe(monitor.target)
     }
 
     if (monitor.type === 'tcp') {
@@ -158,7 +158,7 @@ async function executeCheck(monitor: DeviceMonitor) {
   }
 }
 
-function icmpCheck(host: string): Promise<MonitorResult> {
+export function runIcmpProbe(host: string): Promise<MonitorResult> {
   const { command, args } = getPingCommand(host)
 
   return new Promise((resolve) => {

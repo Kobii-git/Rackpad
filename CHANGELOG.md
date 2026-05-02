@@ -4,6 +4,36 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [0.7.0] - 2026-05-02
+
+### Added
+
+- Device placement modes for `rack`, `room`, `wireless`, and `virtual` inventory so the app can model loose room tech, AP-linked clients, and hosted VMs alongside rack-mounted gear.
+- Parent-child device relationships, including AP-to-client links for wireless inventory and host-to-VM links for virtual workloads.
+- A dedicated `WiFi` workspace with AP summaries, wireless client counts, and an unassigned-clients section.
+- A new discovery inbox with ICMP subnet scanning, reverse-DNS enrichment, review/edit controls, and one-click import into the normal device inventory flow.
+- Discovery records in backup export and restore so staged findings survive migrations and test resets.
+
+### Changed
+
+- Device creation and edit flows now expose placement directly and only ask for rack coordinates when the device is actually rack-mounted.
+- Device details now show placement context and child relationships so APs and hosts can act as inventory anchors instead of flat standalone records.
+- Device lists now describe placement honestly, including loose-room devices, hosted VMs, and wireless clients attached to APs.
+- The main sidebar now includes direct navigation to the new WiFi and Discovery workspaces.
+
+### Schema
+
+- Added `placement` and `parentDeviceId` columns to `devices`, plus an index for parent-device lookups.
+- Added a new `discoveredDevices` table with per-lab uniqueness on IP address and status indexing for discovery workflows.
+- Bumped the SQLite schema version to `4`.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
+- Discovery scans are intentionally limited to `/24` or smaller IPv4 ranges for now.
+- Reverse-DNS and ICMP scan results are best-effort enrichment from the Rackpad server or container; imported devices are still meant to be reviewed before you trust them as final inventory.
+
 ## [0.6.3] - 2026-05-02
 
 ### Added

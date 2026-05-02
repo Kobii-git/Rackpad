@@ -1,6 +1,6 @@
 services:
   rackpad:
-    image: ghcr.io/${GITHUB_REPO_OWNER:-kobii-git}/rackpad:${RACKPAD_TAG:-v0.6.3}
+    image: ghcr.io/${GITHUB_REPO_OWNER:-kobii-git}/rackpad:${RACKPAD_TAG:-v0.7.0}
     build:
       context: .
       dockerfile: Dockerfile

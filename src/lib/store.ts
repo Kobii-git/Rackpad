@@ -5,6 +5,7 @@ import type {
   AuditEntry,
   Device,
   DeviceMonitor,
+  DiscoveredDevice,
   DhcpScope,
   IpAssignment,
   IpAssignmentType,
@@ -22,6 +23,7 @@ import type {
 } from './types'
 import type {
   DevicePatch,
+  DiscoveredDevicePatch,
   DhcpScopePatch,
   LabPatch,
   MonitorPatch,
@@ -68,6 +70,7 @@ interface State {
   users: AppUser[]
   deviceMonitors: DeviceMonitor[]
   portTemplates: PortTemplate[]
+  discoveredDevices: DiscoveredDevice[]
 }
 
 const EMPTY_DATA = {
@@ -86,6 +89,7 @@ const EMPTY_DATA = {
   users: [] as AppUser[],
   deviceMonitors: [] as DeviceMonitor[],
   portTemplates: [] as PortTemplate[],
+  discoveredDevices: [] as DiscoveredDevice[],
 }
 
 let state: State = {
@@ -251,6 +255,14 @@ function sortPortTemplates(templates: PortTemplate[]) {
   })
 }
 
+function sortDiscoveredDevices(devices: DiscoveredDevice[]) {
+  return [...devices].sort((a, b) => {
+    const byStatus = a.status.localeCompare(b.status)
+    if (byStatus !== 0) return byStatus
+    return Date.parse(b.lastScannedAt) - Date.parse(a.lastScannedAt) || a.ipAddress.localeCompare(b.ipAddress)
+  })
+}
+
 function replaceById<T extends { id: string }>(items: T[], updated: T, sorter?: (value: T[]) => T[]) {
   const exists = items.some((item) => item.id === updated.id)
   const next = exists
@@ -286,6 +298,7 @@ function filterAuditForLab(
     zoneIds: Set<string>
     assignmentIds: Set<string>
     monitorIds: Set<string>
+    discoveredIds: Set<string>
   },
 ) {
   return sortAudit(
@@ -315,8 +328,10 @@ function filterAuditForLab(
           return context.assignmentIds.has(entry.entityId)
         case 'DeviceMonitor':
           return context.monitorIds.has(entry.entityId)
+        case 'DiscoveredDevice':
+          return context.discoveredIds.has(entry.entityId)
         default:
-          return true
+          return false
       }
     }),
   )
@@ -331,6 +346,8 @@ function normalizeDeviceChanges(changes: Partial<Omit<Device, 'id' | 'labId'>>):
     'model',
     'serial',
     'managementIp',
+    'placement',
+    'parentDeviceId',
     'startU',
     'heightU',
     'face',
@@ -690,6 +707,7 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
         auditLog: api.getAuditLog({ limit: 500 }),
         deviceMonitors: api.getDeviceMonitors(),
         portTemplates: api.getPortTemplates(),
+        discoveredDevices: api.getDiscoveredDevices(),
         users: currentUser.role === 'admin' ? api.getUsers() : Promise.resolve([] as AppUser[]),
       }
 
@@ -778,6 +796,13 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
       )
       const monitorIds = new Set(allMonitors.map((monitor) => monitor.id))
 
+      const allDiscoveredDevices = sortDiscoveredDevices(
+        ((resolved.get('discoveredDevices') as DiscoveredDevice[] | undefined) ?? []).filter(
+          (device) => device.labId === activeLab.id,
+        ),
+      )
+      const discoveredIds = new Set(allDiscoveredDevices.map((device) => device.id))
+
       const filteredAudit = filterAuditForLab(
         (resolved.get('auditLog') as AuditEntry[] | undefined) ?? [],
         {
@@ -793,6 +818,7 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
           zoneIds,
           assignmentIds,
           monitorIds,
+          discoveredIds,
         },
       )
 
@@ -819,6 +845,7 @@ export async function loadAll(force = false, preferredLabId?: string | null): Pr
         auditLog: filteredAudit,
         deviceMonitors: allMonitors,
         portTemplates: sortPortTemplates((resolved.get('portTemplates') as PortTemplate[] | undefined) ?? []),
+        discoveredDevices: allDiscoveredDevices,
         users: sortUsers((resolved.get('users') as AppUser[] | undefined) ?? []),
       }))
     } catch (error) {
@@ -1268,6 +1295,8 @@ export interface CreateDeviceInput {
   serial?: string
   managementIp?: string
   status?: Device['status']
+  placement?: Device['placement']
+  parentDeviceId?: string
   rackId?: string
   startU?: number
   heightU?: number
@@ -1293,6 +1322,8 @@ export async function createDevice(input: CreateDeviceInput): Promise<Device> {
     serial: input.serial,
     managementIp: trimmedManagementIp,
     status: input.status ?? 'unknown',
+    placement: input.placement,
+    parentDeviceId: input.parentDeviceId,
     rackId: input.rackId,
     startU: input.startU,
     heightU: input.heightU ?? 1,
@@ -1397,7 +1428,9 @@ export async function deleteDevice(id: string): Promise<boolean> {
 
   setState((prev) => ({
     ...prev,
-    devices: prev.devices.filter((entry) => entry.id !== id),
+    devices: prev.devices
+      .filter((entry) => entry.id !== id)
+      .map((entry) => (entry.parentDeviceId === id ? { ...entry, parentDeviceId: undefined } : entry)),
     ports: prev.ports.filter((port) => port.deviceId !== id),
     portLinks: prev.portLinks.filter(
       (link) => !devicePortIds.includes(link.fromPortId) && !devicePortIds.includes(link.toPortId),
@@ -1408,6 +1441,9 @@ export async function deleteDevice(id: string): Promise<boolean> {
         (assignment.portId == null || !devicePortIds.includes(assignment.portId)),
     ),
     deviceMonitors: prev.deviceMonitors.filter((monitor) => monitor.deviceId !== id),
+    discoveredDevices: prev.discoveredDevices.map((entry) =>
+      entry.importedDeviceId === id ? { ...entry, importedDeviceId: null, status: 'new' } : entry,
+    ),
   }))
 
   void recordAudit(
@@ -1743,4 +1779,68 @@ export async function runDeviceMonitorCheck(deviceId: string): Promise<DeviceMon
 export async function runAllDeviceMonitorChecks(): Promise<void> {
   await api.runAllDeviceMonitors()
   await loadAll(true)
+}
+
+export async function scanDiscoveredSubnet(cidr: string): Promise<DiscoveredDevice[]> {
+  const result = await api.scanDiscoveredDevices({
+    labId: state.lab.id,
+    cidr,
+  })
+
+  setState((prev) => {
+    const next = [...prev.discoveredDevices]
+    for (const row of result.rows) {
+      const existingIndex = next.findIndex((device) => device.id === row.id)
+      if (existingIndex >= 0) {
+        next[existingIndex] = row
+      } else {
+        next.push(row)
+      }
+    }
+    return {
+      ...prev,
+      discoveredDevices: sortDiscoveredDevices(next),
+    }
+  })
+
+  void recordAudit(
+    'discovery.scan',
+    'Lab',
+    state.lab.id,
+    `Scanned ${cidr} and found ${result.discoveredCount} reachable devices`,
+  )
+
+  return result.rows
+}
+
+export async function updateDiscoveredDeviceRecord(id: string, changes: DiscoveredDevicePatch): Promise<DiscoveredDevice> {
+  const updated = await api.updateDiscoveredDevice(id, changes)
+  setState((prev) => ({
+    ...prev,
+    discoveredDevices: replaceById(prev.discoveredDevices, updated, sortDiscoveredDevices),
+  }))
+  void recordAudit(
+    'discovery.update',
+    'DiscoveredDevice',
+    id,
+    `Updated discovered device ${updated.hostname ?? updated.ipAddress}`,
+  )
+  return updated
+}
+
+export async function deleteDiscoveredDeviceRecord(id: string): Promise<void> {
+  const existing = state.discoveredDevices.find((device) => device.id === id)
+  await api.deleteDiscoveredDevice(id)
+  setState((prev) => ({
+    ...prev,
+    discoveredDevices: removeById(prev.discoveredDevices, id),
+  }))
+  if (existing) {
+    void recordAudit(
+      'discovery.delete',
+      'DiscoveredDevice',
+      id,
+      `Removed discovered device ${existing.hostname ?? existing.ipAddress}`,
+    )
+  }
 }

@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted homelab inventory app for racks, devices, ports, cables, VLANs, and IP address management.
 
-Current release: `v0.6.3`
+Current release: `v0.7.0`
 
 It is a full-stack app:
 - React + Vite frontend
@@ -17,12 +17,16 @@ It is a full-stack app:
 - Rack inventory and physical placement
 - Add, edit, and delete racks
 - Add, edit, and delete devices
+- Device placement modes for rack, room, wireless, and virtual inventory
+- Parent-child device relationships for hosted VMs and AP-linked wireless clients
 - Port templates for new devices
 - Manual port create, edit, and delete
 - Create, edit, and delete cables
 - VLAN allocation and VLAN deletion
 - VLAN range create, edit, and delete
 - IPAM subnet, DHCP scope, and IP zone CRUD
+- WiFi workspace for access points and wireless clients
+- Discovery inbox with subnet scan, review, and import into inventory
 - Management IP synchronization between device records and IPAM
 - Next-free IP allocation and IP release
 - Audit log writes for the main workflows

@@ -1,0 +1,417 @@
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
+import { DeviceDrawer } from '@/components/shared/DeviceDrawer'
+import { TopBar } from '@/components/layout/TopBar'
+import { Button } from '@/components/ui/Button'
+import { Card, CardBody, CardHeader, CardHeading, CardLabel, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
+import { Badge } from '@/components/ui/Badge'
+import { Mono } from '@/components/shared/Mono'
+import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
+import {
+  canEditInventory,
+  deleteDiscoveredDeviceRecord,
+  scanDiscoveredSubnet,
+  updateDiscoveredDeviceRecord,
+  useStore,
+} from '@/lib/store'
+import type { Device, DiscoveredDevice } from '@/lib/types'
+import { RefreshCcw, Save, Search, Trash2 } from 'lucide-react'
+
+type DiscoveryDraft = {
+  hostname: string
+  displayName: string
+  deviceType: NonNullable<DiscoveredDevice['deviceType']>
+  placement: NonNullable<DiscoveredDevice['placement']>
+  notes: string
+  status: DiscoveredDevice['status']
+}
+
+export default function DiscoveryView() {
+  const currentUser = useStore((s) => s.currentUser)
+  const lab = useStore((s) => s.lab)
+  const devices = useStore((s) => s.devices)
+  const subnets = useStore((s) => s.subnets)
+  const discoveredDevices = useStore((s) => s.discoveredDevices)
+  const canEdit = canEditInventory(currentUser)
+  const [scanCidr, setScanCidr] = useState('')
+  const [selectedId, setSelectedId] = useState<string | undefined>()
+  const [draft, setDraft] = useState<DiscoveryDraft | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [error, setError] = useState('')
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const selected = selectedId ? discoveredDevices.find((device) => device.id === selectedId) : undefined
+  const deviceById = useMemo(() => {
+    return devices.reduce<Record<string, Device>>((acc, device) => {
+      acc[device.id] = device
+      return acc
+    }, {})
+  }, [devices])
+  const drawerDefaults = useMemo(() => {
+    if (!selected) return undefined
+    return {
+      hostname: selected.hostname ?? selected.displayName ?? selected.ipAddress.replaceAll('.', '-'),
+      displayName: selected.displayName ?? '',
+      deviceType: selected.deviceType ?? 'endpoint',
+      managementIp: selected.ipAddress,
+      placement: selected.placement ?? 'room',
+      notes: selected.notes ?? '',
+      status: 'unknown' as const,
+    }
+  }, [selected])
+
+  useEffect(() => {
+    if (!scanCidr) {
+      setScanCidr(subnets[0]?.cidr ?? '')
+    }
+  }, [scanCidr, subnets])
+
+  useEffect(() => {
+    if (!discoveredDevices.length) {
+      setSelectedId(undefined)
+      return
+    }
+    if (!selectedId || !discoveredDevices.some((device) => device.id === selectedId)) {
+      setSelectedId(discoveredDevices[0].id)
+    }
+  }, [discoveredDevices, selectedId])
+
+  useEffect(() => {
+    if (!selected) {
+      setDraft(null)
+      return
+    }
+    setDraft({
+      hostname: selected.hostname ?? '',
+      displayName: selected.displayName ?? '',
+      deviceType: selected.deviceType ?? 'endpoint',
+      placement: selected.placement ?? 'room',
+      notes: selected.notes ?? '',
+      status: selected.status,
+    })
+    setError('')
+  }, [selected])
+
+  async function handleScan() {
+    if (!scanCidr.trim()) return
+    setScanning(true)
+    setError('')
+    try {
+      await scanDiscoveredSubnet(scanCidr.trim())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to scan subnet.')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  async function handleSave() {
+    if (!selected || !draft) return
+    setSaving(true)
+    setError('')
+    try {
+      await updateDiscoveredDeviceRecord(selected.id, {
+        hostname: draft.hostname.trim() || null,
+        displayName: draft.displayName.trim() || null,
+        deviceType: draft.deviceType,
+        placement: draft.placement,
+        notes: draft.notes.trim() || null,
+        status: draft.status,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save discovered device.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!selected) return
+    if (!window.confirm(`Delete discovered host ${selected.ipAddress}?`)) return
+    setDeleting(true)
+    setError('')
+    try {
+      await deleteDiscoveredDeviceRecord(selected.id)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete discovered device.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleImported(saved: Device) {
+    if (!selected) return
+    await updateDiscoveredDeviceRecord(selected.id, {
+      status: 'imported',
+      importedDeviceId: saved.id,
+    })
+    setDrawerOpen(false)
+  }
+
+  return (
+    <>
+      <TopBar
+        subtitle="Discovery inbox"
+        title="Discovery"
+        meta={
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+            {discoveredDevices.length} discovered in {lab.name}
+          </span>
+        }
+        actions={
+          canEdit ? (
+            <div className="flex items-center gap-2">
+              <Input
+                value={scanCidr}
+                onChange={(event) => setScanCidr(event.target.value)}
+                placeholder="10.0.21.0/24"
+                className="w-40"
+              />
+              <Button variant="outline" size="sm" onClick={() => void handleScan()} disabled={scanning}>
+                <Search className="size-3.5" />
+                {scanning ? 'Scanning...' : 'Scan subnet'}
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
+
+      <div className="flex flex-1 gap-5 overflow-hidden px-6 py-5">
+        <div className="min-w-0 flex-1 overflow-y-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Inbox</CardLabel>
+                <CardHeading>Discovered hosts</CardHeading>
+              </CardTitle>
+            </CardHeader>
+            <CardBody className="p-0">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[var(--color-line)] bg-[var(--color-bg-2)]">
+                    <Th>IP</Th>
+                    <Th>Hostname</Th>
+                    <Th>Type</Th>
+                    <Th>Placement</Th>
+                    <Th>Status</Th>
+                    <Th>Last seen</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {discoveredDevices.map((device) => (
+                    <tr
+                      key={device.id}
+                      onClick={() => setSelectedId(device.id)}
+                      className={`cursor-pointer border-b border-[var(--color-line)] transition-colors last:border-b-0 hover:bg-[var(--color-surface)] ${
+                        selectedId === device.id ? 'bg-[var(--color-accent)]/8' : ''
+                      }`}
+                    >
+                      <Td><Mono>{device.ipAddress}</Mono></Td>
+                      <Td>{device.hostname || device.displayName || '-'}</Td>
+                      <Td>
+                        <span className="inline-flex items-center gap-2">
+                          <DeviceTypeIcon type={device.deviceType ?? 'endpoint'} className="size-3.5 text-[var(--color-accent)]" />
+                          <span className="capitalize text-[var(--color-fg-muted)]">{device.deviceType ?? 'endpoint'}</span>
+                        </span>
+                      </Td>
+                      <Td className="capitalize text-[var(--color-fg-muted)]">{device.placement ?? 'room'}</Td>
+                      <Td><DiscoveryBadge status={device.status} /></Td>
+                      <Td className="font-mono text-[11px] text-[var(--color-fg-subtle)]">{device.lastSeen ?? device.lastScannedAt}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {discoveredDevices.length === 0 && (
+                <div className="px-4 py-8 text-center text-sm text-[var(--color-fg-subtle)]">
+                  Run a subnet scan to populate the discovery inbox.
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        <div className="w-full max-w-md shrink-0 overflow-y-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Inspector</CardLabel>
+                <CardHeading>{selected ? selected.ipAddress : 'Select a discovered host'}</CardHeading>
+              </CardTitle>
+              {selected && <DiscoveryBadge status={selected.status} />}
+            </CardHeader>
+            <CardBody className="space-y-4">
+              {!selected || !draft ? (
+                <div className="text-sm text-[var(--color-fg-subtle)]">
+                  Select a discovered host to review its metadata and import it into inventory.
+                </div>
+              ) : (
+                <>
+                  <Field label="Hostname">
+                    <Input
+                      value={draft.hostname}
+                      onChange={(event) => setDraft((prev) => (prev ? { ...prev, hostname: event.target.value } : prev))}
+                    />
+                  </Field>
+                  <Field label="Display name">
+                    <Input
+                      value={draft.displayName}
+                      onChange={(event) => setDraft((prev) => (prev ? { ...prev, displayName: event.target.value } : prev))}
+                    />
+                  </Field>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="Device type">
+                      <Select
+                        value={draft.deviceType}
+                        onChange={(value) => setDraft((prev) => (prev ? { ...prev, deviceType: value as DiscoveryDraft['deviceType'] } : prev))}
+                      >
+                        <option value="endpoint">endpoint</option>
+                        <option value="ap">ap</option>
+                        <option value="server">server</option>
+                        <option value="switch">switch</option>
+                        <option value="router">router</option>
+                        <option value="firewall">firewall</option>
+                        <option value="storage">storage</option>
+                        <option value="vm">vm</option>
+                        <option value="other">other</option>
+                      </Select>
+                    </Field>
+                    <Field label="Placement">
+                      <Select
+                        value={draft.placement}
+                        onChange={(value) => setDraft((prev) => (prev ? { ...prev, placement: value as DiscoveryDraft['placement'] } : prev))}
+                      >
+                        <option value="room">room</option>
+                        <option value="wireless">wireless</option>
+                        <option value="virtual">virtual</option>
+                        <option value="rack">rack</option>
+                      </Select>
+                    </Field>
+                  </div>
+                  <Field label="Status">
+                    <Select
+                      value={draft.status}
+                      onChange={(value) => setDraft((prev) => (prev ? { ...prev, status: value as DiscoveryDraft['status'] } : prev))}
+                    >
+                      <option value="new">new</option>
+                      <option value="imported">imported</option>
+                      <option value="dismissed">dismissed</option>
+                    </Select>
+                  </Field>
+                  <Field label="Notes">
+                    <textarea
+                      rows={4}
+                      value={draft.notes}
+                      onChange={(event) => setDraft((prev) => (prev ? { ...prev, notes: event.target.value } : prev))}
+                      className="w-full resize-none rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2.5 py-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+                    />
+                  </Field>
+
+                  {selected.importedDeviceId && deviceById[selected.importedDeviceId] && (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-fg)]">
+                      Imported as{' '}
+                      <Link to={`/devices/${selected.importedDeviceId}`} className="text-[var(--color-accent)] hover:underline">
+                        {deviceById[selected.importedDeviceId].hostname}
+                      </Link>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="rounded-[var(--radius-sm)] border border-[var(--color-err)]/30 bg-[var(--color-err)]/10 px-3 py-2 text-sm text-[var(--color-err)]">
+                      {error}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => void handleSave()} disabled={saving}>
+                        <Save className="size-3.5" />
+                        {saving ? 'Saving...' : 'Save'}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => void handleScan()} disabled={scanning}>
+                        <RefreshCcw className="size-3.5" />
+                        Rescan
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {canEdit && selected.status !== 'imported' && (
+                        <Button variant="default" size="sm" onClick={() => setDrawerOpen(true)}>
+                          Import
+                        </Button>
+                      )}
+                      {canEdit && (
+                        <Button variant="destructive" size="sm" onClick={() => void handleDelete()} disabled={deleting}>
+                          <Trash2 className="size-3.5" />
+                          {deleting ? 'Deleting...' : 'Delete'}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+      </div>
+
+      {selected && canEdit && (
+        <DeviceDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          onSaved={(device) => void handleImported(device)}
+          defaults={drawerDefaults}
+        />
+      )}
+    </>
+  )
+}
+
+function DiscoveryBadge({ status }: { status: DiscoveredDevice['status'] }) {
+  const tone = status === 'imported' ? 'ok' : status === 'dismissed' ? 'neutral' : 'accent'
+  return <Badge tone={tone}>{status}</Badge>
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+        {label}
+      </span>
+      {children}
+    </label>
+  )
+}
+
+function Select({
+  value,
+  onChange,
+  children,
+}: {
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+}) {
+  return (
+    <select
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="h-8 w-full rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--color-bg)] px-2 text-sm text-[var(--color-fg)] focus-visible:border-[var(--color-accent-soft)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--color-accent-soft)]"
+    >
+      {children}
+    </select>
+  )
+}
+
+function Th({ children }: { children: ReactNode }) {
+  return (
+    <th className="px-3 py-1.5 text-left font-mono text-[10px] font-normal uppercase tracking-[0.14em] text-[var(--color-fg-subtle)]">
+      {children}
+    </th>
+  )
+}
+
+function Td({ children, className }: { children: ReactNode; className?: string }) {
+  return <td className={`px-3 py-2 align-middle ${className ?? ''}`}>{children}</td>
+}

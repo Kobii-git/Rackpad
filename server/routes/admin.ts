@@ -49,6 +49,7 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
         .map((row) => parseRow(row, ['dnsServers'])),
       ipZones: db.prepare('SELECT * FROM ipZones ORDER BY subnetId, startIp, id').all(),
       ipAssignments: db.prepare('SELECT * FROM ipAssignments ORDER BY subnetId, ipAddress, id').all(),
+      discoveredDevices: db.prepare('SELECT * FROM discoveredDevices ORDER BY lastScannedAt DESC, ipAddress, id').all(),
       auditLog: db.prepare('SELECT * FROM auditLog ORDER BY ts DESC, id DESC').all(),
       users: db.prepare(`
         SELECT id, username, displayName, passwordHash, role, disabled, createdAt, lastLoginAt
@@ -100,6 +101,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const dhcpScopes = normalizeArrayRecordArray(data.dhcpScopes, 'data.dhcpScopes')
   const ipZones = normalizeArrayRecordArray(data.ipZones, 'data.ipZones')
   const ipAssignments = normalizeArrayRecordArray(data.ipAssignments, 'data.ipAssignments')
+  const discoveredDevices = normalizeArrayRecordArray(data.discoveredDevices ?? [], 'data.discoveredDevices')
   const auditLog = normalizeArrayRecordArray(data.auditLog, 'data.auditLog')
   const users = normalizeArrayRecordArray(data.users, 'data.users')
   const deviceMonitors = normalizeArrayRecordArray(data.deviceMonitors, 'data.deviceMonitors')
@@ -113,6 +115,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
     DELETE FROM deviceMonitors;
     DELETE FROM auditLog;
     DELETE FROM ipAssignments;
+    DELETE FROM discoveredDevices;
     DELETE FROM portLinks;
     DELETE FROM ports;
     DELETE FROM ipZones;
@@ -131,8 +134,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const insertRack = db.prepare('INSERT INTO racks (id, labId, name, totalU, description, location, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
   const insertDevice = db.prepare(`
     INSERT INTO devices
-      (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, startU, heightU, face, tags, notes, lastSeen)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, placement, parentDeviceId, startU, heightU, face, tags, notes, lastSeen)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertPort = db.prepare('INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
   const insertPortLink = db.prepare('INSERT INTO portLinks (id, fromPortId, toPortId, cableType, cableLength, color, notes) VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -148,6 +151,11 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
   const insertIpAssignment = db.prepare(`
     INSERT INTO ipAssignments (id, subnetId, ipAddress, assignmentType, deviceId, portId, vmId, containerId, hostname, description)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `)
+  const insertDiscoveredDevice = db.prepare(`
+    INSERT INTO discoveredDevices
+      (id, labId, ipAddress, hostname, displayName, deviceType, placement, source, status, notes, importedDeviceId, lastSeen, lastScannedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const insertAudit = db.prepare('INSERT INTO auditLog (id, ts, user, action, entityType, entityId, summary) VALUES (?, ?, ?, ?, ?, ?, ?)')
   const insertUser = db.prepare(`
@@ -190,6 +198,8 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.serial ?? null,
       row.managementIp ?? null,
       row.status,
+      row.placement ?? null,
+      row.parentDeviceId ?? null,
       row.startU ?? null,
       row.heightU ?? null,
       row.face ?? null,
@@ -264,6 +274,23 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.description ?? null,
     )
   }
+  for (const row of discoveredDevices) {
+    insertDiscoveredDevice.run(
+      row.id,
+      row.labId,
+      row.ipAddress,
+      row.hostname ?? null,
+      row.displayName ?? null,
+      row.deviceType ?? null,
+      row.placement ?? null,
+      row.source,
+      row.status ?? 'new',
+      row.notes ?? null,
+      row.importedDeviceId ?? null,
+      row.lastSeen ?? null,
+      row.lastScannedAt ?? new Date().toISOString(),
+    )
+  }
   for (const row of auditLog) {
     insertAudit.run(row.id, row.ts, row.user, row.action, row.entityType, row.entityId, row.summary)
   }
@@ -304,6 +331,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       labs: labs.length,
       racks: racks.length,
       devices: devices.length,
+      discoveredDevices: discoveredDevices.length,
       portTemplates: portTemplates.length,
       vlans: vlans.length,
       subnets: subnets.length,

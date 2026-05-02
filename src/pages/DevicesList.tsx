@@ -9,11 +9,11 @@ import { Mono } from '@/components/shared/Mono'
 import { StatusDot } from '@/components/shared/StatusDot'
 import { DeviceTypeIcon } from '@/components/shared/DeviceTypeIcon'
 import { canEditInventory, useStore } from '@/lib/store'
-import type { DeviceType, Port, Rack } from '@/lib/types'
+import type { Device, DeviceType, Port, Rack } from '@/lib/types'
 import { ChevronRight, Filter, Plus } from 'lucide-react'
 import { statusLabel } from '@/lib/utils'
 
-const TYPES: DeviceType[] = ['switch', 'router', 'firewall', 'server', 'storage', 'patch_panel', 'pdu', 'ups']
+const TYPES: DeviceType[] = ['switch', 'router', 'firewall', 'server', 'ap', 'endpoint', 'vm', 'storage', 'patch_panel', 'pdu', 'ups']
 
 export default function DevicesList() {
   const currentUser = useStore((s) => s.currentUser)
@@ -31,6 +31,13 @@ export default function DevicesList() {
       return acc
     }, {})
   }, [racks])
+
+  const deviceById = useMemo(() => {
+    return devices.reduce<Record<string, Device>>((acc, device) => {
+      acc[device.id] = device
+      return acc
+    }, {})
+  }, [devices])
 
   const portsByDeviceId = useMemo(() => {
     return ports.reduce<Record<string, Port[]>>((acc, port) => {
@@ -144,7 +151,7 @@ export default function DevicesList() {
                   <Th>Type</Th>
                   <Th>Model</Th>
                   <Th>Mgmt IP</Th>
-                  <Th>Rack / U</Th>
+                  <Th>Placement</Th>
                   <Th>Ports</Th>
                   <Th>Status</Th>
                   <Th />
@@ -155,6 +162,7 @@ export default function DevicesList() {
                   const devicePorts = portsByDeviceId[device.id] ?? []
                   const linked = devicePorts.filter((port) => port.linkState === 'up').length
                   const rack = device.rackId ? rackById[device.rackId] : undefined
+                  const parentDevice = device.parentDeviceId ? deviceById[device.parentDeviceId] : undefined
                   return (
                     <tr
                       key={device.id}
@@ -185,7 +193,27 @@ export default function DevicesList() {
                         <Mono className="text-[var(--color-fg)]">{device.managementIp ?? '-'}</Mono>
                       </Td>
                       <Td>
-                        {rack && device.startU ? (
+                        {device.placement === 'virtual' ? (
+                          <span className="text-xs">
+                            <span className="text-[var(--color-fg-muted)]">Virtual</span>
+                            {parentDevice && (
+                              <>
+                                <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
+                                <span className="text-[var(--color-fg-subtle)]">{parentDevice.hostname}</span>
+                              </>
+                            )}
+                          </span>
+                        ) : device.placement === 'wireless' ? (
+                          <span className="text-xs">
+                            <span className="text-[var(--color-fg-muted)]">WiFi</span>
+                            {parentDevice && (
+                              <>
+                                <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
+                                <span className="text-[var(--color-fg-subtle)]">{parentDevice.hostname}</span>
+                              </>
+                            )}
+                          </span>
+                        ) : rack && device.startU ? (
                           <span className="text-xs">
                             <span className="text-[var(--color-fg-muted)]">{rack.name}</span>
                             <span className="mx-1 text-[var(--color-fg-faint)]">|</span>
@@ -195,9 +223,7 @@ export default function DevicesList() {
                             </Mono>
                           </span>
                         ) : (
-                          <span className="text-[var(--color-fg-faint)]">
-                            {device.rackId ? 'Pending placement' : 'Unracked'}
-                          </span>
+                          <span className="text-[var(--color-fg-faint)]">{device.placement === 'rack' ? 'Pending placement' : 'Loose / room'}</span>
                         )}
                       </Td>
                       <Td>

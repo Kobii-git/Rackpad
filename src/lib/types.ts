@@ -5,6 +5,9 @@ export type DeviceType =
   | 'router'
   | 'firewall'
   | 'server'
+  | 'ap'
+  | 'endpoint'
+  | 'vm'
   | 'patch_panel'
   | 'storage'
   | 'pdu'
@@ -25,6 +28,7 @@ export type PortKind =
 export type RackFace = 'front' | 'rear'
 export type LinkState = 'up' | 'down' | 'disabled' | 'unknown'
 export type DeviceStatus = 'online' | 'offline' | 'warning' | 'unknown' | 'maintenance'
+export type DevicePlacement = 'rack' | 'room' | 'wireless' | 'virtual'
 export type IpAssignmentType =
   | 'device'
   | 'interface'
@@ -35,6 +39,7 @@ export type IpAssignmentType =
 export type IpZoneKind = 'static' | 'dhcp' | 'reserved' | 'infrastructure'
 export type UserRole = 'admin' | 'editor' | 'viewer'
 export type MonitorType = 'none' | 'icmp' | 'tcp' | 'http' | 'https'
+export type DiscoveryStatus = 'new' | 'imported' | 'dismissed'
 
 export interface Lab {
   id: ID
@@ -65,6 +70,8 @@ export interface Device {
   serial?: string
   managementIp?: string
   status: DeviceStatus
+  placement?: DevicePlacement
+  parentDeviceId?: ID
   startU?: number
   heightU?: number
   face?: RackFace
@@ -195,6 +202,22 @@ export interface DeviceMonitor {
   lastCheckAt?: string | null
   lastResult?: string | null
   lastMessage?: string | null
+}
+
+export interface DiscoveredDevice {
+  id: ID
+  labId: ID
+  ipAddress: string
+  hostname?: string | null
+  displayName?: string | null
+  deviceType?: DeviceType | null
+  placement?: DevicePlacement | null
+  source: string
+  status: DiscoveryStatus
+  notes?: string | null
+  importedDeviceId?: ID | null
+  lastSeen?: string | null
+  lastScannedAt: string
 }
 
 export interface PortTemplatePort {

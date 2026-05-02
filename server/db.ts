@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const DB_PATH = process.env.DATABASE_PATH ?? path.resolve(__dirname, '../rackpad.db')
-const CURRENT_SCHEMA_VERSION = 3
+const CURRENT_SCHEMA_VERSION = 4
 
 export const db = new Database(DB_PATH)
 
@@ -253,6 +253,38 @@ const SCHEMA_MIGRATIONS = [
 
       CREATE UNIQUE INDEX IF NOT EXISTS idx_port_templates_name
         ON portTemplates (name);
+    `,
+  },
+  {
+    version: 4,
+    sql: `
+      ALTER TABLE devices ADD COLUMN placement TEXT;
+      ALTER TABLE devices ADD COLUMN parentDeviceId TEXT REFERENCES devices(id) ON DELETE SET NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_devices_parent_device_id
+        ON devices (parentDeviceId);
+
+      CREATE TABLE IF NOT EXISTS discoveredDevices (
+        id              TEXT PRIMARY KEY,
+        labId           TEXT NOT NULL REFERENCES labs(id) ON DELETE CASCADE,
+        ipAddress       TEXT NOT NULL,
+        hostname        TEXT,
+        displayName     TEXT,
+        deviceType      TEXT,
+        placement       TEXT,
+        source          TEXT NOT NULL,
+        status          TEXT NOT NULL DEFAULT 'new',
+        notes           TEXT,
+        importedDeviceId TEXT REFERENCES devices(id) ON DELETE SET NULL,
+        lastSeen        TEXT,
+        lastScannedAt   TEXT NOT NULL
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_discovered_devices_lab_ip
+        ON discoveredDevices (labId, ipAddress);
+
+      CREATE INDEX IF NOT EXISTS idx_discovered_devices_lab_status
+        ON discoveredDevices (labId, status);
     `,
   },
 ] as const

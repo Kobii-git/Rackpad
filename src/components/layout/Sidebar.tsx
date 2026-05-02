@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Hash,
   Shield,
+  Wifi,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { selectLab, useStore } from '@/lib/store'
@@ -22,6 +23,8 @@ const baseNavItems = [
   { to: '/labs', icon: Building2, label: 'Labs' },
   { to: '/racks', icon: Server, label: 'Racks' },
   { to: '/devices', icon: Boxes, label: 'Devices' },
+  { to: '/wifi', icon: Wifi, label: 'WiFi' },
+  { to: '/discovery', icon: Search, label: 'Discovery' },
   { to: '/ports', icon: Cable, label: 'Ports' },
   { to: '/cables', icon: Workflow, label: 'Cables' },
   { to: '/vlans', icon: Hash, label: 'VLANs' },

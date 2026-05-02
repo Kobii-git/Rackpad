@@ -1,4 +1,4 @@
-import { Server, Network, Shield, HardDrive, Cable, Power, Battery, Monitor, Boxes } from 'lucide-react'
+import { Server, Network, Shield, HardDrive, Cable, Power, Battery, Monitor, Boxes, Wifi } from 'lucide-react'
 import type { DeviceType } from '@/lib/types'
 
 const map = {
@@ -6,6 +6,9 @@ const map = {
   router: Network,
   firewall: Shield,
   server: Server,
+  ap: Wifi,
+  endpoint: Monitor,
+  vm: Boxes,
   patch_panel: Cable,
   storage: HardDrive,
   pdu: Power,

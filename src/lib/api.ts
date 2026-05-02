@@ -4,6 +4,7 @@ import type {
   AuthSession,
   Device,
   DeviceMonitor,
+  DiscoveredDevice,
   DhcpScope,
   IpAssignment,
   IpZone,
@@ -48,6 +49,9 @@ export type VlanRangePatch = Nullable<Omit<VlanRange, 'id' | 'labId'>>
 export type PortPatch = Nullable<Omit<Port, 'id' | 'deviceId' | 'position'>>
 export type PortLinkPatch = Nullable<Omit<PortLink, 'id' | 'fromPortId' | 'toPortId'>>
 export type PortTemplatePatch = Nullable<Pick<PortTemplate, 'name' | 'description' | 'deviceTypes' | 'ports'>>
+export type DiscoveredDevicePatch = Nullable<
+  Pick<DiscoveredDevice, 'hostname' | 'displayName' | 'deviceType' | 'placement' | 'status' | 'notes' | 'importedDeviceId' | 'lastSeen'>
+>
 export type UserPatch = Nullable<Pick<AppUser, 'username' | 'displayName' | 'role' | 'disabled'>> & {
   password?: string | null
 }
@@ -550,6 +554,30 @@ export const api = {
   runDeviceMonitor(deviceId: string) {
     return request<DeviceMonitor>(`/device-monitors/run/${deviceId}`, {
       method: 'POST',
+    })
+  },
+
+  getDiscoveredDevices(params?: { labId?: string; status?: string }) {
+    return request<DiscoveredDevice[]>('/discovery', undefined, params)
+  },
+
+  scanDiscoveredDevices(body: { labId: string; cidr: string }) {
+    return request<{ scannedHostCount: number; discoveredCount: number; rows: DiscoveredDevice[] }>('/discovery/scan', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+
+  updateDiscoveredDevice(id: string, body: DiscoveredDevicePatch) {
+    return request<DiscoveredDevice>(`/discovery/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    })
+  },
+
+  deleteDiscoveredDevice(id: string) {
+    return request<void>(`/discovery/${id}`, {
+      method: 'DELETE',
     })
   },
 }

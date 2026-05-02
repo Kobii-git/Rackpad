@@ -14,6 +14,9 @@ const DEVICE_TYPES: DeviceType[] = [
   'router',
   'firewall',
   'server',
+  'ap',
+  'endpoint',
+  'vm',
   'storage',
   'patch_panel',
   'pdu',
@@ -33,6 +36,8 @@ interface FormState {
   serial: string
   managementIp: string
   status: DeviceStatus
+  placement: NonNullable<Device['placement']>
+  parentDeviceId: string
   rackId: string
   startU: string
   heightU: string
@@ -52,6 +57,8 @@ function blankForm(defaults?: Partial<FormState>): FormState {
     serial: '',
     managementIp: '',
     status: 'unknown',
+    placement: defaults?.rackId ? 'rack' : 'room',
+    parentDeviceId: '',
     rackId: '',
     startU: '',
     heightU: '1',
@@ -73,6 +80,8 @@ function deviceToForm(device: Device): FormState {
     serial: device.serial ?? '',
     managementIp: device.managementIp ?? '',
     status: device.status,
+    placement: device.placement ?? (device.rackId ? 'rack' : 'room'),
+    parentDeviceId: device.parentDeviceId ?? '',
     rackId: device.rackId ?? '',
     startU: device.startU != null ? String(device.startU) : '',
     heightU: device.heightU != null ? String(device.heightU) : '1',
@@ -86,28 +95,30 @@ function deviceToForm(device: Device): FormState {
 interface DeviceDrawerProps {
   device?: Device
   defaultRackId?: string
+  defaults?: Partial<FormState>
   open: boolean
   onClose: () => void
   onSaved?: (device: Device) => void
 }
 
-export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: DeviceDrawerProps) {
+export function DeviceDrawer({ device, defaultRackId, defaults, open, onClose, onSaved }: DeviceDrawerProps) {
   const racks = useStore((s) => s.racks)
+  const devices = useStore((s) => s.devices)
   const ports = useStore((s) => s.ports)
   const portTemplates = useStore((s) => s.portTemplates)
   const isEdit = !!device
   const [form, setForm] = useState<FormState>(() =>
-    device ? deviceToForm(device) : blankForm({ rackId: defaultRackId ?? '' }),
+    device ? deviceToForm(device) : blankForm({ rackId: defaultRackId ?? '', ...defaults }),
   )
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (open) {
-      setForm(device ? deviceToForm(device) : blankForm({ rackId: defaultRackId ?? '' }))
+      setForm(device ? deviceToForm(device) : blankForm({ rackId: defaultRackId ?? '', ...defaults }))
       setError('')
     }
-  }, [defaultRackId, device, open])
+  }, [defaultRackId, defaults, device, open])
 
   const devicePortCount = useMemo(
     () => (device ? ports.filter((port) => port.deviceId === device.id).length : 0),
@@ -120,13 +131,42 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
     () => portTemplates.filter((template) => template.deviceTypes.includes(form.deviceType)),
     [form.deviceType, portTemplates],
   )
-  const hasRackPlacement = !!form.rackId
+  const hasRackPlacement = form.placement === 'rack'
+  const parentCandidates = useMemo(() => {
+    return devices
+      .filter((entry) => !device || entry.id !== device.id)
+      .filter((entry) => {
+        if (form.placement === 'wireless') return entry.deviceType === 'ap'
+        if (form.placement === 'virtual') return entry.deviceType !== 'vm'
+        return true
+      })
+      .sort((a, b) => a.hostname.localeCompare(b.hostname))
+  }, [device, devices, form.placement])
+  const showParentSelector = form.placement === 'wireless' || form.placement === 'virtual'
+  const parentLabel = form.placement === 'wireless' ? 'Connected AP' : 'Host device'
 
   useEffect(() => {
     if (!form.portTemplateId) return
     if (compatibleTemplates.some((template) => template.id === form.portTemplateId)) return
     setForm((prev) => ({ ...prev, portTemplateId: '' }))
   }, [compatibleTemplates, form.portTemplateId])
+
+  useEffect(() => {
+    if (form.placement === 'rack') return
+    setForm((prev) => ({
+      ...prev,
+      rackId: '',
+      startU: '',
+      heightU: '1',
+      face: 'front',
+    }))
+  }, [form.placement])
+
+  useEffect(() => {
+    if (showParentSelector) return
+    if (!form.parentDeviceId) return
+    setForm((prev) => ({ ...prev, parentDeviceId: '' }))
+  }, [form.parentDeviceId, showParentSelector])
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -157,6 +197,8 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
         serial: form.serial.trim() || undefined,
         managementIp: form.managementIp.trim() || undefined,
         status: form.status,
+        placement: form.placement,
+        parentDeviceId: showParentSelector && form.parentDeviceId ? form.parentDeviceId : undefined,
         rackId: hasRackPlacement ? form.rackId : undefined,
         startU: hasRackPlacement && form.startU ? Number.parseInt(form.startU, 10) : undefined,
         heightU: hasRackPlacement ? (form.heightU ? Number.parseInt(form.heightU, 10) : 1) : undefined,
@@ -301,6 +343,32 @@ export function DeviceDrawer({ device, defaultRackId, open, onClose, onSaved }: 
                       placeholder="e.g. 10.0.10.12"
                     />
                   </Field>
+                </Section>
+
+                <Separator />
+
+                <Section label="Placement">
+                  <Field label="Placement">
+                    <Select value={form.placement} onChange={(value) => set('placement', value as FormState['placement'])}>
+                      <option value="rack">Rack mounted</option>
+                      <option value="room">Loose / room tech</option>
+                      <option value="wireless">WiFi / AP linked</option>
+                      <option value="virtual">Virtual / hosted</option>
+                    </Select>
+                  </Field>
+
+                  {showParentSelector && (
+                    <Field label={parentLabel}>
+                      <Select value={form.parentDeviceId} onChange={(value) => set('parentDeviceId', value)}>
+                        <option value="">{form.placement === 'wireless' ? '-- no AP selected --' : '-- no host selected --'}</option>
+                        {parentCandidates.map((entry) => (
+                          <option key={entry.id} value={entry.id}>
+                            {entry.hostname}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  )}
                 </Section>
 
                 <Separator />

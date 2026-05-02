@@ -21,6 +21,9 @@ const DEVICE_TYPES = [
   'router',
   'firewall',
   'server',
+  'ap',
+  'endpoint',
+  'vm',
   'patch_panel',
   'storage',
   'pdu',
@@ -30,11 +33,84 @@ const DEVICE_TYPES = [
 ] as const
 
 const DEVICE_STATUSES = ['online', 'offline', 'warning', 'unknown', 'maintenance'] as const
+const DEVICE_PLACEMENTS = ['rack', 'room', 'wireless', 'virtual'] as const
 const DEVICE_FACES = ['front', 'rear'] as const
 const JSON_COLS = ['tags'] as const
 
 function parseDevice(row: Record<string, unknown>) {
   return parseRow(row, [...JSON_COLS])
+}
+
+function derivePlacement(input: {
+  deviceType: (typeof DEVICE_TYPES)[number]
+  placement?: (typeof DEVICE_PLACEMENTS)[number] | null
+  rackId?: string | null
+  startU?: number | null
+  heightU?: number | null
+}) {
+  if (input.placement) return input.placement
+  if (input.rackId || input.startU != null || input.heightU != null) return 'rack'
+  if (input.deviceType === 'vm') return 'virtual'
+  if (input.deviceType === 'ap') return 'wireless'
+  return 'room'
+}
+
+function normalizePlacement(input: {
+  deviceId?: string
+  deviceType: (typeof DEVICE_TYPES)[number]
+  placement?: (typeof DEVICE_PLACEMENTS)[number] | null
+  rackId?: string | null
+  startU?: number | null
+  heightU?: number | null
+  face?: (typeof DEVICE_FACES)[number] | null
+}) {
+  const placement = derivePlacement(input)
+
+  if (placement !== 'rack') {
+    return {
+      placement,
+      rackId: null,
+      startU: null,
+      heightU: null,
+      face: null,
+    }
+  }
+
+  const resolved = validateRackPlacement({
+    deviceId: input.deviceId,
+    rackId: input.rackId ?? null,
+    startU: input.startU ?? null,
+    heightU: input.heightU ?? null,
+    face: input.face ?? null,
+  })
+
+  return {
+    placement,
+    rackId: resolved.rackId,
+    startU: resolved.startU,
+    heightU: resolved.heightU,
+    face: resolved.face,
+  }
+}
+
+function resolveParentDeviceId(parentDeviceId: string | null | undefined, labId: string, deviceId?: string) {
+  if (!parentDeviceId) return null
+  if (deviceId && parentDeviceId === deviceId) {
+    throw new ValidationError('A device cannot be its own parent.')
+  }
+
+  const parent = db.prepare('SELECT id, labId FROM devices WHERE id = ?').get(parentDeviceId) as
+    | { id: string; labId: string }
+    | undefined
+
+  if (!parent) {
+    throw new ValidationError('Selected parent device does not exist.')
+  }
+  if (parent.labId !== labId) {
+    throw new ValidationError('Parent device must belong to the same lab.')
+  }
+
+  return parent.id
 }
 
 export const devicesRoutes: FastifyPluginAsync = async (app) => {
@@ -65,6 +141,8 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     const serial = optionalString(body, 'serial', { maxLength: 120 })
     const managementIp = optionalString(body, 'managementIp', { maxLength: 60 })
     const status = optionalEnum(body, 'status', DEVICE_STATUSES) ?? 'unknown'
+    const placement = optionalEnum(body, 'placement', DEVICE_PLACEMENTS)
+    const parentDeviceId = optionalString(body, 'parentDeviceId', { maxLength: 80 })
     const rackId = optionalString(body, 'rackId', { maxLength: 80 })
     const startU = optionalInteger(body, 'startU', { min: 1, max: 100 })
     const heightU = optionalInteger(body, 'heightU', { min: 1, max: 20 })
@@ -77,12 +155,15 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     if (managementIp) ensureIpv4(managementIp, 'managementIp')
     if (lastSeen) ensureIsoDate(lastSeen, 'lastSeen')
 
-    const placement = validateRackPlacement({
+    const normalizedPlacement = normalizePlacement({
+      deviceType,
+      placement,
       rackId,
       startU,
       heightU,
       face,
     })
+    const normalizedParentDeviceId = resolveParentDeviceId(parentDeviceId, labId)
 
     const template = portTemplateId ? getPortTemplate(portTemplateId) : null
     if (portTemplateId && !template) {
@@ -93,8 +174,8 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     const insertDevice = db.prepare(`
       INSERT INTO devices
         (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model,
-         serial, managementIp, status, startU, heightU, face, tags, notes, lastSeen)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         serial, managementIp, status, placement, parentDeviceId, startU, heightU, face, tags, notes, lastSeen)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `)
     const insertPort = db.prepare(`
       INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, vlanId, description, face)
@@ -105,7 +186,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
       insertDevice.run(
         id,
         labId,
-        placement.rackId,
+        normalizedPlacement.rackId,
         hostname,
         displayName ?? null,
         deviceType,
@@ -114,9 +195,11 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
         serial ?? null,
         managementIp ?? null,
         status,
-        placement.startU,
-        placement.heightU,
-        placement.face,
+        normalizedPlacement.placement,
+        normalizedParentDeviceId,
+        normalizedPlacement.startU,
+        normalizedPlacement.heightU,
+        normalizedPlacement.face,
         tags ? JSON.stringify(tags) : null,
         notes ?? null,
         lastSeen ?? null,
@@ -141,22 +224,53 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
     const updates: string[] = []
     const values: unknown[] = []
 
+    const nextDeviceType = 'deviceType' in body
+      ? requiredEnum(body, 'deviceType', DEVICE_TYPES)
+      : (String(existing.deviceType) as (typeof DEVICE_TYPES)[number])
     const rackId = optionalString(body, 'rackId', { maxLength: 80 })
     const startU = optionalInteger(body, 'startU', { min: 1, max: 100 })
     const heightU = optionalInteger(body, 'heightU', { min: 1, max: 20 })
     const face = optionalEnum(body, 'face', DEVICE_FACES)
+    const placement = optionalEnum(body, 'placement', DEVICE_PLACEMENTS)
+    const parentDeviceId = optionalString(body, 'parentDeviceId', { maxLength: 80 })
 
-    if (rackId !== undefined || startU !== undefined || heightU !== undefined || face !== undefined) {
-      const placement = validateRackPlacement({
+    if (
+      rackId !== undefined ||
+      startU !== undefined ||
+      heightU !== undefined ||
+      face !== undefined ||
+      placement !== undefined ||
+      parentDeviceId !== undefined ||
+      'deviceType' in body
+    ) {
+      const normalizedPlacement = normalizePlacement({
         deviceId: req.params.id,
+        deviceType: nextDeviceType,
+        placement: placement === undefined
+          ? (existing.placement ? String(existing.placement) as (typeof DEVICE_PLACEMENTS)[number] : null)
+          : placement,
         rackId: rackId === undefined ? (existing.rackId ? String(existing.rackId) : null) : rackId,
         startU: startU === undefined ? (existing.startU == null ? null : Number(existing.startU)) : startU,
         heightU: heightU === undefined ? (existing.heightU == null ? null : Number(existing.heightU)) : heightU,
-        face: face === undefined ? (existing.face ? String(existing.face) : null) : face,
+        face: face === undefined
+          ? (existing.face ? String(existing.face) as (typeof DEVICE_FACES)[number] : null)
+          : face,
       })
+      const normalizedParentDeviceId = resolveParentDeviceId(
+        parentDeviceId === undefined ? (existing.parentDeviceId ? String(existing.parentDeviceId) : null) : parentDeviceId,
+        String(existing.labId),
+        req.params.id,
+      )
 
-      updates.push('rackId = ?', 'startU = ?', 'heightU = ?', 'face = ?')
-      values.push(placement.rackId, placement.startU, placement.heightU, placement.face)
+      updates.push('placement = ?', 'parentDeviceId = ?', 'rackId = ?', 'startU = ?', 'heightU = ?', 'face = ?')
+      values.push(
+        normalizedPlacement.placement,
+        normalizedParentDeviceId,
+        normalizedPlacement.rackId,
+        normalizedPlacement.startU,
+        normalizedPlacement.heightU,
+        normalizedPlacement.face,
+      )
     }
 
     const simpleStringKeys = [
@@ -182,7 +296,7 @@ export const devicesRoutes: FastifyPluginAsync = async (app) => {
 
     if ('deviceType' in body) {
       updates.push('deviceType = ?')
-      values.push(requiredEnum(body, 'deviceType', DEVICE_TYPES))
+      values.push(nextDeviceType)
     }
 
     if ('status' in body) {
