@@ -258,7 +258,6 @@ export async function createApp() {
     await app.register(staticPlugin, {
       root: DIST_DIR,
       prefix: '/',
-      decorateReply: false,
     })
 
     app.setNotFoundHandler((req, reply) => {

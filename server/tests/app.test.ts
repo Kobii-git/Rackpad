@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { after, afterEach, beforeEach, test } from 'node:test'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 const tempDir = mkdtempSync(path.join(os.tmpdir(), 'rackpad-tests-'))
+const spaDistDir = path.resolve(process.cwd(), 'dist')
+const spaIndexFile = path.join(spaDistDir, 'index.html')
 process.env.DATABASE_PATH = path.join(tempDir, 'rackpad-test.db')
 process.env.NODE_ENV = 'test'
 
@@ -65,6 +67,19 @@ test('bootstrap creates the first admin account and session', async () => {
   assert.equal(meRes.statusCode, 200)
   const me = readJson(meRes) as { user: { username: string } }
   assert.equal(me.user.username, 'admin')
+})
+
+test('non-api app routes serve the SPA index on refresh', async () => {
+  ensureSpaIndex()
+
+  const res = await app.inject({
+    method: 'GET',
+    url: '/compute',
+  })
+
+  assert.equal(res.statusCode, 200)
+  assert.match(res.headers['content-type'] ?? '', /text\/html/i)
+  assert.match(res.body, /rackpad spa fallback/i)
 })
 
 test('bootstrap can start with an empty lab or load demo data on demand', async () => {
@@ -939,4 +954,17 @@ async function createUserAndLogin(
   })
   assert.equal(loginRes.statusCode, 200)
   return (readJson(loginRes) as { token: string }).token
+}
+
+function ensureSpaIndex() {
+  if (!existsSync(spaDistDir)) {
+    mkdirSync(spaDistDir, { recursive: true })
+  }
+  if (!existsSync(spaIndexFile)) {
+    writeFileSync(
+      spaIndexFile,
+      '<!doctype html><html><head><title>Rackpad SPA Fallback</title></head><body>rackpad spa fallback</body></html>',
+      'utf8',
+    )
+  }
 }
