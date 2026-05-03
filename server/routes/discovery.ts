@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
+import { requireAdmin } from '../lib/auth.js'
 import { createId } from '../lib/ids.js'
 import { runIcmpProbe } from '../lib/monitoring.js'
 import {
@@ -294,6 +295,8 @@ export const discoveryRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/scan', async (req, reply) => {
+    if (!requireAdmin(req, reply)) return
+
     const body = asObject(req.body)
     const labId = optionalString(body, 'labId', { maxLength: 80 })
     const cidr = optionalString(body, 'cidr', { maxLength: 80 })

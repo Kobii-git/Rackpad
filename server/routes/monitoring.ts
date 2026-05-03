@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { db } from '../db.js'
-import { requireAuth } from '../lib/auth.js'
+import { requireAdmin, requireAuth } from '../lib/auth.js'
 import { createId } from '../lib/ids.js'
 import { listMonitors, MONITOR_TYPES, reconcileDeviceMonitorRollup, runDeviceChecks, runMonitorCheck } from '../lib/monitoring.js'
 import {
@@ -21,7 +21,7 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/', async (req, reply) => {
-    if (!requireAuth(req, reply)) return
+    if (!requireAdmin(req, reply)) return
     const body = asObject(req.body)
     const deviceId = requiredString(body, 'deviceId', { maxLength: 80 })
     const device = db.prepare('SELECT id, managementIp FROM devices WHERE id = ?').get(deviceId) as
@@ -61,7 +61,7 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.patch<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    if (!requireAuth(req, reply)) return
+    if (!requireAdmin(req, reply)) return
 
     const existing = db.prepare('SELECT * FROM deviceMonitors WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined
     if (!existing) {
@@ -105,7 +105,7 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.delete<{ Params: { id: string } }>('/:id', async (req, reply) => {
-    if (!requireAuth(req, reply)) return
+    if (!requireAdmin(req, reply)) return
 
     const existing = db.prepare('SELECT id, deviceId FROM deviceMonitors WHERE id = ?').get(req.params.id) as { id: string; deviceId: string } | undefined
     if (!existing) {
@@ -118,7 +118,7 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post('/run', async (req, reply) => {
-    if (!requireAuth(req, reply)) return
+    if (!requireAdmin(req, reply)) return
     const monitors = listMonitors().filter((monitor) => monitor.enabled && monitor.type !== 'none')
     const results = []
     for (const monitor of monitors) {
@@ -129,7 +129,7 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post<{ Params: { deviceId: string } }>('/run/:deviceId', async (req, reply) => {
-    if (!requireAuth(req, reply)) return
+    if (!requireAdmin(req, reply)) return
     const results = await runDeviceChecks(req.params.deviceId)
     const device = db.prepare('SELECT id FROM devices WHERE id = ?').get(req.params.deviceId)
     if (!device) {
@@ -139,7 +139,7 @@ export const monitoringRoutes: FastifyPluginAsync = async (app) => {
   })
 
   app.post<{ Params: { id: string } }>('/:id/run', async (req, reply) => {
-    if (!requireAuth(req, reply)) return
+    if (!requireAdmin(req, reply)) return
     const result = await runMonitorCheck(req.params.id)
     if (!result) {
       return reply.status(404).send({ error: 'Device monitor not found.' })

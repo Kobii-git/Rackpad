@@ -41,3 +41,13 @@ coverage
 .cache
 .eslintcache
 .turbo
+
+# local release / ops artifacts
+CODEX_REVIEW.md
+COWORK_SESSION_HANDOFF.md
+website/
+Website/
+rackpad-backup-*.json
+*.pfx
+*.pem
+*.key

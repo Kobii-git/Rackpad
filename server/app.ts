@@ -109,6 +109,7 @@ export async function createApp() {
   )
 
   const app = Fastify({
+    bodyLimit: 20 * 1024 * 1024,
     trustProxy: envFlag('TRUST_PROXY'),
     logger: process.env.NODE_ENV === 'production'
       ? true

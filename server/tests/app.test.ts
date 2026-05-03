@@ -10,6 +10,7 @@ process.env.NODE_ENV = 'test'
 
 const { createApp } = await import('../app.js')
 const { db } = await import('../db.js')
+const { setBootstrapState } = await import('../lib/auth.js')
 
 type AppInstance = Awaited<ReturnType<typeof createApp>>
 
@@ -179,6 +180,32 @@ test('viewer accounts are read-only', async () => {
 test('admin export returns a backup snapshot and blocks viewer access', async () => {
   const adminToken = await bootstrapAdmin()
 
+  const alertSettingsRes = await app.inject({
+    method: 'PUT',
+    url: '/api/admin/alert-settings',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      enabled: true,
+      notifyOnDown: true,
+      notifyOnRecovery: true,
+      repeatWhileOffline: false,
+      repeatIntervalMinutes: 60,
+      discordWebhookUrl: 'https://discord.example/webhook/secret',
+      telegramBotToken: 'telegram-secret-token',
+      telegramChatId: '-1001234567890',
+      smtpHost: 'smtp.example.com',
+      smtpPort: 587,
+      smtpSecure: false,
+      smtpUsername: 'rackpad@example.com',
+      smtpPassword: 'smtp-secret-password',
+      smtpFrom: 'rackpad@example.com',
+      smtpTo: 'ops@example.com',
+    },
+  })
+  assert.equal(alertSettingsRes.statusCode, 200)
+
   const exportRes = await app.inject({
     method: 'GET',
     url: '/api/admin/export',
@@ -193,14 +220,28 @@ test('admin export returns a backup snapshot and blocks viewer access', async ()
   const snapshot = readJson(exportRes) as {
     format: string
     appVersion: string
+    secretsRedacted: boolean
     data: { labs: unknown[]; users: Array<{ username: string }>; userSessions?: unknown[] }
   }
 
   assert.equal(snapshot.format, 'rackpad-backup-v1')
   assert.ok(snapshot.appVersion)
+  assert.equal(snapshot.secretsRedacted, true)
   assert.equal(snapshot.data.labs.length, 1)
   assert.equal(snapshot.data.users[0]?.username, 'admin')
   assert.equal(snapshot.data.userSessions, undefined)
+
+  const alertSettingsRow = (
+    snapshot as {
+      data: { appSettings?: Array<{ key: string; value: string }> }
+    }
+  ).data.appSettings?.find((entry) => entry.key === 'alertSettings')
+  assert.ok(alertSettingsRow)
+  const exportedAlertSettings = JSON.parse(alertSettingsRow!.value) as Record<string, unknown>
+  assert.equal(exportedAlertSettings.discordWebhookUrl, null)
+  assert.equal(exportedAlertSettings.telegramBotToken, null)
+  assert.equal(exportedAlertSettings.smtpPassword, null)
+  assert.equal(exportedAlertSettings.smtpHost, 'smtp.example.com')
 
   const viewerRes = await app.inject({
     method: 'POST',
@@ -593,7 +634,7 @@ test('rack placement validation rejects overlapping devices', async () => {
   assert.match(overlapRes.body, /overlap/i)
 })
 
-test('monitoring endpoints validate config and persist results', async () => {
+test('monitoring endpoints validate config, persist results, and stay admin-only', async () => {
   const adminToken = await bootstrapAdmin()
 
   const deviceRes = await app.inject({
@@ -612,13 +653,37 @@ test('monitoring endpoints validate config and persist results', async () => {
   assert.equal(deviceRes.statusCode, 201)
   const device = readJson(deviceRes) as { id: string }
 
+  const editorToken = await createUserAndLogin(adminToken, {
+    username: 'editor-monitor',
+    displayName: 'Editor Monitor',
+    password: 'editor-monitor-1',
+    role: 'editor',
+  })
+
+  const editorCreateRes = await app.inject({
+    method: 'POST',
+    url: '/api/device-monitors',
+    headers: {
+      authorization: `Bearer ${editorToken}`,
+    },
+    payload: {
+      deviceId: device.id,
+      type: 'icmp',
+      target: '10.0.10.10',
+      enabled: true,
+    },
+  })
+  assert.equal(editorCreateRes.statusCode, 403)
+  assert.match(editorCreateRes.body, /administrator/i)
+
   const invalidMonitorRes = await app.inject({
-    method: 'PUT',
-    url: `/api/device-monitors/${device.id}`,
+    method: 'POST',
+    url: '/api/device-monitors',
     headers: {
       authorization: `Bearer ${adminToken}`,
     },
     payload: {
+      deviceId: device.id,
       type: 'tcp',
       enabled: true,
     },
@@ -627,12 +692,14 @@ test('monitoring endpoints validate config and persist results', async () => {
   assert.match(invalidMonitorRes.body, /target/i)
 
   const validMonitorRes = await app.inject({
-    method: 'PUT',
-    url: `/api/device-monitors/${device.id}`,
+    method: 'POST',
+    url: '/api/device-monitors',
     headers: {
       authorization: `Bearer ${adminToken}`,
     },
     payload: {
+      deviceId: device.id,
+      name: 'SSH',
       type: 'tcp',
       target: '127.0.0.1',
       port: 1,
@@ -641,10 +708,12 @@ test('monitoring endpoints validate config and persist results', async () => {
     },
   })
   assert.equal(validMonitorRes.statusCode, 200)
+  const monitor = readJson(validMonitorRes) as { id: string; type: string }
+  assert.equal(monitor.type, 'tcp')
 
   const runRes = await app.inject({
     method: 'POST',
-    url: `/api/device-monitors/run/${device.id}`,
+    url: `/api/device-monitors/${monitor.id}/run`,
     headers: {
       authorization: `Bearer ${adminToken}`,
     },
@@ -655,6 +724,31 @@ test('monitoring endpoints validate config and persist results', async () => {
   assert.equal(result.type, 'tcp')
   assert.ok(result.lastCheckAt)
   assert.ok(result.lastResult === 'online' || result.lastResult === 'offline')
+})
+
+test('discovery scans are restricted to administrators', async () => {
+  const adminToken = await bootstrapAdmin()
+  const editorToken = await createUserAndLogin(adminToken, {
+    username: 'editor-discovery',
+    displayName: 'Editor Discovery',
+    password: 'editor-discovery-1',
+    role: 'editor',
+  })
+
+  const scanRes = await app.inject({
+    method: 'POST',
+    url: '/api/discovery/scan',
+    headers: {
+      authorization: `Bearer ${editorToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      cidr: '10.0.10.0/24',
+    },
+  })
+
+  assert.equal(scanRes.statusCode, 403)
+  assert.match(scanRes.body, /administrator/i)
 })
 
 test('vlan range patch rejects inverted ranges', async () => {
@@ -769,11 +863,20 @@ test('ip assignment patch rejects empty ips and subnet mismatches', async () => 
 function resetDatabase() {
   db.exec(`
     DELETE FROM userSessions;
+    DELETE FROM wifiClientAssociations;
+    DELETE FROM wifiRadioSsids;
+    DELETE FROM wifiRadios;
+    DELETE FROM wifiAccessPoints;
+    DELETE FROM wifiSsids;
+    DELETE FROM wifiControllers;
     DELETE FROM deviceMonitors;
+    DELETE FROM appSettings;
     DELETE FROM auditLog;
     DELETE FROM ipAssignments;
+    DELETE FROM discoveredDevices;
     DELETE FROM portLinks;
     DELETE FROM ports;
+    DELETE FROM virtualSwitches;
     DELETE FROM ipZones;
     DELETE FROM dhcpScopes;
     DELETE FROM subnets;
@@ -785,6 +888,7 @@ function resetDatabase() {
     DELETE FROM users;
     DELETE FROM labs;
   `)
+  setBootstrapState(null)
 }
 
 async function bootstrapAdmin() {
@@ -804,4 +908,35 @@ async function bootstrapAdmin() {
 
 function readJson(response: { body: string }) {
   return JSON.parse(response.body)
+}
+
+async function createUserAndLogin(
+  adminToken: string,
+  payload: {
+    username: string
+    displayName: string
+    password: string
+    role: 'editor' | 'viewer'
+  },
+) {
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/users',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload,
+  })
+  assert.equal(createRes.statusCode, 201)
+
+  const loginRes = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: {
+      username: payload.username,
+      password: payload.password,
+    },
+  })
+  assert.equal(loginRes.statusCode, 200)
+  return (readJson(loginRes) as { token: string }).token
 }

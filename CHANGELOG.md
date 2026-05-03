@@ -4,11 +4,23 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [Unreleased]
+
+### Security
+
+- Restricted discovery scans and active monitor target management to administrators, so editor accounts can no longer use Rackpad as a general network probe from the server.
+- Backup exports now redact stored Discord, Telegram, and SMTP delivery secrets before download while preserving inventory data and local-user password hashes needed for restore.
+- Increased the restore request body size allowance so larger production backups are less likely to fail during import.
+
+### Fixed
+
+- Backup restore now re-attaches parent-linked devices in a second pass, so exports restore cleanly even when child devices sort ahead of their host record.
+
 ## [0.9.7] - 2026-05-02
 
 ### Added
 
-- A standalone IIS-friendly project website bundle under `website/` with product overview, install guide, legal page, IIS configuration, and demo-based showcase visuals for `rackpad.co.za`.
+- A standalone IIS-friendly Rackpad website and legal/support pack for `rackpad.co.za`, prepared outside the application repository for separate hosting.
 - Root project governance files: `LICENSE`, `NOTICE.md`, `SECURITY.md`, and `SUPPORT.md`.
 - A richer compute bridge workflow so virtualization hosts can model `external`, `internal`, and `private` virtual switches directly from the Compute workspace.
 
@@ -16,7 +28,7 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 - External virtual switches can now claim one or more host uplink ports directly from the Compute page instead of forcing that workflow through the Ports workspace.
 - Compute bridge cards now summarize bridge kind, host uplinks, guest member NICs, and bridge notes in one place for Hyper-V, Proxmox bridge, and similar host-switch layouts.
-- README and installation docs now include the project website/legal bundle and more explicit system requirement guidance for early production-style deployments.
+- README and installation docs now include the public deployment, legal, and system requirement guidance needed for early production-style deployments.
 
 ### Schema
 
@@ -393,7 +405,7 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 ### Fixed
 
-- Restored clean committed copies of `server/index.ts`, `server/routes/audit.ts`, `tsconfig.server.json`, `.gitignore`, `README.md`, and `COWORK_SESSION_HANDOFF.md` after file truncation and NUL-padding corruption.
+- Restored clean committed copies of `server/index.ts`, `server/routes/audit.ts`, `tsconfig.server.json`, `.gitignore`, and `README.md` after file truncation and NUL-padding corruption.
 - Re-synced release metadata so the app version, install guide, compose defaults, and example environment file all point at the same deployable tag.
 
 ### Notes

@@ -27,9 +27,11 @@ import { relativeTime, statusLabel } from "@/lib/utils";
 type MonitorFilter = "all" | "offline" | "warning" | "unknown" | "online";
 
 export default function MonitoringView() {
+  const currentUser = useStore((s) => s.currentUser);
   const lab = useStore((s) => s.lab);
   const devices = useStore((s) => s.devices);
   const deviceMonitors = useStore((s) => s.deviceMonitors);
+  const canManageMonitoring = currentUser?.role === "admin";
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<MonitorFilter>("all");
   const [runningAll, setRunningAll] = useState(false);
@@ -159,7 +161,11 @@ export default function MonitoringView() {
               variant="outline"
               size="sm"
               onClick={() => void handleRunAll()}
-              disabled={runningAll || stats.monitorTargets === 0}
+              disabled={
+                !canManageMonitoring ||
+                runningAll ||
+                stats.monitorTargets === 0
+              }
             >
               <RefreshCcw className="size-3.5" />
               {runningAll ? "Running..." : "Run all checks"}
@@ -272,6 +278,7 @@ export default function MonitoringView() {
                   monitors={monitors}
                   running={runningDeviceId === device.id}
                   onRun={() => void handleRunDevice(device.id)}
+                  canManageMonitoring={canManageMonitoring}
                 />
               ))
             )}
@@ -287,11 +294,13 @@ function DeviceMonitorCard({
   monitors,
   running,
   onRun,
+  canManageMonitoring,
 }: {
   device: Device;
   monitors: DeviceMonitor[];
   running: boolean;
   onRun: () => void;
+  canManageMonitoring: boolean;
 }) {
   const latestCheckAt = monitors
     .map((monitor) => monitor.lastCheckAt)
@@ -357,7 +366,7 @@ function DeviceMonitorCard({
             variant="outline"
             size="sm"
             onClick={onRun}
-            disabled={running}
+            disabled={!canManageMonitoring || running}
           >
             <Activity className="size-3.5" />
             {running ? "Checking..." : "Check now"}

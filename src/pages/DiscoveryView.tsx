@@ -43,6 +43,7 @@ export default function DiscoveryView() {
   const subnets = useStore((s) => s.subnets);
   const discoveredDevices = useStore((s) => s.discoveredDevices);
   const canEdit = canEditInventory(currentUser);
+  const canManageDiscovery = currentUser?.role === "admin";
   const [scanCidr, setScanCidr] = useState("");
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [draft, setDraft] = useState<DiscoveryDraft | null>(null);
@@ -309,12 +310,13 @@ export default function DiscoveryView() {
                 onChange={(event) => setScanCidr(event.target.value)}
                 placeholder="10.0.21.0/24"
                 className="w-40"
+                disabled={!canManageDiscovery}
               />
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handleScan()}
-                disabled={scanning}
+                disabled={!canManageDiscovery || scanning}
               >
                 <Search className="size-3.5" />
                 {scanning ? "Scanning..." : "Scan subnet"}
@@ -480,7 +482,9 @@ export default function DiscoveryView() {
                     </div>
                     <div className="rk-empty-copy">
                       {discoveredDevices.length === 0
-                        ? "Run a subnet scan to populate the discovery inbox."
+                        ? canManageDiscovery
+                          ? "Run a subnet scan to populate the discovery inbox."
+                          : "An administrator can run subnet scans to populate the discovery inbox."
                         : "Try a broader filter to bring additional discovered hosts back into view."}
                     </div>
                   </div>
@@ -719,7 +723,7 @@ export default function DiscoveryView() {
                           variant="outline"
                           size="sm"
                           onClick={() => void handleScan()}
-                          disabled={scanning}
+                          disabled={!canManageDiscovery || scanning}
                         >
                           <RefreshCcw className="size-3.5" />
                           Rescan

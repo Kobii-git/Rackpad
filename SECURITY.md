@@ -43,8 +43,14 @@ Before exposing Rackpad beyond a trusted LAN, use:
 
 - HTTPS termination at a reverse proxy
 - trusted host and origin settings
+- reverse-proxy rate limiting for `/api/auth/*`
 - a strong admin password
 - backups of the Rackpad database or JSON exports
+- administrator-only control of discovery scans and active monitor configuration
+
+Rackpad backup exports still contain user password hashes so restores remain
+possible, but stored notification delivery secrets are redacted from the JSON
+export before download.
 
 See:
 

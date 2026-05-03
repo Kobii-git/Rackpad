@@ -80,6 +80,7 @@ export default function DeviceDetail() {
   const racks = useStore((s) => s.racks);
   const deviceMonitors = useStore((s) => s.deviceMonitors);
   const canEdit = canEditInventory(currentUser);
+  const canManageMonitoring = currentUser?.role === "admin";
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -929,14 +930,18 @@ export default function DeviceDetail() {
                       variant="outline"
                       size="sm"
                       onClick={() => void handleRunAllMonitors()}
-                      disabled={allMonitorsRunning || activeMonitorCount === 0}
+                      disabled={
+                        !canManageMonitoring ||
+                        allMonitorsRunning ||
+                        activeMonitorCount === 0
+                      }
                     >
                       <ShieldCheck className="size-3.5" />
                       {allMonitorsRunning
                         ? "Running all..."
                         : "Run all targets"}
                     </Button>
-                    {canEdit && (
+                    {canManageMonitoring && (
                       <Button
                         variant="outline"
                         size="sm"
@@ -1028,7 +1033,7 @@ export default function DeviceDetail() {
                       <input
                         type="checkbox"
                         checked={monitorForm.enabled}
-                        disabled={!canEdit}
+                        disabled={!canManageMonitoring}
                         onChange={(event) =>
                           setMonitorForm((prev) => ({
                             ...prev,
@@ -1047,7 +1052,7 @@ export default function DeviceDetail() {
                       <Field label="Name">
                         <Input
                           value={monitorForm.name}
-                          disabled={!canEdit}
+                          disabled={!canManageMonitoring}
                           onChange={(event) =>
                             setMonitorForm((prev) => ({
                               ...prev,
@@ -1066,7 +1071,7 @@ export default function DeviceDetail() {
                               type: value as MonitorForm["type"],
                             }))
                           }
-                          disabled={!canEdit}
+                          disabled={!canManageMonitoring}
                         >
                           <option value="none">none</option>
                           <option value="icmp">icmp</option>
@@ -1078,7 +1083,7 @@ export default function DeviceDetail() {
                       <Field label="Target">
                         <Input
                           value={monitorForm.target}
-                          disabled={!canEdit}
+                          disabled={!canManageMonitoring}
                           onChange={(event) =>
                             setMonitorForm((prev) => ({
                               ...prev,
@@ -1091,7 +1096,7 @@ export default function DeviceDetail() {
                       <Field label="Every (minutes)">
                         <Input
                           value={monitorForm.intervalMinutes}
-                          disabled={!canEdit}
+                          disabled={!canManageMonitoring}
                           onChange={(event) =>
                             setMonitorForm((prev) => ({
                               ...prev,
@@ -1108,7 +1113,7 @@ export default function DeviceDetail() {
                         <Field label="Port">
                           <Input
                             value={monitorForm.port}
-                            disabled={!canEdit}
+                            disabled={!canManageMonitoring}
                             onChange={(event) =>
                               setMonitorForm((prev) => ({
                                 ...prev,
@@ -1129,7 +1134,7 @@ export default function DeviceDetail() {
                         <Field label="HTTP path">
                           <Input
                             value={monitorForm.path}
-                            disabled={!canEdit}
+                            disabled={!canManageMonitoring}
                             onChange={(event) =>
                               setMonitorForm((prev) => ({
                                 ...prev,
@@ -1174,17 +1179,26 @@ export default function DeviceDetail() {
                   </div>
                 )}
 
+                {!canManageMonitoring && (
+                  <div className="rounded-[var(--radius-sm)] border border-[var(--color-info)]/30 bg-[var(--color-info-bg)] px-3 py-2 text-sm text-[var(--color-info)]">
+                    Only administrators can create, edit, delete, or run active
+                    monitor targets.
+                  </div>
+                )}
+
                 <div className="flex items-center justify-end gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => void handleRunMonitor()}
-                    disabled={monitorRunning || !selectedMonitor}
+                    disabled={
+                      !canManageMonitoring || monitorRunning || !selectedMonitor
+                    }
                   >
                     <ShieldCheck className="size-3.5" />
                     {monitorRunning ? "Running..." : "Run now"}
                   </Button>
-                  {canEdit && selectedMonitor && (
+                  {canManageMonitoring && selectedMonitor && (
                     <Button
                       variant="destructive"
                       size="sm"
@@ -1195,7 +1209,7 @@ export default function DeviceDetail() {
                       {monitorDeleting ? "Deleting..." : "Delete target"}
                     </Button>
                   )}
-                  {canEdit && (
+                  {canManageMonitoring && (
                     <Button
                       size="sm"
                       onClick={() => void handleSaveMonitor()}

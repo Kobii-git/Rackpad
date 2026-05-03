@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import type { FastifyPluginAsync } from 'fastify'
 import { db, parseRow } from '../db.js'
 import { requireAdmin, setBootstrapState } from '../lib/auth.js'
-import { loadAlertSettings, saveAlertSettings, sendTestAlert } from '../lib/alerts.js'
+import { DEFAULT_ALERT_SETTINGS, loadAlertSettings, saveAlertSettings, sendTestAlert } from '../lib/alerts.js'
 import { createId } from '../lib/ids.js'
 import { asObject, optionalBoolean, optionalInteger, optionalString, ValidationError } from '../lib/validation.js'
 
@@ -12,6 +12,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT_DIR = path.resolve(__dirname, '../..')
 const PACKAGE_JSON_PATH = path.resolve(ROOT_DIR, 'package.json')
 const APP_VERSION = readAppVersion()
+const REDACTED_ALERT_SETTING_FIELDS = ['discordWebhookUrl', 'telegramBotToken', 'smtpPassword'] as const
 
 function readAppVersion() {
   try {
@@ -26,6 +27,28 @@ function createBackupFilename(exportedAt: string) {
   return `rackpad-backup-${exportedAt.replace(/[:.]/g, '-').replace('T', '_').replace('Z', '')}.json`
 }
 
+function sanitizeBackupAppSettings(rows: Record<string, unknown>[]) {
+  return rows.map((row) => {
+    if (row.key !== 'alertSettings' || typeof row.value !== 'string') {
+      return row
+    }
+
+    try {
+      const parsed = JSON.parse(row.value) as Record<string, unknown>
+      const next = { ...DEFAULT_ALERT_SETTINGS, ...parsed }
+      for (const key of REDACTED_ALERT_SETTING_FIELDS) {
+        next[key] = null
+      }
+      return {
+        ...row,
+        value: JSON.stringify(next),
+      }
+    } catch {
+      return row
+    }
+  })
+}
+
 const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: string, filename: string) => {
   const auditId = createId('a')
 
@@ -34,6 +57,7 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
     appVersion: APP_VERSION,
     exportedAt,
     exportedBy,
+    secretsRedacted: true,
     data: {
       labs: db.prepare('SELECT * FROM labs ORDER BY name, id').all(),
       racks: db.prepare('SELECT * FROM racks ORDER BY name, id').all(),
@@ -66,7 +90,9 @@ const exportBackupSnapshot = db.transaction((exportedAt: string, exportedBy: str
       wifiRadios: db.prepare('SELECT * FROM wifiRadios ORDER BY apDeviceId, band, slotName, id').all(),
       wifiRadioSsids: db.prepare('SELECT * FROM wifiRadioSsids ORDER BY radioId, ssidId').all(),
       wifiClientAssociations: db.prepare('SELECT * FROM wifiClientAssociations ORDER BY apDeviceId, clientDeviceId').all(),
-      appSettings: db.prepare('SELECT * FROM appSettings ORDER BY key').all(),
+      appSettings: sanitizeBackupAppSettings(
+        db.prepare('SELECT * FROM appSettings ORDER BY key').all() as Record<string, unknown>[],
+      ),
     },
   }
 

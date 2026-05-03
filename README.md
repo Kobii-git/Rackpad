@@ -37,6 +37,7 @@ It is a full-stack app:
 - Audit log writes for the main workflows
 - User bootstrap, login, logout, and user management
 - Admin-only JSON backup export from the users screen
+- Backup exports preserve password hashes for restore, but redact stored alert-delivery secrets before download
 - Device health-check configuration, alert destinations, repeat-alert controls, and on-demand monitor runs
 - Multiple monitor targets per device so servers, firewalls, and multi-NIC systems can track separate management, service, storage, or VIP endpoints
 - SMTP/email alert delivery beside Discord and Telegram, plus recent alert activity in the admin area
