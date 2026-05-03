@@ -9,6 +9,15 @@ Docker is the recommended path for first testing because it handles the Node run
 
 Current version in this guide: `v1.0.0`
 
+## Release channels
+
+Rackpad uses:
+
+- `main` for stable releases
+- `beta` for pre-release testing
+
+Use the tagged release flow in this guide for production-style installs. If you want to help test the next patch train, clone or switch to `beta` instead of a release tag.
+
 ## Before you start
 
 - Use a Linux server or VM.

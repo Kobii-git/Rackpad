@@ -56,6 +56,26 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 Every shipped change should update the version and add a matching changelog entry describing what changed.
 
+## Release channels
+
+Rackpad now uses two long-lived Git branches:
+
+- `main`: stable release branch intended for production and tagged releases
+- `beta`: pre-release testing branch for changes that should be validated before they land on `main`
+
+Recommended workflow:
+
+- test new work from `beta`
+- merge validated fixes and features into `main`
+- create version tags like `v1.0.1` from `main`
+
+If you want the newest testing build instead of the latest stable tag:
+
+```bash
+git checkout beta
+git pull origin beta
+```
+
 ## Legal and support files
 
 The repository now also includes:
