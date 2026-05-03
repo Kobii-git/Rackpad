@@ -4,7 +4,18 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
-## [Unreleased]
+## [1.0.0] - 2026-05-03
+
+### Added
+
+- Proper front-and-rear patch-panel passthrough modeling, including built-in patch-panel templates that create paired terminations for every jack.
+- Automatic normalization for existing single-sided patch-panel ports during startup, seed, and backup restore so older installs upgrade cleanly without manual data repair.
+
+### Changed
+
+- Patch panels now render as grouped front/rear jacks in the Ports and device detail workflows instead of being treated like one-sided generic port lists.
+- The public repository is release-clean for `v1.0.0`; the standalone marketing/launch website now lives outside the application repo.
+- Project release metadata, install examples, and container defaults now point at `v1.0.0`.
 
 ### Security
 
@@ -15,6 +26,13 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 ### Fixed
 
 - Backup restore now re-attaches parent-linked devices in a second pass, so exports restore cleanly even when child devices sort ahead of their host record.
+- IPAM subnet selection no longer bounces between entries when switching subnets in the demo or live app.
+- Custom port-template inputs now keep focus while typing instead of dropping focus after the first character.
+
+### Notes
+
+- `npm run build` passes.
+- `npm run lint` passes.
 
 ## [0.9.7] - 2026-05-02
 

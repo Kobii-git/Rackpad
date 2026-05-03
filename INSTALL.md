@@ -7,7 +7,7 @@ This guide gives you two ways to install Rackpad:
 
 Docker is the recommended path for first testing because it handles the Node runtime and keeps the SQLite database in a persistent volume.
 
-Current version in this guide: `v0.9.7`
+Current version in this guide: `v1.0.0`
 
 ## Before you start
 
@@ -53,7 +53,7 @@ newgrp docker
 
 ```bash
 cd /opt
-git clone --branch v0.9.7 --depth 1 https://github.com/Kobii-git/Rackpad.git
+git clone --branch v1.0.0 --depth 1 https://github.com/Kobii-git/Rackpad.git
 cd Rackpad
 ```
 
@@ -135,11 +135,11 @@ Update it after new code changes:
 
 ```bash
 git fetch --tags
-git checkout v0.9.7
+git checkout v1.0.0
 docker compose up --build -d
 ```
 
-When a newer release exists, replace `v0.9.7` with the newer version tag.
+When a newer release exists, replace `v1.0.0` with the newer version tag.
 
 Remove the app and database completely:
 
@@ -180,7 +180,7 @@ This matches the included `rackpad.service`, which starts Rackpad with `/usr/bin
 
 ```bash
 cd /opt
-git clone --branch v0.9.7 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
+git clone --branch v1.0.0 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
 cd /opt/rackpad
 ```
 

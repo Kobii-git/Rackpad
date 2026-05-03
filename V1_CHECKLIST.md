@@ -1,8 +1,8 @@
 # Rackpad V1 Checklist
 
-This file tracks the remaining work for `v1.0.0`.
+This file tracked the work required for `v1.0.0`.
 
-The goal is not to add every possible future integration. The goal is to make Rackpad feel complete, trustworthy, and polished for a serious homelab deployment.
+Rackpad `v1.0.0` is now released. Keep this file as a record of the pre-1.0 scope and use future release notes or roadmap documents for post-1.0 planning.
 
 ## Release goal
 
@@ -80,7 +80,7 @@ Acceptance:
 
 ### `v1.0.0-rc1` Soak candidate
 
-Status: `planned`
+Status: `done`
 
 - Run Linux/Docker soak testing for:
   - bootstrap with demo data
@@ -101,7 +101,7 @@ Acceptance:
 
 ## Cross-release quality gates
 
-These are required before `v1.0.0`:
+These were required before `v1.0.0`:
 
 - `npm run build` passes
 - `npm run lint` passes

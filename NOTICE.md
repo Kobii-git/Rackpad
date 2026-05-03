@@ -8,9 +8,8 @@ Copyright (c) 2026 Kobii-git. All rights reserved except where the
 `Rackpad` is a self-hosted infrastructure inventory and operations project for
 homelabs, labs, and small datacenter-style environments.
 
-Unless a file states otherwise, source files, documentation, UI assets, and the
-static website bundle in this repository are covered by the repository root
-[LICENSE](./LICENSE).
+Unless a file states otherwise, source files, documentation, and UI assets in
+this repository are covered by the repository root [LICENSE](./LICENSE).
 
 ## Third-party components
 
