@@ -163,6 +163,11 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       (id, labId, rackId, hostname, displayName, deviceType, manufacturer, model, serial, managementIp, status, placement, parentDeviceId, cpuCores, memoryGb, storageGb, specs, startU, heightU, face, tags, notes, lastSeen)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
+  const updateDeviceParent = db.prepare(`
+    UPDATE devices
+    SET parentDeviceId = ?
+    WHERE id = ?
+  `)
   const insertVirtualSwitch = db.prepare(`
     INSERT INTO virtualSwitches (id, hostDeviceId, name, kind, notes)
     VALUES (?, ?, ?, ?, ?)
@@ -261,7 +266,7 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.managementIp ?? null,
       row.status,
       row.placement ?? null,
-      row.parentDeviceId ?? null,
+      null,
       row.cpuCores ?? null,
       row.memoryGb ?? null,
       row.storageGb ?? null,
@@ -273,6 +278,14 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.notes ?? null,
       row.lastSeen ?? null,
     )
+  }
+  const deviceIds = new Set(devices.map((row) => String(row.id)))
+  for (const row of devices) {
+    const parentDeviceId = row.parentDeviceId ? String(row.parentDeviceId) : null
+    if (!parentDeviceId || parentDeviceId === String(row.id) || !deviceIds.has(parentDeviceId)) {
+      continue
+    }
+    updateDeviceParent.run(parentDeviceId, row.id)
   }
   for (const row of virtualSwitches) {
     insertVirtualSwitch.run(

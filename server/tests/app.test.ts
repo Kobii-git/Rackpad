@@ -355,6 +355,94 @@ test('admin restore reloads a backup snapshot and invalidates the previous sessi
   assert.equal(templatesAfterRestore.some((template) => template.name === 'Custom restore template'), true)
 })
 
+test('admin restore preserves parent-linked devices even when children sort before their host', async () => {
+  const adminToken = await bootstrapAdmin()
+
+  const hostRes = await app.inject({
+    method: 'POST',
+    url: '/api/devices',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      hostname: 'zz-host-01',
+      displayName: 'Restore Host',
+      deviceType: 'server',
+      status: 'online',
+      placement: 'room',
+    },
+  })
+  assert.equal(hostRes.statusCode, 201)
+  const host = readJson(hostRes) as { id: string }
+
+  const childRes = await app.inject({
+    method: 'POST',
+    url: '/api/devices',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: {
+      labId: 'lab_home',
+      hostname: 'aa-vm-01',
+      displayName: 'Restore Child VM',
+      deviceType: 'vm',
+      status: 'online',
+      placement: 'virtual',
+      parentDeviceId: host.id,
+    },
+  })
+  assert.equal(childRes.statusCode, 201)
+  const child = readJson(childRes) as { id: string }
+
+  const exportRes = await app.inject({
+    method: 'GET',
+    url: '/api/admin/export',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+  })
+  assert.equal(exportRes.statusCode, 200)
+  const snapshot = readJson(exportRes) as Record<string, unknown>
+
+  const restoreRes = await app.inject({
+    method: 'POST',
+    url: '/api/admin/restore',
+    headers: {
+      authorization: `Bearer ${adminToken}`,
+    },
+    payload: snapshot,
+  })
+  assert.equal(restoreRes.statusCode, 200)
+
+  const loginRes = await app.inject({
+    method: 'POST',
+    url: '/api/auth/login',
+    payload: {
+      username: 'admin',
+      password: 'super-secret-1',
+    },
+  })
+  assert.equal(loginRes.statusCode, 200)
+  const refreshedToken = (readJson(loginRes) as { token: string }).token
+
+  const devicesRes = await app.inject({
+    method: 'GET',
+    url: '/api/devices',
+    headers: {
+      authorization: `Bearer ${refreshedToken}`,
+    },
+  })
+  assert.equal(devicesRes.statusCode, 200)
+  const devices = readJson(devicesRes) as Array<{ id: string; hostname: string; parentDeviceId?: string }>
+
+  const restoredHost = devices.find((device) => device.id === host.id)
+  const restoredChild = devices.find((device) => device.id === child.id)
+  assert.ok(restoredHost)
+  assert.ok(restoredChild)
+  assert.equal(restoredChild?.parentDeviceId, restoredHost?.id)
+})
+
 test('creating a device with a port template creates its ports', async () => {
   const adminToken = await bootstrapAdmin()
 
