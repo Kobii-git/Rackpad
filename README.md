@@ -55,11 +55,10 @@ Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
 Every shipped change should update the version and add a matching changelog entry describing what changed.
 
-## Project website and legal files
+## Legal and support files
 
 The repository now also includes:
 
-- a static IIS-friendly project website bundle in [website/](./website/)
 - the project [LICENSE](./LICENSE)
 - copyright and project notices in [NOTICE.md](./NOTICE.md)
 - a basic disclosure policy in [SECURITY.md](./SECURITY.md)

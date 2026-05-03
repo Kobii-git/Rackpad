@@ -25,8 +25,6 @@ Practical starting point for a first deployment:
 - `10 GB` free disk minimum, `20+ GB` preferred
 - Docker Engine with the Compose plugin, or Node `22 LTS` with `npm`
 
-For a companion static project site on IIS, see [website/README.md](./website/README.md).
-
 ## Option 1: Docker install
 
 ### Step 1: Install Docker and Compose
