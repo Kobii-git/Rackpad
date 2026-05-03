@@ -301,11 +301,46 @@ function make(
   });
 }
 
+function makePatchPanel(
+  deviceId: string,
+  count: number,
+  linkedFrontPorts: number[] = [],
+): Port[] {
+  return Array.from({ length: count }, (_, index) => {
+    const position = index + 1;
+    const linkState: Port["linkState"] = linkedFrontPorts.includes(position)
+      ? "up"
+      : "down";
+    return [
+      {
+        id: `p_${deviceId}_${position}`,
+        deviceId,
+        name: String(position),
+        position,
+        kind: "rj45" as const,
+        speed: "1G",
+        linkState,
+        mode: "access" as const,
+        face: "front" as const,
+      },
+      {
+        id: `p_${deviceId}_${position}_rear`,
+        deviceId,
+        name: String(position),
+        position,
+        kind: "rj45" as const,
+        speed: "1G",
+        linkState: "down" as const,
+        mode: "access" as const,
+        face: "rear" as const,
+      },
+    ];
+  }).flat();
+}
+
 export const ports: Port[] = [
-  // Patch panel — 24 cat6 ports
-  ...make("d_pp24", "", 24, "rj45", "1G", {
-    withLink: [1, 2, 3, 4, 5, 8, 9, 12, 17, 22],
-  }),
+  // Patch panel — 24 front/rear copper terminations
+  ...makePatchPanel("d_pp24", 24, [1, 2, 3, 4, 5, 8, 9, 12, 17, 22]),
 
   // ToR switch: 48 PoE + 4 SFP+
   ...make("d_sw_tor", "", 48, "rj45", "1G", {

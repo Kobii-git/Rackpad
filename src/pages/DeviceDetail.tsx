@@ -42,7 +42,7 @@ import {
   ShieldCheck,
   Trash2,
 } from "lucide-react";
-import { relativeTime, statusLabel } from "@/lib/utils";
+import { formatPortLabel, relativeTime, statusLabel } from "@/lib/utils";
 
 type MonitorForm = {
   name: string;
@@ -232,7 +232,6 @@ export default function DeviceDetail() {
   ).length;
   const isVisualGrid =
     device?.deviceType === "switch" ||
-    device?.deviceType === "patch_panel" ||
     device?.deviceType === "router";
   const hardwareMeta = [device?.manufacturer, device?.model]
     .filter(Boolean)
@@ -839,6 +838,7 @@ export default function DeviceDetail() {
                   link={selectedLink}
                   vlansById={vlanById}
                   virtualSwitchesById={virtualSwitchById}
+                  showFaceInHeading={device.deviceType === "patch_panel"}
                 />
               </div>
             </div>
@@ -1340,6 +1340,7 @@ function PortInspectorCard({
   link,
   vlansById,
   virtualSwitchesById,
+  showFaceInHeading = false,
 }: {
   port?: Port;
   peerPort?: Port;
@@ -1347,6 +1348,7 @@ function PortInspectorCard({
   link?: PortLink;
   vlansById: Record<string, Vlan>;
   virtualSwitchesById: Record<string, { id: string; name: string }>;
+  showFaceInHeading?: boolean;
 }) {
   const primaryVlan = port?.vlanId ? vlansById[port.vlanId] : undefined;
   const allowedVlanLabels =
@@ -1362,7 +1364,13 @@ function PortInspectorCard({
       <CardHeader>
         <CardTitle>
           <CardLabel>Inspector</CardLabel>
-          <CardHeading>{port ? port.name : "Select a port"}</CardHeading>
+          <CardHeading>
+            {port
+              ? formatPortLabel(port, {
+                  includeFace: showFaceInHeading || port.face === "rear",
+                })
+              : "Select a port"}
+          </CardHeading>
         </CardTitle>
         {port ? <Badge tone="cyan">{port.kind.replace("_", " ")}</Badge> : null}
       </CardHeader>
@@ -1445,7 +1453,7 @@ function PortInspectorCard({
                         |
                       </span>
                       <Mono className="text-[var(--color-cyan)]">
-                        {peerPort.name}
+                        {formatPortLabel(peerPort, { includeFace: true })}
                       </Mono>
                     </div>
                     <div className="text-[11px] text-[var(--color-fg-subtle)]">

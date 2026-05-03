@@ -30,7 +30,31 @@ function rangeNames(prefix: string, count: number, kind: PortTemplateKind, speed
     kind,
     speed,
     face: 'front' as const,
+    position: index + 1,
   }))
+}
+
+function patchPanelPorts(count: number) {
+  return Array.from({ length: count }, (_, index) => {
+    const label = String(index + 1)
+    const position = index + 1
+    return [
+      {
+        name: label,
+        kind: 'rj45' as const,
+        speed: '1G',
+        face: 'front' as const,
+        position,
+      },
+      {
+        name: label,
+        kind: 'rj45' as const,
+        speed: '1G',
+        face: 'rear' as const,
+        position,
+      },
+    ]
+  }).flat()
 }
 
 function normalizePorts(
@@ -138,8 +162,8 @@ export const BUILT_IN_PORT_TEMPLATES: PortTemplate[] = [
     id: 'patch-panel-24',
     name: '24-port patch panel',
     deviceTypes: ['patch_panel'],
-    description: 'Twenty-four copper patch panel ports.',
-    ports: normalizePorts(rangeNames('', 24, 'rj45', '1G')),
+    description: 'Twenty-four front and rear copper patch panel terminations.',
+    ports: normalizePorts(patchPanelPorts(24)),
   },
   {
     id: 'pdu-8',
@@ -212,7 +236,7 @@ export function createPortsFromTemplate(deviceId: string, templateId: string) {
     id: createId('p'),
     deviceId,
     name: port.name,
-    position: index + 1,
+    position: port.position ?? index + 1,
     kind: port.kind,
     speed: port.speed ?? null,
     linkState: 'down',

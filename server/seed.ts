@@ -2,7 +2,7 @@
  * Seed the database with the homelab mock dataset.
  * Only runs if the labs table is empty — safe to call on every startup.
  */
-import { db } from './db.js'
+import { db, ensurePatchPanelPassThroughPorts } from './db.js'
 
 // ── Seed data (mirrors src/lib/mock-data.ts) ──────────────────
 
@@ -543,6 +543,7 @@ export function seedIfEmpty() {
   })
 
   seed()
+  ensurePatchPanelPassThroughPorts()
   console.log('[rackpad] Seed complete.')
 }
 

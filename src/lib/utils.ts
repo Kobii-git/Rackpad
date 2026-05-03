@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { DeviceStatus, LinkState, PortKind } from "./types";
+import type { Device, DeviceStatus, LinkState, Port, PortKind } from "./types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -173,6 +173,31 @@ export function formatPortSpeedLabel(speed?: string | null): string | null {
   const mbps = parsePortSpeedMbps(speed);
   if (mbps == null) return null;
   return formatBandwidthMbps(mbps);
+}
+
+export function formatPortLabel(
+  port: Pick<Port, "name" | "face"> | null | undefined,
+  options: { includeFace?: boolean } = {},
+): string {
+  if (!port) return "Unknown port";
+  if (!options.includeFace || !port.face) return port.name;
+  return `${port.name} (${port.face})`;
+}
+
+export function formatPortEndpointLabel(
+  port: Pick<Port, "name" | "face" | "speed">,
+  device?: Pick<Device, "hostname"> | null,
+  options: { includeSpeed?: boolean; includeFace?: boolean } = {},
+): string {
+  const label = [
+    device?.hostname ?? "Unknown device",
+    formatPortLabel(port, { includeFace: options.includeFace ?? true }),
+    options.includeSpeed && port.speed ? port.speed : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  return label;
 }
 
 export function normalizeColorToCss(color?: string | null): string | null {

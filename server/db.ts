@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createId } from './lib/ids.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -528,6 +529,93 @@ const applySchema = db.transaction(() => {
 })
 
 applySchema()
+
+type PatchPanelPortRow = {
+  id: string
+  deviceId: string
+  name: string
+  position: number
+  kind: string
+  speed: string | null
+  linkState: string
+  mode: string | null
+  vlanId: string | null
+  allowedVlanIds: string | null
+  description: string | null
+  face: string | null
+  virtualSwitchId: string | null
+}
+
+export function ensurePatchPanelPassThroughPorts(deviceIds?: string[]) {
+  const targetDeviceIds = deviceIds && deviceIds.length > 0
+    ? [...new Set(deviceIds)]
+    : (db.prepare(`
+        SELECT id
+        FROM devices
+        WHERE deviceType = 'patch_panel'
+      `).all() as Array<{ id: string }>).map((row) => row.id)
+
+  if (targetDeviceIds.length === 0) return 0
+
+  const selectPorts = db.prepare(`
+    SELECT id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId
+    FROM ports
+    WHERE deviceId = ?
+    ORDER BY position, name, id
+  `)
+  const insertPort = db.prepare(`
+    INSERT INTO ports (id, deviceId, name, position, kind, speed, linkState, mode, vlanId, allowedVlanIds, description, face, virtualSwitchId)
+    VALUES (@id, @deviceId, @name, @position, @kind, @speed, @linkState, @mode, @vlanId, @allowedVlanIds, @description, @face, @virtualSwitchId)
+  `)
+
+  const normalize = db.transaction((ids: string[]) => {
+    let createdCount = 0
+
+    for (const deviceId of ids) {
+      const ports = selectPorts.all(deviceId) as PatchPanelPortRow[]
+      const groups = new Map<string, PatchPanelPortRow[]>()
+
+      for (const port of ports) {
+        const key = `${port.kind}|${port.name.trim().toLowerCase()}`
+        const group = groups.get(key)
+        if (group) {
+          group.push(port)
+        } else {
+          groups.set(key, [port])
+        }
+      }
+
+      for (const group of groups.values()) {
+        const front = group.find((port) => port.face !== 'rear')
+        const rear = group.find((port) => port.face === 'rear')
+
+        if (front && !rear) {
+          insertPort.run({
+            ...front,
+            id: createId('p'),
+            face: 'rear',
+            linkState: 'down',
+          })
+          createdCount += 1
+        } else if (rear && !front) {
+          insertPort.run({
+            ...rear,
+            id: createId('p'),
+            face: 'front',
+            linkState: 'down',
+          })
+          createdCount += 1
+        }
+      }
+    }
+
+    return createdCount
+  })
+
+  return normalize(targetDeviceIds)
+}
+
+ensurePatchPanelPassThroughPorts()
 
 export function parseRow<T extends Record<string, unknown>>(
   row: T,

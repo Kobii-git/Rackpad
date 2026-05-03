@@ -33,6 +33,7 @@ import type {
   PortLink,
   PortTemplate,
 } from "@/lib/types";
+import { formatPortLabel } from "@/lib/utils";
 import { ArrowRight, Network, Plus, Save, Trash2 } from "lucide-react";
 
 const PORT_BEARING: Device["deviceType"][] = [
@@ -142,6 +143,30 @@ function templateToForm(template: PortTemplate): TemplateFormState {
 function blankTemplateForm(
   deviceType: DeviceType = "switch",
 ): TemplateFormState {
+  if (deviceType === "patch_panel") {
+    return {
+      name: "",
+      description: "",
+      deviceTypes: [deviceType],
+      ports: [
+        {
+          name: "1",
+          kind: "rj45",
+          speed: "1G",
+          mode: "access",
+          face: "front",
+        },
+        {
+          name: "1",
+          kind: "rj45",
+          speed: "1G",
+          mode: "access",
+          face: "rear",
+        },
+      ],
+    };
+  }
+
   const defaultKind: Port["kind"] = deviceType === "vm" ? "virtual" : "rj45";
   const defaultSpeed = deviceType === "vm" ? "virtio" : "";
   return {
@@ -173,6 +198,53 @@ function blankPortForm(device?: Device): PortFormState {
     virtualSwitchId: "",
     description: "",
     face: "front",
+  };
+}
+
+function isPatchPanelTemplate(form: TemplateFormState) {
+  return form.deviceTypes.includes("patch_panel");
+}
+
+function appendTemplatePorts(form: TemplateFormState): TemplateFormState {
+  if (!isPatchPanelTemplate(form)) {
+    return {
+      ...form,
+      ports: [
+        ...form.ports,
+        {
+          name: "",
+          kind: "rj45",
+          speed: "",
+          mode: "access",
+          face: "front",
+        },
+      ],
+    };
+  }
+
+  const nextJackNumber = String(
+    form.ports.filter((port) => port.face !== "rear").length + 1,
+  );
+
+  return {
+    ...form,
+    ports: [
+      ...form.ports,
+      {
+        name: nextJackNumber,
+        kind: "rj45",
+        speed: "1G",
+        mode: "access",
+        face: "front",
+      },
+      {
+        name: nextJackNumber,
+        kind: "rj45",
+        speed: "1G",
+        mode: "access",
+        face: "rear",
+      },
+    ],
   };
 }
 
@@ -342,7 +414,6 @@ export default function PortView() {
   const isVisualGrid =
     device &&
     (device.deviceType === "switch" ||
-      device.deviceType === "patch_panel" ||
       device.deviceType === "router");
 
   const linkedCount = devicePorts.filter(
@@ -689,7 +760,11 @@ export default function PortView() {
                         {creating
                           ? "New port"
                           : selectedPort
-                            ? selectedPort.name
+                            ? formatPortLabel(selectedPort, {
+                                includeFace:
+                                  device?.deviceType === "patch_panel" ||
+                                  selectedPort.face === "rear",
+                              })
                             : "Select a port"}
                       </CardHeading>
                     </CardTitle>
@@ -992,7 +1067,9 @@ export default function PortView() {
                                   :
                                 </span>
                                 <Mono className="text-[var(--color-cyan)]">
-                                  {peerPort.name}
+                                  {formatPortLabel(peerPort, {
+                                    includeFace: true,
+                                  })}
                                 </Mono>
                               </div>
                               <div className="font-mono text-[11px] text-[var(--color-fg-subtle)]">
@@ -1207,23 +1284,15 @@ export default function PortView() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() =>
-                                  setTemplateForm((prev) => ({
-                                    ...prev,
-                                    ports: [
-                                      ...prev.ports,
-                                      {
-                                        name: "",
-                                        kind: "rj45",
-                                        speed: "",
-                                        mode: "access",
-                                        face: "front",
-                                      },
-                                    ],
-                                  }))
+                                  setTemplateForm((prev) =>
+                                    appendTemplatePorts(prev),
+                                  )
                                 }
                               >
                                 <Plus className="size-3.5" />
-                                Add port
+                                {isPatchPanelTemplate(templateForm)
+                                  ? "Add jack"
+                                  : "Add port"}
                               </Button>
                             )}
                           </div>

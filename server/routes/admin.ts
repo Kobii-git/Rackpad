@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { FastifyPluginAsync } from 'fastify'
-import { db, parseRow } from '../db.js'
+import { db, ensurePatchPanelPassThroughPorts, parseRow } from '../db.js'
 import { requireAdmin, setBootstrapState } from '../lib/auth.js'
 import { DEFAULT_ALERT_SETTINGS, loadAlertSettings, saveAlertSettings, sendTestAlert } from '../lib/alerts.js'
 import { createId } from '../lib/ids.js'
@@ -348,6 +348,11 @@ const restoreBackupSnapshot = db.transaction((snapshot: Record<string, unknown>,
       row.virtualSwitchId ?? null,
     )
   }
+  ensurePatchPanelPassThroughPorts(
+    devices
+      .filter((row) => row.deviceType === 'patch_panel')
+      .map((row) => String(row.id)),
+  )
   for (const row of portLinks) {
     insertPortLink.run(row.id, row.fromPortId, row.toPortId, row.cableType ?? null, row.cableLength ?? null, row.color ?? null, row.notes ?? null)
   }

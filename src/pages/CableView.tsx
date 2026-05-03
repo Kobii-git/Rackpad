@@ -21,7 +21,11 @@ import {
   useStore,
 } from "@/lib/store";
 import type { Device, Port, PortLink } from "@/lib/types";
-import { normalizeColorToCss } from "@/lib/utils";
+import {
+  formatPortEndpointLabel,
+  formatPortLabel,
+  normalizeColorToCss,
+} from "@/lib/utils";
 import {
   ArrowRight,
   Cable as CableIcon,
@@ -699,13 +703,13 @@ function CableEndpoints({
       <span>{fromDevice?.hostname ?? "Unknown device"}</span>
       <span className="text-[var(--color-fg-faint)]">:</span>
       <Mono className="text-[var(--color-cyan)]">
-        {fromPort?.name ?? "Unknown port"}
+        {formatPortLabel(fromPort, { includeFace: true })}
       </Mono>
       <ArrowRight className="size-3 text-[var(--color-fg-subtle)]" />
       <span>{toDevice?.hostname ?? "Unknown device"}</span>
       <span className="text-[var(--color-fg-faint)]">:</span>
       <Mono className="text-[var(--color-cyan)]">
-        {toPort?.name ?? "Unknown port"}
+        {formatPortLabel(toPort, { includeFace: true })}
       </Mono>
     </div>
   );
@@ -713,7 +717,10 @@ function CableEndpoints({
 
 function portOptionLabel(port: Port, deviceById: Record<string, Device>) {
   const device = deviceById[port.deviceId];
-  return `${device?.hostname ?? port.deviceId} | ${port.name}${port.speed ? ` | ${port.speed}` : ""}`;
+  return formatPortEndpointLabel(port, device, {
+    includeFace: true,
+    includeSpeed: true,
+  });
 }
 
 function cableSortLabel(

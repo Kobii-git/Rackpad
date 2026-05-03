@@ -1,6 +1,11 @@
 import { motion } from "motion/react";
 import type { Device, Port, PortLink, VirtualSwitch, Vlan } from "@/lib/types";
-import { cn, portTypeColor, portTypeLabel } from "@/lib/utils";
+import {
+  cn,
+  formatPortLabel,
+  portTypeColor,
+  portTypeLabel,
+} from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
@@ -294,7 +299,8 @@ function PortCell({
           ) : null}
           {isLinked && otherDevice && otherPort ? (
             <span className="text-[var(--accent-secondary)]">
-              linked to {otherDevice.hostname}:{otherPort.name}
+              linked to {otherDevice.hostname}:
+              {formatPortLabel(otherPort, { includeFace: true })}
             </span>
           ) : (
             <span className="text-[var(--text-muted)]">no link</span>
