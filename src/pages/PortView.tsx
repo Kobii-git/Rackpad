@@ -1231,7 +1231,7 @@ export default function PortView() {
                           <div className="space-y-2">
                             {templateForm.ports.map((port, index) => (
                               <div
-                                key={`${index}-${port.name}`}
+                                key={index}
                                 className="grid grid-cols-12 gap-2 rounded-[var(--radius-xs)] border border-[var(--color-line)] p-2"
                               >
                                 <div className="col-span-3">
