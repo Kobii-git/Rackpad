@@ -27,6 +27,8 @@ If `rackpad.co.za` is unavailable, the repo still contains the core material you
 
 These are live captures from the working Rackpad demo environment, embedded directly in the GitHub repo.
 
+### Overview and physical inventory
+
 | Dashboard | Racks |
 | --- | --- |
 | ![Rackpad dashboard](./docs/screenshots/dashboard.png) | ![Rackpad racks view](./docs/screenshots/racks.png) |
@@ -35,11 +37,37 @@ These are live captures from the working Rackpad demo environment, embedded dire
 | --- | --- |
 | ![Rackpad devices inventory](./docs/screenshots/devices.png) | ![Rackpad ports and patching view](./docs/screenshots/ports.png) |
 
-| WiFi | Monitoring |
-| --- | --- |
-| ![Rackpad WiFi workspace](./docs/screenshots/wifi.png) | ![Rackpad monitoring workspace](./docs/screenshots/monitoring.png) |
+### Operations, compute, and wireless
 
-Additional screenshots used for docs and GitHub previews live in [`docs/screenshots`](./docs/screenshots).
+| Monitoring | Compute |
+| --- | --- |
+| ![Rackpad monitoring workspace](./docs/screenshots/monitoring.png) | ![Rackpad compute workspace](./docs/screenshots/compute.png) |
+
+| WiFi | Discovery |
+| --- | --- |
+| ![Rackpad WiFi workspace](./docs/screenshots/wifi.png) | ![Rackpad discovery workspace](./docs/screenshots/discovery.png) |
+
+### Network and address management
+
+| IPAM |
+| --- |
+| ![Rackpad IPAM workspace](./docs/screenshots/ipam.png) |
+
+These are enough to see the app before installing it, and the full screenshot set used for GitHub previews lives in [`docs/screenshots`](./docs/screenshots).
+
+## What you can see before install
+
+From the GitHub repo alone, you can already preview the major Rackpad workspaces:
+
+- Dashboard for inventory, health, capacity, and recent activity
+- Racks for physical placement, mounted gear, and room-tech context
+- Devices for searchable inventory and placement-aware records
+- Ports for switch, host, AP, VM, and patch-panel connectivity
+- Compute for hosts, VMs, and virtual switch / bridge membership
+- WiFi for controllers, SSIDs, radios, clients, and signal context
+- Discovery for staged imports, MAC/vendor hints, and duplicate detection
+- Monitoring for multi-target ICMP, TCP, HTTP, and HTTPS checks
+- IPAM for subnets, DHCP scopes, IP zones, and linked assignments
 
 ## What works
 
