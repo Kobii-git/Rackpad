@@ -13,6 +13,34 @@ It is a full-stack app:
 - per-device health checks with multi-target ICMP, TCP, HTTP, and HTTPS monitor support
 - Docker support for a single-container test deployment
 
+## Quick links
+
+If `rackpad.co.za` is unavailable, the repo still contains the core material you need:
+
+- [Installation guide](./INSTALL.md)
+- [Security policy](./SECURITY.md)
+- [Changelog](./CHANGELOG.md)
+- [MIT license](./LICENSE)
+- [Support notes](./SUPPORT.md)
+
+## Screenshots
+
+These are live captures from the working Rackpad demo environment, embedded directly in the GitHub repo.
+
+| Dashboard | Racks |
+| --- | --- |
+| ![Rackpad dashboard](./docs/screenshots/dashboard.png) | ![Rackpad racks view](./docs/screenshots/racks.png) |
+
+| Devices | Ports |
+| --- | --- |
+| ![Rackpad devices inventory](./docs/screenshots/devices.png) | ![Rackpad ports and patching view](./docs/screenshots/ports.png) |
+
+| WiFi | Monitoring |
+| --- | --- |
+| ![Rackpad WiFi workspace](./docs/screenshots/wifi.png) | ![Rackpad monitoring workspace](./docs/screenshots/monitoring.png) |
+
+Additional screenshots used for docs and GitHub previews live in [`docs/screenshots`](./docs/screenshots).
+
 ## What works
 
 - Rack inventory and physical placement
@@ -253,6 +281,7 @@ npm run test:server
 
 ```text
 rackpad/
+|- docs/screenshots/       GitHub-friendly app screenshots
 |- server/                 Fastify API, SQLite schema, seed data, routes, tests
 |- src/
 |  |- components/          UI and feature components
