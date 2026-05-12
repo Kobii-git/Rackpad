@@ -8,10 +8,15 @@ data, the collector also stages guest OS, OS version, computer name, FQDN, and
 power state.
 
 Nothing is imported until you review the wizard and click `Import selected`.
+The Hyper-V host does not need to exist in Rackpad first: the wizard can create
+it, auto-match an existing host, or let you select the exact existing device the
+VMs should live under.
 
 ## What Rackpad Can Import
 
 - Hyper-V host as a server device.
+- Editable host staging, including host mapping, hostname, display name,
+  vendor/model, OS, CPU, RAM, and notes before import.
 - VM device records with parent-host links.
 - VM power state mapped to Rackpad health.
 - Guest OS, OS version, guest computer name, and FQDN where Hyper-V KVP exposes it.
@@ -24,7 +29,11 @@ Nothing is imported until you review the wizard and click `Import selected`.
 
 ## 1. Collect Inventory On The Hyper-V Host
 
-Open PowerShell as Administrator on the Hyper-V host:
+Download the collector from Rackpad -> `Imports` -> `Download collector`, or
+copy [../scripts/collect-hyperv.ps1](../scripts/collect-hyperv.ps1) to the
+Hyper-V host.
+
+Then open PowerShell as Administrator on the Hyper-V host:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\collect-hyperv.ps1 -OutputPath .\rackpad-hyperv-inventory.json -IncludeHostAdapters
@@ -51,8 +60,18 @@ names, IP addresses, MAC addresses, switch names, and VM notes.
 ## 2. Import In Rackpad
 
 1. Open `Imports` in Rackpad.
-2. Upload `rackpad-hyperv-inventory.json`.
-3. Choose the categories to import:
+2. Click `Download collector` if you have not copied the PowerShell script yet.
+3. Upload `rackpad-hyperv-inventory.json`.
+4. In the host panel, choose where the import should attach:
+   - `Auto match or create` to let Rackpad match by host name/FQDN or create a new server.
+   - An existing Rackpad device if the host already exists under a different name.
+5. Edit the staged host fields if needed:
+   - Hostname and display name
+   - Manufacturer and model
+   - OS and OS version
+   - CPU cores and memory
+   - Notes or missing info
+6. Choose the categories to import:
    - Host record
    - VMs
    - CPU, RAM, and disks
@@ -61,14 +80,21 @@ names, IP addresses, MAC addresses, switch names, and VM notes.
    - Virtual switches
    - Virtual ports
    - VLANs
-4. Review every VM and fill in anything Hyper-V could not report.
-5. Click `Import selected`.
+7. Review every VM and fill in anything Hyper-V could not report.
+8. Click `Import selected`.
+
+If `Host record` is checked, Rackpad creates or updates the selected/matched
+host record. If `Host record` is unchecked, the selected/matched host is only
+used as the parent for VMs and virtual switches.
 
 ## Review Wizard Checklist
 
 Before importing, check:
 
-- The Hyper-V host name matches the Rackpad server record you want to create or update.
+- The Hyper-V host target is correct: auto-create, auto-match, or manually
+  select an existing Rackpad host.
+- Host fields are clean before import, especially if the Windows host name does
+  not match your Rackpad naming convention.
 - VM hostnames are clean and unique.
 - Guest OS fields are correct. Linux guests may appear as `Linux (kernel x.y.z)` when Hyper-V reports only a kernel version.
 - Primary IPs are in Rackpad IPAM subnets if you want assignments created automatically.
@@ -108,8 +134,9 @@ hostname/display name and updated rather than duplicated.
   notes.
 - VLAN ranges such as `1-4094` are recorded in port notes but are not expanded
   into thousands of VLAN records. Discrete VLAN IDs are imported.
-- Existing devices are matched by hostname/display name and updated rather than
-  duplicated.
+- Existing host and VM devices are matched by hostname/display name and updated
+  rather than duplicated. The host selector can override the automatic host
+  match when your Rackpad record uses a different name.
 
 ## Troubleshooting
 

@@ -17,6 +17,8 @@ without cloning the repo, or clone the repo and build it yourself.
 - `main` is the stable source branch and is fine for cloning the latest stable code.
 - `RACKPAD_TAG=1.1.2` pins the Docker image to a known release. Git tags use
   the `v` prefix, but Docker image tags do not.
+- `RACKPAD_TAG=latest` follows the newest published stable GHCR image and is
+  convenient for quick installs or test labs.
 - `beta` is for testing newer changes before they are promoted.
 - For production-style installs, keep `RACKPAD_TAG` pinned and change it only when you intentionally update.
 
@@ -41,7 +43,8 @@ TRUSTED_ORIGINS=
 Most users only change:
 
 - `RACKPAD_PORT`: host port to expose, default `3000`.
-- `RACKPAD_TAG`: release version to run.
+- `RACKPAD_TAG`: release version to run, for example `1.1.2`, or `latest` for
+  the newest stable GHCR image.
 - `TRUST_PROXY`, `TRUSTED_HOSTS`, `TRUSTED_ORIGINS`: set these when using a reverse proxy.
 
 Rackpad stores its SQLite database in the Docker volume `rackpad_data`.
@@ -94,6 +97,9 @@ sudo docker compose pull
 sudo docker compose up -d
 sudo docker compose ps
 ```
+
+If this is a quick lab install and you want Rackpad to follow the newest stable
+published image, set `RACKPAD_TAG=latest` in `.env` instead of a fixed version.
 
 Open:
 
@@ -264,8 +270,8 @@ Tools or use Docker Desktop instead.
 Use this when you have a Hyper-V host and want Rackpad to stage VMs, vNICs,
 VLANs, IPs, power state, guest OS, CPU, memory, and disk data before importing.
 
-1. Download or copy [scripts/collect-hyperv.ps1](./scripts/collect-hyperv.ps1)
-   to the Hyper-V host.
+1. Open Rackpad -> `Imports` and click `Download collector`, or copy
+   [scripts/collect-hyperv.ps1](./scripts/collect-hyperv.ps1) to the Hyper-V host.
 2. Open PowerShell as Administrator on the Hyper-V host.
 3. Run:
 
@@ -273,10 +279,11 @@ VLANs, IPs, power state, guest OS, CPU, memory, and disk data before importing.
 powershell -ExecutionPolicy Bypass -File .\collect-hyperv.ps1 -OutputPath .\rackpad-hyperv-inventory.json -IncludeHostAdapters
 ```
 
-4. Open Rackpad -> `Imports`.
-5. Upload `rackpad-hyperv-inventory.json`.
-6. Review the wizard, correct missing fields, select the categories to import,
-   then click `Import selected`.
+4. Upload `rackpad-hyperv-inventory.json` in Rackpad -> `Imports`.
+5. In the host panel, choose `Auto match or create` or select an existing
+   Rackpad device to import the VMs under.
+6. Edit any staged host or VM fields that Hyper-V could not report.
+7. Select the categories to import, then click `Import selected`.
 
 Full details: [docs/HYPERV_IMPORT.md](./docs/HYPERV_IMPORT.md)
 
@@ -326,8 +333,9 @@ docker compose pull
 docker compose up -d
 ```
 
-To update to a newer release, change `RACKPAD_TAG` in `.env`, then run the same
-pull/up commands.
+To update to a newer pinned release, change `RACKPAD_TAG` in `.env`, then run
+the same pull/up commands. To always pull the newest stable image, set
+`RACKPAD_TAG=latest`.
 
 ## Stop Or Remove
 

@@ -106,7 +106,7 @@ From the GitHub repo alone, you can already preview the major Rackpad workspaces
 - SMTP/email alert delivery beside Discord and Telegram, plus recent alert activity in the admin area
 - Reports workspace with printable/PDF-friendly inventory summaries plus Excel-compatible and CSV exports
 - Visualizer workspace for rack, room-tech, port, and cable relationship mapping
-- Hyper-V import wizard for staging hosts, VMs, power state, guest OS, virtual switches, virtual NICs, VLANs, IPs, CPU, memory, and disk data from a local PowerShell export
+- Hyper-V import wizard for staging hosts, VMs, power state, guest OS, virtual switches, virtual NICs, VLANs, IPs, CPU, memory, and disk data from a local PowerShell export, with editable host mapping before import
 - Expanded demo data with multiple labs, discovery states, custom templates, multi-target monitors, room tech, compute, and WiFi examples
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
@@ -115,7 +115,7 @@ From the GitHub repo alone, you can already preview the major Rackpad workspaces
 
 Use these when you want the workflow steps rather than just the overview:
 
-- [Hyper-V import](./docs/HYPERV_IMPORT.md): collect inventory on a Hyper-V host, upload it to Rackpad, review VMs, and import selected categories.
+- [Hyper-V import](./docs/HYPERV_IMPORT.md): download the collector, collect inventory on a Hyper-V host, map or create the host record, review VMs, and import selected categories.
 - [Reports](./docs/REPORTS.md): generate a clean inventory report, print/save to PDF, and export CSV or Excel-compatible files.
 - [Visualizer](./docs/VISUALIZER.md): inspect rack, loose-room, port, and cable relationships from existing Rackpad data.
 
@@ -236,6 +236,14 @@ Recommended no-clone install from the published GHCR image:
 sudo apt-get update
 sudo apt-get install -y curl ca-certificates
 curl -fsSL https://raw.githubusercontent.com/Kobii-git/Rackpad/main/scripts/install-docker.sh | bash
+```
+
+Use `RACKPAD_TAG=latest` if you want the newest stable GHCR image, or pin an
+exact Docker tag such as `1.1.2` when you want controlled production upgrades:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Kobii-git/Rackpad/main/scripts/install-docker.sh -o /tmp/install-rackpad.sh
+RACKPAD_TAG=latest bash /tmp/install-rackpad.sh
 ```
 
 Open:

@@ -4,6 +4,17 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [Unreleased]
+
+### Added
+
+- Hyper-V import host staging now lets you edit the host record before import
+  and choose whether VMs should be attached to an auto-matched host, a newly
+  created host, or a manually selected existing Rackpad device.
+- GHCR publishing now explicitly maintains a `latest` image tag for stable
+  `main` and release-tag builds, while documentation still shows pinned version
+  tags for controlled production upgrades.
+
 ## [1.1.2] - 2026-05-12
 
 ### Fixed

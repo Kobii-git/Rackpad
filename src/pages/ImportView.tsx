@@ -164,6 +164,19 @@ interface VmDraft {
   notes: string;
 }
 
+interface HostDraft {
+  targetDeviceId: string;
+  hostname: string;
+  displayName: string;
+  manufacturer: string;
+  model: string;
+  osName: string;
+  osVersion: string;
+  cpuCores: string;
+  memoryGb: string;
+  notes: string;
+}
+
 const DEFAULT_OPTIONS: ImportOptions = {
   host: true,
   vms: true,
@@ -185,6 +198,7 @@ const VLAN_COLORS = [
 
 const IPV4_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
 const HYPERV_COLLECTOR_URL = "/api/imports/hyperv-collector";
+const AUTO_HOST_TARGET = "__auto__";
 
 export default function ImportView() {
   const currentUser = useStore((s) => s.currentUser);
@@ -197,6 +211,7 @@ export default function ImportView() {
   const ipAssignments = useStore((s) => s.ipAssignments);
   const canEdit = canEditInventory(currentUser);
   const [payload, setPayload] = useState<HyperVPayload | null>(null);
+  const [hostDraft, setHostDraft] = useState<HostDraft | null>(null);
   const [vmDrafts, setVmDrafts] = useState<VmDraft[]>([]);
   const [options, setOptions] = useState<ImportOptions>(DEFAULT_OPTIONS);
   const [parseError, setParseError] = useState("");
@@ -219,6 +234,13 @@ export default function ImportView() {
       return acc;
     }, {});
   }, [vlans]);
+
+  const devicesById = useMemo(() => {
+    return devices.reduce<Record<string, Device>>((acc, device) => {
+      acc[device.id] = device;
+      return acc;
+    }, {});
+  }, [devices]);
 
   const summary = useMemo(() => {
     if (!payload) return null;
@@ -260,9 +282,11 @@ export default function ImportView() {
         );
       }
       setPayload(parsed);
+      setHostDraft(hostToDraft(parsed));
       setVmDrafts(parsed.vms.map(vmToDraft));
     } catch (error) {
       setPayload(null);
+      setHostDraft(null);
       setVmDrafts([]);
       setParseError(
         error instanceof Error ? error.message : "Failed to parse JSON file.",
@@ -285,11 +309,15 @@ export default function ImportView() {
 
     try {
       const hostDevice = options.host
-        ? await upsertHost(payload, {
+        ? await upsertHost(payload, hostDraft, {
             devicesByHostname,
+            devicesById,
             log,
           })
-        : findExistingHost(payload, devicesByHostname);
+        : resolveHostTarget(payload, hostDraft, {
+            devicesByHostname,
+            devicesById,
+          });
 
       const vlanMap = await ensureVlans({
         enabled: options.vlans,
@@ -360,6 +388,10 @@ export default function ImportView() {
         draft.key === key ? { ...draft, ...changes } : draft,
       ),
     );
+  }
+
+  function setHostDraftValue(changes: Partial<HostDraft>) {
+    setHostDraft((current) => (current ? { ...current, ...changes } : current));
   }
 
   return (
@@ -517,7 +549,14 @@ export default function ImportView() {
 
           {payload && (
             <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
-              <HostPreview payload={payload} />
+              <HostPreview
+                devices={devices}
+                devicesByHostname={devicesByHostname}
+                hostRecordEnabled={options.host}
+                onChange={setHostDraftValue}
+                payload={payload}
+                value={hostDraft}
+              />
               <VmPreview
                 drafts={vmDrafts}
                 devicesByHostname={devicesByHostname}
@@ -591,33 +630,144 @@ const CATEGORY_COPY: Record<
   },
 };
 
-function HostPreview({ payload }: { payload: HyperVPayload }) {
+function HostPreview({
+  devices,
+  devicesByHostname,
+  hostRecordEnabled,
+  onChange,
+  payload,
+  value,
+}: {
+  devices: Device[];
+  devicesByHostname: Record<string, Device>;
+  hostRecordEnabled: boolean;
+  onChange: (changes: Partial<HostDraft>) => void;
+  payload: HyperVPayload;
+  value: HostDraft | null;
+}) {
   const host = payload.host;
+  const matched = findExistingHost(payload, devicesByHostname);
+  const selected =
+    value?.targetDeviceId && value.targetDeviceId !== AUTO_HOST_TARGET
+      ? devices.find((device) => device.id === value.targetDeviceId)
+      : null;
+  const hostCandidates = devices.filter((device) => device.deviceType !== "vm");
+  const targetLabel = selected
+    ? `Selected existing: ${selected.hostname}`
+    : matched
+      ? `Auto-matched: ${matched.hostname}`
+      : "Will create a new Hyper-V host";
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>
           <CardLabel>Host</CardLabel>
           <CardHeading>
-            {host?.computerName ?? "Unknown Hyper-V host"}
+            {value?.displayName || host?.computerName || "Unknown Hyper-V host"}
           </CardHeading>
         </CardTitle>
-        <Badge>{payload.schema ?? "unknown schema"}</Badge>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Badge tone={selected || matched ? "ok" : "info"}>
+            {targetLabel}
+          </Badge>
+          <Badge>{payload.schema ?? "unknown schema"}</Badge>
+        </div>
       </CardHeader>
       <CardBody className="space-y-3">
-        <InfoRow label="FQDN" value={host?.fqdn} />
-        <InfoRow
-          label="Hardware"
-          value={[host?.manufacturer, host?.model].filter(Boolean).join(" ")}
-        />
-        <InfoRow
-          label="OS"
-          value={[host?.osCaption, host?.osVersion].filter(Boolean).join(" ")}
-        />
-        <InfoRow
-          label="Capacity"
-          value={`${host?.logicalProcessors ?? "-"} CPUs | ${host?.memoryGb ?? "-"} GB RAM`}
-        />
+        <Field label="Import VMs under">
+          <select
+            className="w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--focus-ring)]"
+            value={value?.targetDeviceId ?? AUTO_HOST_TARGET}
+            onChange={(event) => onChange({ targetDeviceId: event.target.value })}
+          >
+            <option value={AUTO_HOST_TARGET}>
+              Auto match or create {host?.computerName ?? "Hyper-V host"}
+            </option>
+            {hostCandidates.map((device) => (
+              <option key={device.id} value={device.id}>
+                {device.hostname} ({device.deviceType})
+              </option>
+            ))}
+          </select>
+          <div className="mt-1 text-[11px] leading-5 text-[var(--text-tertiary)]">
+            {hostRecordEnabled
+              ? "Host record is enabled, so Rackpad will create/update the target below."
+              : "Host record is disabled, so this target is only used as the VM parent."}
+          </div>
+        </Field>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Hostname">
+            <Input
+              disabled={!hostRecordEnabled}
+              value={value?.hostname ?? ""}
+              onChange={(event) => onChange({ hostname: event.target.value })}
+            />
+          </Field>
+          <Field label="Display name">
+            <Input
+              disabled={!hostRecordEnabled}
+              value={value?.displayName ?? ""}
+              onChange={(event) => onChange({ displayName: event.target.value })}
+            />
+          </Field>
+          <Field label="Manufacturer">
+            <Input
+              disabled={!hostRecordEnabled}
+              value={value?.manufacturer ?? ""}
+              onChange={(event) => onChange({ manufacturer: event.target.value })}
+            />
+          </Field>
+          <Field label="Model">
+            <Input
+              disabled={!hostRecordEnabled}
+              value={value?.model ?? ""}
+              onChange={(event) => onChange({ model: event.target.value })}
+            />
+          </Field>
+          <Field label="OS">
+            <Input
+              disabled={!hostRecordEnabled}
+              value={value?.osName ?? ""}
+              onChange={(event) => onChange({ osName: event.target.value })}
+            />
+          </Field>
+          <Field label="OS version">
+            <Input
+              disabled={!hostRecordEnabled}
+              value={value?.osVersion ?? ""}
+              onChange={(event) => onChange({ osVersion: event.target.value })}
+            />
+          </Field>
+          <Field label="CPU cores">
+            <Input
+              disabled={!hostRecordEnabled}
+              type="number"
+              value={value?.cpuCores ?? ""}
+              onChange={(event) => onChange({ cpuCores: event.target.value })}
+            />
+          </Field>
+          <Field label="Memory GB">
+            <Input
+              disabled={!hostRecordEnabled}
+              type="number"
+              value={value?.memoryGb ?? ""}
+              onChange={(event) => onChange({ memoryGb: event.target.value })}
+            />
+          </Field>
+        </div>
+
+        <Field label="Notes / missing info">
+          <textarea
+            className="min-h-20 w-full rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-input)] px-3 py-2 text-sm text-[var(--text-primary)] outline-none transition focus:border-[var(--border-focus)] focus:ring-2 focus:ring-[var(--focus-ring)] disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={!hostRecordEnabled}
+            value={value?.notes ?? ""}
+            onChange={(event) => onChange({ notes: event.target.value })}
+          />
+        </Field>
+
+        <InfoRow label="Collected FQDN" value={host?.fqdn} />
         <div className="rk-panel-inset rounded-[var(--radius-md)] p-3">
           <div className="rk-kicker">Switches</div>
           <div className="mt-2 space-y-2">
@@ -932,6 +1082,24 @@ function vmToDraft(vm: HyperVVm, index: number): VmDraft {
   };
 }
 
+function hostToDraft(payload: HyperVPayload): HostDraft {
+  const host = payload.host;
+  const hostname = slugHost(host?.computerName || host?.fqdn || "hyperv-host");
+
+  return {
+    targetDeviceId: AUTO_HOST_TARGET,
+    hostname,
+    displayName: host?.computerName || hostname,
+    manufacturer: host?.manufacturer ?? "",
+    model: host?.model ?? "",
+    osName: host?.osCaption ?? "",
+    osVersion: host?.osVersion ?? "",
+    cpuCores: host?.logicalProcessors ? String(host.logicalProcessors) : "",
+    memoryGb: host?.memoryGb ? String(host.memoryGb) : "",
+    notes: "",
+  };
+}
+
 function findExistingHost(
   payload: HyperVPayload,
   devicesByHostname: Record<string, Device>,
@@ -947,39 +1115,68 @@ function findExistingHost(
   return null;
 }
 
-async function upsertHost(
+function resolveHostTarget(
   payload: HyperVPayload,
+  draft: HostDraft | null,
   context: {
     devicesByHostname: Record<string, Device>;
+    devicesById: Record<string, Device>;
+  },
+) {
+  if (draft?.targetDeviceId && draft.targetDeviceId !== AUTO_HOST_TARGET) {
+    return context.devicesById[draft.targetDeviceId] ?? null;
+  }
+  return findExistingHost(payload, context.devicesByHostname);
+}
+
+function hostSpecs(host: HyperVHost | undefined, draft: HostDraft) {
+  return [
+    draft.osName.trim()
+      ? `OS: ${draft.osName.trim()} ${draft.osVersion.trim()}`.trim()
+      : "",
+    draft.cpuCores.trim() ? `Logical processors: ${draft.cpuCores.trim()}` : "",
+    draft.memoryGb.trim() ? `Memory: ${draft.memoryGb.trim()} GB` : "",
+    host?.fqdn ? `FQDN: ${host.fqdn}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+async function upsertHost(
+  payload: HyperVPayload,
+  draft: HostDraft | null,
+  context: {
+    devicesByHostname: Record<string, Device>;
+    devicesById: Record<string, Device>;
     log: string[];
   },
 ) {
   const host = payload.host;
-  const hostname = slugHost(host?.computerName || host?.fqdn || "hyperv-host");
-  const existing = context.devicesByHostname[hostname.toLowerCase()];
-  const specs = [
-    host?.osCaption
-      ? `OS: ${host.osCaption} ${host.osVersion ?? ""}`.trim()
-      : "",
-    host?.logicalProcessors
-      ? `Logical processors: ${host.logicalProcessors}`
-      : "",
-    host?.memoryGb ? `Memory: ${host.memoryGb} GB` : "",
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const sourceDraft = draft ?? hostToDraft(payload);
+  const hostname = slugHost(
+    sourceDraft.hostname || host?.computerName || host?.fqdn || "hyperv-host",
+  );
+  const selected =
+    sourceDraft.targetDeviceId !== AUTO_HOST_TARGET
+      ? context.devicesById[sourceDraft.targetDeviceId]
+      : null;
+  const existing = selected ?? context.devicesByHostname[hostname.toLowerCase()];
+  const specs = hostSpecs(host, sourceDraft);
 
   if (existing) {
     const updated = await updateDevice(existing.id, {
+      hostname,
       deviceType: "server",
-      displayName: existing.displayName || host?.computerName || hostname,
-      manufacturer: host?.manufacturer || existing.manufacturer,
-      model: host?.model || existing.model,
+      displayName:
+        sourceDraft.displayName.trim() || existing.displayName || hostname,
+      manufacturer: sourceDraft.manufacturer.trim() || existing.manufacturer,
+      model: sourceDraft.model.trim() || existing.model,
       placement: existing.placement ?? "room",
-      cpuCores: host?.logicalProcessors ?? existing.cpuCores,
-      memoryGb: host?.memoryGb ?? existing.memoryGb,
+      cpuCores: toNumber(sourceDraft.cpuCores) ?? existing.cpuCores,
+      memoryGb: toNumber(sourceDraft.memoryGb) ?? existing.memoryGb,
       specs: mergeText(existing.specs, specs),
       tags: mergeTags(existing.tags, ["hyper-v", "imported"]),
+      notes: mergeText(existing.notes, sourceDraft.notes),
     });
     context.log.push(`Updated Hyper-V host ${updated?.hostname ?? hostname}.`);
     return updated ?? existing;
@@ -987,17 +1184,20 @@ async function upsertHost(
 
   const created = await createDevice({
     hostname,
-    displayName: host?.computerName || hostname,
+    displayName: sourceDraft.displayName.trim() || hostname,
     deviceType: "server",
-    manufacturer: host?.manufacturer,
-    model: host?.model,
+    manufacturer: sourceDraft.manufacturer.trim(),
+    model: sourceDraft.model.trim(),
     status: "unknown",
     placement: "room",
-    cpuCores: host?.logicalProcessors,
-    memoryGb: host?.memoryGb,
+    cpuCores: toNumber(sourceDraft.cpuCores),
+    memoryGb: toNumber(sourceDraft.memoryGb),
     specs,
     tags: ["hyper-v", "imported"],
-    notes: "Imported from Hyper-V inventory collector.",
+    notes: mergeText(
+      "Imported from Hyper-V inventory collector.",
+      sourceDraft.notes,
+    ),
   });
   context.log.push(`Created Hyper-V host ${created.hostname}.`);
   return created;
