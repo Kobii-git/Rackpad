@@ -202,6 +202,7 @@ export async function createApp() {
 
   const publicPaths = new Set([
     '/api/health',
+    '/api/imports/hyperv-collector',
     '/api/auth/status',
     '/api/auth/bootstrap',
     '/api/auth/login',

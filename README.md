@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted infrastructure inventory and operations app for racks, devices, ports, cables, VLANs, IP address management, WiFi, compute, discovery, monitoring, labs, and users.
 
-Current release: `v1.1.1`
+Current release: `v1.1.2`
 
 It is a full-stack app:
 
@@ -252,7 +252,7 @@ cd /opt/rackpad
 sudo curl -fsSLo compose.yml https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml
 sudo tee .env >/dev/null <<'EOF'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=1.1.1
+RACKPAD_TAG=1.1.2
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0

@@ -4,6 +4,17 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [1.1.2] - 2026-05-12
+
+### Fixed
+
+- Hyper-V collector downloads now work from a normal browser click without
+  being blocked by the API authentication guard. The endpoint only serves the
+  static collector script and does not expose inventory data.
+- Hyper-V imports now tolerate PowerShell-exported VLAN and IP list fields that
+  arrive as strings, ranges, or empty objects instead of arrays, preventing the
+  Imports workspace from failing on older collector exports.
+
 ## [1.1.1] - 2026-05-12
 
 ### Changed

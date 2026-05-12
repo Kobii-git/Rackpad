@@ -135,7 +135,7 @@ interface HyperVVlanConfig {
   mode?: string;
   accessVlanId?: number | string | null;
   nativeVlanId?: number | string | null;
-  allowedVlanIds?: Array<number | string>;
+  allowedVlanIds?: Array<number | string> | number | string | null;
   raw?: string;
 }
 
@@ -836,7 +836,9 @@ function VmPreview({
                         </div>
                         <div className="mt-1 text-[var(--text-tertiary)]">
                           {vlanSummary(adapter)} |{" "}
-                          {adapter.ipAddresses?.join(", ") || "no IPs"}
+                          {normalizeStringList(adapter.ipAddresses).join(
+                            ", ",
+                          ) || "no IPs"}
                         </div>
                       </div>
                     ))}
@@ -1303,7 +1305,7 @@ async function importSecondaryIps({
 function vmIps(vm: HyperVVm) {
   const ips = new Set<string>();
   for (const adapter of vm.networkAdapters ?? []) {
-    for (const ip of adapter.ipAddresses ?? []) {
+    for (const ip of normalizeStringList(adapter.ipAddresses)) {
       const value = ip.trim();
       if (isUsableIpv4(value)) ips.add(value);
     }
@@ -1353,23 +1355,57 @@ function portVlanConfig(
 function vlanSummary(adapter: HyperVNetworkAdapter) {
   const vlan = adapter.vlan;
   if (!vlan) return "VLAN unknown";
+  const allowedVlanIds = normalizeStringList(vlan.allowedVlanIds);
   const parts = [
     vlan.mode ? `mode ${vlan.mode}` : "",
     vlan.accessVlanId ? `access ${vlan.accessVlanId}` : "",
     vlan.nativeVlanId ? `native ${vlan.nativeVlanId}` : "",
-    vlan.allowedVlanIds?.length
-      ? `allowed ${vlan.allowedVlanIds.join(",")}`
-      : "",
+    allowedVlanIds.length ? `allowed ${allowedVlanIds.join(",")}` : "",
   ].filter(Boolean);
   return parts.join(" | ") || "untagged";
 }
 
-function parseDiscreteVlanIds(values: Array<number | string>) {
-  return values
-    .map((value) => String(value).trim())
-    .filter((value) => /^\d+$/.test(value))
-    .map(Number)
-    .filter((value) => value >= 1 && value <= 4094);
+function parseDiscreteVlanIds(values: unknown) {
+  return normalizeStringList(values).flatMap((value) => {
+    if (/^\d+$/.test(value)) {
+      const id = Number(value);
+      return id >= 1 && id <= 4094 ? [id] : [];
+    }
+
+    const rangeMatch = value.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (!rangeMatch) return [];
+    const start = Number(rangeMatch[1]);
+    const end = Number(rangeMatch[2]);
+    if (
+      !Number.isInteger(start) ||
+      !Number.isInteger(end) ||
+      start < 1 ||
+      end > 4094 ||
+      end < start
+    ) {
+      return [];
+    }
+
+    // Avoid creating thousands of VLAN records from broad trunk ranges like 1-4094.
+    if (end - start > 64) return [];
+    return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  });
+}
+
+function normalizeStringList(value: unknown): string[] {
+  if (value == null) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => normalizeStringList(entry));
+  }
+  if (typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).flatMap((entry) =>
+      normalizeStringList(entry),
+    );
+  }
+  return String(value)
+    .split(/[,\n;]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry !== "" && entry !== "0");
 }
 
 function toVlanNumber(value: number | string | null | undefined) {

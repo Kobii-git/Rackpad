@@ -1,6 +1,6 @@
 # Rackpad Installation Guide
 
-Current release: `v1.1.1`
+Current release: `v1.1.2`
 
 Rackpad is easiest to run from Docker. You can either pull the published image
 without cloning the repo, or clone the repo and build it yourself.
@@ -15,7 +15,7 @@ without cloning the repo, or clone the repo and build it yourself.
 ## Main Branch Or Version Tag?
 
 - `main` is the stable source branch and is fine for cloning the latest stable code.
-- `RACKPAD_TAG=1.1.1` pins the Docker image to a known release. Git tags use
+- `RACKPAD_TAG=1.1.2` pins the Docker image to a known release. Git tags use
   the `v` prefix, but Docker image tags do not.
 - `beta` is for testing newer changes before they are promoted.
 - For production-style installs, keep `RACKPAD_TAG` pinned and change it only when you intentionally update.
@@ -30,7 +30,7 @@ Rackpad uses this environment file for Docker installs:
 
 ```bash
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=1.1.1
+RACKPAD_TAG=1.1.2
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0
@@ -78,7 +78,7 @@ Create `.env`:
 ```bash
 sudo tee .env >/dev/null <<'EOF'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=1.1.1
+RACKPAD_TAG=1.1.2
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0
@@ -117,7 +117,7 @@ sudo docker compose up --build -d
 To build an exact release instead of current `main`:
 
 ```bash
-sudo git checkout v1.1.1
+sudo git checkout v1.1.2
 sudo docker compose up --build -d
 ```
 
@@ -206,7 +206,7 @@ Invoke-WebRequest `
 ```powershell
 @'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=1.1.1
+RACKPAD_TAG=1.1.2
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0
