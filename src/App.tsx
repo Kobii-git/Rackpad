@@ -1,6 +1,13 @@
-import { Suspense, lazy, type ReactNode } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import {
+  Component,
+  Suspense,
+  lazy,
+  type ErrorInfo,
+  type ReactNode,
+} from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/Button";
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const LabsPage = lazy(() => import("@/pages/LabsPage"));
@@ -167,7 +174,77 @@ export default function App() {
 }
 
 function RouteFrame({ children }: { children: ReactNode }) {
-  return <Suspense fallback={<RouteLoading />}>{children}</Suspense>;
+  const location = useLocation();
+  return (
+    <RouteErrorBoundary routeKey={location.pathname}>
+      <Suspense fallback={<RouteLoading />}>{children}</Suspense>
+    </RouteErrorBoundary>
+  );
+}
+
+interface RouteErrorBoundaryProps {
+  children: ReactNode;
+  routeKey: string;
+}
+
+interface RouteErrorBoundaryState {
+  error: Error | null;
+}
+
+class RouteErrorBoundary extends Component<
+  RouteErrorBoundaryProps,
+  RouteErrorBoundaryState
+> {
+  state: RouteErrorBoundaryState = { error: null };
+
+  static getDerivedStateFromError(error: Error): RouteErrorBoundaryState {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error("Rackpad route failed to render", error, info);
+  }
+
+  componentDidUpdate(previousProps: RouteErrorBoundaryProps) {
+    if (
+      previousProps.routeKey !== this.props.routeKey &&
+      this.state.error !== null
+    ) {
+      this.setState({ error: null });
+    }
+  }
+
+  render() {
+    if (!this.state.error) {
+      return this.props.children;
+    }
+
+    return (
+      <div className="flex flex-1 items-center justify-center px-6">
+        <div className="w-full max-w-lg rounded-[var(--radius-lg)] border border-[var(--danger-border)] bg-[var(--danger-soft)] p-5 text-left shadow-[var(--shadow-elev)]">
+          <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--danger)]">
+            Workspace error
+          </div>
+          <h2 className="mt-2 text-lg font-semibold text-[var(--text-primary)]">
+            This Rackpad workspace could not load.
+          </h2>
+          <p className="mt-2 text-sm text-[var(--text-tertiary)]">
+            The rest of the app is still available. Reloading usually clears a
+            stale browser chunk after an update; if it repeats, the message
+            below tells us exactly where to look.
+          </p>
+          <pre className="mt-3 max-h-36 overflow-auto rounded-[var(--radius-sm)] bg-[rgb(0_0_0_/_0.24)] p-3 font-mono text-[11px] text-[var(--text-secondary)]">
+            {this.state.error.message}
+          </pre>
+          <div className="mt-4 flex justify-end">
+            <Button size="sm" onClick={() => window.location.reload()}>
+              Reload Rackpad
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
 
 function RouteLoading() {

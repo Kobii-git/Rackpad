@@ -63,14 +63,15 @@ interface VisualLink {
   toNode?: VisualNode;
 }
 
-const COLUMN_WIDTH = 260;
-const COLUMN_GAP = 56;
+const COLUMN_WIDTH = 300;
+const COLUMN_GAP = 72;
 const COLUMN_TOP = 28;
 const COLUMN_LEFT = 28;
-const RACK_UNIT_HEIGHT = 14;
-const NODE_HEIGHT = 38;
-const NODE_WIDTH = 214;
-const LOOSE_ROW_HEIGHT = 54;
+const RACK_UNIT_HEIGHT = 16;
+const NODE_HEIGHT = 42;
+const NODE_WIDTH = 248;
+const RACK_NODE_WIDTH = 220;
+const LOOSE_ROW_HEIGHT = 58;
 
 export default function VisualizerView() {
   const lab = useStore((s) => s.lab);
@@ -117,7 +118,7 @@ export default function VisualizerView() {
             devices: looseDevices,
             x: COLUMN_LEFT + rackColumns.length * (COLUMN_WIDTH + COLUMN_GAP),
             y: COLUMN_TOP,
-            height: Math.max(460, looseDevices.length * LOOSE_ROW_HEIGHT + 96),
+            height: Math.max(460, looseDevices.length * LOOSE_ROW_HEIGHT + 112),
           }
         : null;
 
@@ -357,6 +358,12 @@ export default function VisualizerView() {
                   </svg>
 
                   <div className="absolute inset-0 z-30">
+                    {visibleLinks.length === 0 && (
+                      <CanvasEmptyState
+                        cableType={cableType}
+                        hasAnyCables={portLinks.length > 0}
+                      />
+                    )}
                     {model.columns.map((column) => (
                       <RackColumn
                         key={column.id}
@@ -401,18 +408,31 @@ export default function VisualizerView() {
 function buildNodes(columns: VisualColumn[]) {
   const nodes: VisualNode[] = [];
   for (const column of columns) {
-    for (const [index, device] of column.devices.entries()) {
-      const nodeX = column.x + 23;
-      const nodeY =
-        column.kind === "rack" && column.rack && device.startU
-          ? rackDeviceY(column, device)
-          : column.y + 68 + index * LOOSE_ROW_HEIGHT;
-      nodes.push({
+    const planned = column.devices
+      .map((device, index) => ({
         device,
+        index,
+        y:
+          column.kind === "rack" && column.rack && device.startU
+            ? rackDeviceY(column, device)
+            : column.y + 78 + index * LOOSE_ROW_HEIGHT,
+      }))
+      .sort((a, b) => a.y - b.y || a.index - b.index);
+
+    let lastBottom = column.y + 76;
+    for (const entry of planned) {
+      const nodeWidth = column.kind === "rack" ? RACK_NODE_WIDTH : NODE_WIDTH;
+      const nodeX = column.x + (column.kind === "rack" ? 62 : 26);
+      const minY = column.y + 78;
+      const maxY = column.y + column.height - NODE_HEIGHT - 14;
+      const nodeY = clamp(Math.max(entry.y, lastBottom + 6), minY, maxY);
+      lastBottom = nodeY + NODE_HEIGHT;
+      nodes.push({
+        device: entry.device,
         columnId: column.id,
         x: nodeX,
         y: nodeY,
-        width: NODE_WIDTH,
+        width: nodeWidth,
         height: NODE_HEIGHT,
       });
     }
@@ -426,6 +446,10 @@ function rackDeviceY(column: VisualColumn, device: Device) {
   const heightU = device.heightU ?? 1;
   const centerUFromTop = rack.totalU - device.startU - heightU / 2 + 1;
   return column.y + 58 + centerUFromTop * RACK_UNIT_HEIGHT - NODE_HEIGHT / 2;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function RackColumn({
@@ -462,20 +486,37 @@ function RackColumn({
       </div>
 
       {column.kind === "rack" && column.rack && (
-        <div className="absolute bottom-3 left-3 top-20 w-6 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[rgb(0_0_0_/_0.14)]">
-          {Array.from({ length: column.rack.totalU }, (_, index) => {
-            const u = column.rack!.totalU - index;
-            return (
+        <>
+          <div className="absolute bottom-3 left-12 right-3 top-20 overflow-hidden rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[rgb(0_0_0_/_0.10)]">
+            {Array.from({ length: column.rack.totalU }, (_, index) => (
               <div
-                key={u}
-                className="flex items-center justify-center border-b border-[rgb(255_255_255_/_0.025)] font-mono text-[8px] text-[var(--text-muted)] last:border-b-0"
-                style={{ height: RACK_UNIT_HEIGHT }}
-              >
-                {u % 2 === 0 ? u : ""}
-              </div>
-            );
-          })}
-        </div>
+                key={index}
+                className="border-b border-[rgb(255_255_255_/_0.028)] last:border-b-0"
+                style={{
+                  height: RACK_UNIT_HEIGHT,
+                  background:
+                    index % 2 === 0
+                      ? "rgb(255 255 255 / 0.012)"
+                      : "transparent",
+                }}
+              />
+            ))}
+          </div>
+          <div className="absolute bottom-3 left-3 top-20 w-8 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[rgb(0_0_0_/_0.16)]">
+            {Array.from({ length: column.rack.totalU }, (_, index) => {
+              const u = column.rack!.totalU - index;
+              return (
+                <div
+                  key={u}
+                  className="flex items-center justify-center border-b border-[rgb(255_255_255_/_0.025)] font-mono text-[8px] text-[var(--text-muted)] last:border-b-0"
+                  style={{ height: RACK_UNIT_HEIGHT }}
+                >
+                  {u % 2 === 0 ? u : ""}
+                </div>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {nodes.map((node) => (
@@ -509,7 +550,7 @@ function DeviceNode({
     <button
       type="button"
       onClick={onClick}
-      className={`absolute z-40 flex items-center gap-2 rounded-[var(--radius-md)] border px-2.5 py-2 text-left transition-[background-color,border-color,box-shadow,transform] ${
+      className={`absolute z-40 flex items-center gap-2 overflow-hidden rounded-[var(--radius-md)] border px-2.5 py-2 pl-3.5 text-left transition-[background-color,border-color,box-shadow,transform] ${
         selected
           ? "border-[var(--accent-primary-border)] bg-[var(--surface-selected)] shadow-[var(--shadow-selected)]"
           : "border-[var(--border-default)] bg-[var(--surface-2)] hover:-translate-y-px hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]"
@@ -521,6 +562,7 @@ function DeviceNode({
         height: node.height,
       }}
     >
+      <span className="pointer-events-none absolute inset-y-1 left-1 w-0.5 rounded-full bg-[var(--accent-primary)] opacity-75" />
       <DeviceTypeIcon
         type={node.device.deviceType}
         className="size-4 shrink-0 text-[var(--accent-primary)]"
@@ -535,6 +577,34 @@ function DeviceNode({
       </div>
       <StatusDot status={node.device.status} />
     </button>
+  );
+}
+
+function CanvasEmptyState({
+  hasAnyCables,
+  cableType,
+}: {
+  hasAnyCables: boolean;
+  cableType: string;
+}) {
+  return (
+    <div className="absolute bottom-5 right-5 z-50 w-80 rounded-[var(--radius-lg)] border border-dashed border-[var(--border-default)] bg-[color-mix(in_srgb,var(--surface-1)_88%,transparent)] p-4 shadow-[var(--shadow-card)]">
+      <div className="flex items-start gap-3">
+        <div className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-md)] border border-[var(--accent-secondary-border)] bg-[var(--accent-secondary-soft)] text-[var(--accent-secondary)]">
+          <Cable className="size-4" />
+        </div>
+        <div>
+          <div className="text-sm font-semibold text-[var(--text-primary)]">
+            {hasAnyCables ? "No cables match this view" : "No cable paths yet"}
+          </div>
+          <div className="mt-1 text-xs leading-5 text-[var(--text-tertiary)]">
+            {hasAnyCables
+              ? `The ${cableType} filter is hiding every documented cable. Switch back to all cable types or pick another filter.`
+              : "Add cable links in the Cables workspace and Rackpad will draw the physical paths here."}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

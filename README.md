@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted infrastructure inventory and operations app for racks, devices, ports, cables, VLANs, IP address management, WiFi, compute, discovery, monitoring, labs, and users.
 
-Current release: `v1.1.0`
+Current release: `v1.1.1`
 
 It is a full-stack app:
 
@@ -33,28 +33,28 @@ These are live captures from the working Rackpad demo environment, embedded dire
 
 ### Overview and physical inventory
 
-| Dashboard | Racks |
-| --- | --- |
+| Dashboard                                              | Racks                                               |
+| ------------------------------------------------------ | --------------------------------------------------- |
 | ![Rackpad dashboard](./docs/screenshots/dashboard.png) | ![Rackpad racks view](./docs/screenshots/racks.png) |
 
-| Devices | Ports |
-| --- | --- |
+| Devices                                                      | Ports                                                            |
+| ------------------------------------------------------------ | ---------------------------------------------------------------- |
 | ![Rackpad devices inventory](./docs/screenshots/devices.png) | ![Rackpad ports and patching view](./docs/screenshots/ports.png) |
 
 ### Operations, compute, and wireless
 
-| Monitoring | Compute |
-| --- | --- |
+| Monitoring                                                         | Compute                                                      |
+| ------------------------------------------------------------------ | ------------------------------------------------------------ |
 | ![Rackpad monitoring workspace](./docs/screenshots/monitoring.png) | ![Rackpad compute workspace](./docs/screenshots/compute.png) |
 
-| WiFi | Discovery |
-| --- | --- |
+| WiFi                                                   | Discovery                                                        |
+| ------------------------------------------------------ | ---------------------------------------------------------------- |
 | ![Rackpad WiFi workspace](./docs/screenshots/wifi.png) | ![Rackpad discovery workspace](./docs/screenshots/discovery.png) |
 
 ### Network and address management
 
-| IPAM |
-| --- |
+| IPAM                                                   |
+| ------------------------------------------------------ |
 | ![Rackpad IPAM workspace](./docs/screenshots/ipam.png) |
 
 These are enough to see the app before installing it, and the full screenshot set used for GitHub previews lives in [`docs/screenshots`](./docs/screenshots).
@@ -252,7 +252,7 @@ cd /opt/rackpad
 sudo curl -fsSLo compose.yml https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml
 sudo tee .env >/dev/null <<'EOF'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=v1.1.0
+RACKPAD_TAG=1.1.1
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0

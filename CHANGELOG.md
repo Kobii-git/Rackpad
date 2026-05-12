@@ -4,6 +4,25 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [1.1.1] - 2026-05-12
+
+### Changed
+
+- Docker image defaults and install examples now use GHCR tags without the Git
+  tag `v` prefix, matching the published package names.
+- The Visualizer canvas now handles low-cable states more clearly and reduces
+  rack-device overlap in dense U positions.
+
+### Added
+
+- Hyper-V import now includes a direct collector download action from the
+  Imports workspace.
+
+### Fixed
+
+- Route-level render failures now show a recoverable workspace error card
+  instead of a blank screen.
+
 ## [1.1.0] - 2026-05-12
 
 ### Added

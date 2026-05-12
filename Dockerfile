@@ -36,6 +36,7 @@ RUN apt-get update \
 COPY --from=prod-deps --chown=rackpad:rackpad /app/node_modules ./node_modules
 COPY --from=build --chown=rackpad:rackpad /app/dist ./dist
 COPY --from=build --chown=rackpad:rackpad /app/dist-server ./dist-server
+COPY --from=build --chown=rackpad:rackpad /app/scripts/collect-hyperv.ps1 ./scripts/collect-hyperv.ps1
 # package.json is read at runtime by admin/export to embed the app version in backups
 COPY --from=build --chown=rackpad:rackpad /app/package.json ./package.json
 

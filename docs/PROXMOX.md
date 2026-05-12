@@ -60,7 +60,7 @@ The script defaults to the current release. To install a specific tag:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Kobii-git/Rackpad/main/scripts/install-docker.sh -o /tmp/install-rackpad.sh
-RACKPAD_TAG=v1.0.1 bash /tmp/install-rackpad.sh
+RACKPAD_TAG=1.1.1 bash /tmp/install-rackpad.sh
 ```
 
 For a custom port:

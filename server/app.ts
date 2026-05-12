@@ -2,7 +2,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import staticPlugin from '@fastify/static'
 import path from 'node:path'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { authRoutes } from './routes/auth.js'
 import { usersRoutes } from './routes/users.js'
@@ -24,6 +24,7 @@ import { ValidationError } from './lib/validation.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DIST_DIR = path.resolve(__dirname, '../dist')
+const HYPERV_COLLECTOR_PATH = path.resolve(__dirname, '../scripts/collect-hyperv.ps1')
 const DEV_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173'])
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -185,6 +186,19 @@ export async function createApp() {
   })
 
   app.get('/api/health', async () => ({ ok: true }))
+  app.get('/api/imports/hyperv-collector', async (_req, reply) => {
+    if (!existsSync(HYPERV_COLLECTOR_PATH)) {
+      reply.status(404).send({
+        error: 'Hyper-V collector script is not available in this build.',
+      })
+      return
+    }
+
+    reply
+      .header('Content-Type', 'text/plain; charset=utf-8')
+      .header('Content-Disposition', 'attachment; filename="collect-hyperv.ps1"')
+      .send(readFileSync(HYPERV_COLLECTOR_PATH, 'utf8'))
+  })
 
   const publicPaths = new Set([
     '/api/health',

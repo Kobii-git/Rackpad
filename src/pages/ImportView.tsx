@@ -1,6 +1,7 @@
 import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import {
   CheckCircle2,
+  DownloadCloud,
   FileJson,
   HardDrive,
   Network,
@@ -183,6 +184,7 @@ const VLAN_COLORS = [
 ];
 
 const IPV4_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+const HYPERV_COLLECTOR_URL = "/api/imports/hyperv-collector";
 
 export default function ImportView() {
   const currentUser = useStore((s) => s.currentUser);
@@ -405,10 +407,27 @@ export default function ImportView() {
                   here. Rackpad will stage the host, virtual switches, VMs,
                   virtual NICs, VLAN settings, specs, and IPs before importing.
                 </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button asChild variant="outline" size="sm">
+                    <a
+                      href={HYPERV_COLLECTOR_URL}
+                      download="collect-hyperv.ps1"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <DownloadCloud className="size-3.5" />
+                      Download collector
+                    </a>
+                  </Button>
+                  <span className="text-xs text-[var(--text-tertiary)]">
+                    Save it on the Hyper-V host, run it in PowerShell, then
+                    upload the generated JSON here.
+                  </span>
+                </div>
                 <div className="rk-panel-inset rounded-[var(--radius-md)] p-3">
                   <div className="rk-kicker">Collector command</div>
                   <pre className="mt-2 overflow-x-auto rounded-[var(--radius-sm)] bg-[rgb(0_0_0_/_0.22)] p-3 font-mono text-[11px] text-[var(--text-secondary)]">
-                    {`powershell -ExecutionPolicy Bypass -File .\\scripts\\collect-hyperv.ps1 -OutputPath .\\rackpad-hyperv-inventory.json -IncludeHostAdapters`}
+                    {`powershell -ExecutionPolicy Bypass -File .\\collect-hyperv.ps1 -OutputPath .\\rackpad-hyperv-inventory.json -IncludeHostAdapters`}
                   </pre>
                 </div>
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]">
@@ -666,8 +685,7 @@ function VmPreview({
             (ipConflict.deviceId === existing.id ||
               ipConflict.vmId === existing.id);
           const osFamily =
-            draft.osFamily ||
-            inferGuestOsFamily(draft.osName, guest.osVersion);
+            draft.osFamily || inferGuestOsFamily(draft.osName, guest.osVersion);
           return (
             <div
               key={draft.key}
