@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted infrastructure inventory and operations app for racks, devices, ports, cables, VLANs, IP address management, WiFi, compute, discovery, monitoring, labs, and users.
 
-Current release: `v1.0.1`
+Current release: `v1.1.0`
 
 It is a full-stack app:
 
@@ -19,6 +19,9 @@ If `rackpad.co.za` is unavailable, the repo still contains the core material you
 
 - [Installation guide](./INSTALL.md)
 - [Proxmox install notes](./docs/PROXMOX.md)
+- [Hyper-V import guide](./docs/HYPERV_IMPORT.md)
+- [Reports guide](./docs/REPORTS.md)
+- [Visualizer guide](./docs/VISUALIZER.md)
 - [Security policy](./SECURITY.md)
 - [Changelog](./CHANGELOG.md)
 - [MIT license](./LICENSE)
@@ -69,6 +72,9 @@ From the GitHub repo alone, you can already preview the major Rackpad workspaces
 - Discovery for staged imports, MAC/vendor hints, and duplicate detection
 - Monitoring for multi-target ICMP, TCP, HTTP, and HTTPS checks
 - IPAM for subnets, DHCP scopes, IP zones, and linked assignments
+- Imports for review-first Hyper-V host and VM onboarding
+- Reports for printable/PDF, Excel-compatible, and CSV exports
+- Visualizer for rack, loose-room, port, and cable relationship maps
 
 ## What works
 
@@ -98,9 +104,20 @@ From the GitHub repo alone, you can already preview the major Rackpad workspaces
 - Device health-check configuration, alert destinations, repeat-alert controls, and on-demand monitor runs
 - Multiple monitor targets per device so servers, firewalls, and multi-NIC systems can track separate management, service, storage, or VIP endpoints
 - SMTP/email alert delivery beside Discord and Telegram, plus recent alert activity in the admin area
+- Reports workspace with printable/PDF-friendly inventory summaries plus Excel-compatible and CSV exports
+- Visualizer workspace for rack, room-tech, port, and cable relationship mapping
+- Hyper-V import wizard for staging hosts, VMs, power state, guest OS, virtual switches, virtual NICs, VLANs, IPs, CPU, memory, and disk data from a local PowerShell export
 - Expanded demo data with multiple labs, discovery states, custom templates, multi-target monitors, room tech, compute, and WiFi examples
 - Production build of the frontend and backend
 - Docker packaging for the frontend + API together
+
+## Feature guides
+
+Use these when you want the workflow steps rather than just the overview:
+
+- [Hyper-V import](./docs/HYPERV_IMPORT.md): collect inventory on a Hyper-V host, upload it to Rackpad, review VMs, and import selected categories.
+- [Reports](./docs/REPORTS.md): generate a clean inventory report, print/save to PDF, and export CSV or Excel-compatible files.
+- [Visualizer](./docs/VISUALIZER.md): inspect rack, loose-room, port, and cable relationships from existing Rackpad data.
 
 ## Versioning
 
@@ -124,7 +141,7 @@ Recommended workflow:
 
 - test new work from `beta`
 - merge validated fixes and features into `main`
-- create version tags like `v1.0.1` from `main`
+- create version tags like `v1.1.0` from `main`
 
 If you want the newest testing build instead of the latest stable tag:
 
@@ -235,7 +252,7 @@ cd /opt/rackpad
 sudo curl -fsSLo compose.yml https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml
 sudo tee .env >/dev/null <<'EOF'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=v1.0.1
+RACKPAD_TAG=v1.1.0
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0

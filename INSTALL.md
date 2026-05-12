@@ -1,6 +1,6 @@
 # Rackpad Installation Guide
 
-Current release: `v1.0.1`
+Current release: `v1.1.0`
 
 Rackpad is easiest to run from Docker. You can either pull the published image
 without cloning the repo, or clone the repo and build it yourself.
@@ -15,7 +15,7 @@ without cloning the repo, or clone the repo and build it yourself.
 ## Main Branch Or Version Tag?
 
 - `main` is the stable source branch and is fine for cloning the latest stable code.
-- `RACKPAD_TAG=v1.0.1` pins the Docker image to a known release.
+- `RACKPAD_TAG=v1.1.0` pins the Docker image to a known release.
 - `beta` is for testing newer changes before they are promoted.
 - For production-style installs, keep `RACKPAD_TAG` pinned and change it only when you intentionally update.
 
@@ -29,7 +29,7 @@ Rackpad uses this environment file for Docker installs:
 
 ```bash
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=v1.0.1
+RACKPAD_TAG=v1.1.0
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0
@@ -77,7 +77,7 @@ Create `.env`:
 ```bash
 sudo tee .env >/dev/null <<'EOF'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=v1.0.1
+RACKPAD_TAG=v1.1.0
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0
@@ -116,7 +116,7 @@ sudo docker compose up --build -d
 To build an exact release instead of current `main`:
 
 ```bash
-sudo git checkout v1.0.1
+sudo git checkout v1.1.0
 sudo docker compose up --build -d
 ```
 
@@ -205,7 +205,7 @@ Invoke-WebRequest `
 ```powershell
 @'
 RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
-RACKPAD_TAG=v1.0.1
+RACKPAD_TAG=v1.1.0
 RACKPAD_PORT=3000
 MONITOR_INTERVAL_MS=300000
 TRUST_PROXY=0
@@ -255,6 +255,51 @@ Tools or use Docker Desktop instead.
 2. Create the first admin account.
 3. Choose empty setup or demo data.
 4. Start adding racks, devices, VLANs, IPAM, monitoring, WiFi, and compute data.
+
+## After Install: Common Workflows
+
+### Import Hyper-V Inventory
+
+Use this when you have a Hyper-V host and want Rackpad to stage VMs, vNICs,
+VLANs, IPs, power state, guest OS, CPU, memory, and disk data before importing.
+
+1. Download or copy [scripts/collect-hyperv.ps1](./scripts/collect-hyperv.ps1)
+   to the Hyper-V host.
+2. Open PowerShell as Administrator on the Hyper-V host.
+3. Run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\collect-hyperv.ps1 -OutputPath .\rackpad-hyperv-inventory.json -IncludeHostAdapters
+```
+
+4. Open Rackpad -> `Imports`.
+5. Upload `rackpad-hyperv-inventory.json`.
+6. Review the wizard, correct missing fields, select the categories to import,
+   then click `Import selected`.
+
+Full details: [docs/HYPERV_IMPORT.md](./docs/HYPERV_IMPORT.md)
+
+### Export Reports
+
+Open Rackpad -> `Reports`.
+
+Use:
+
+- `Print / PDF` to open the browser print dialog and save a polished PDF.
+- `Excel workbook` to download an Excel-compatible multi-sheet workbook.
+- `Full CSV` or section CSV buttons for spreadsheet-friendly raw data.
+
+Full details: [docs/REPORTS.md](./docs/REPORTS.md)
+
+### View Rack And Cable Relationships
+
+Open Rackpad -> `Visualizer`.
+
+Use it to inspect rack-mounted gear, loose room equipment, linked ports, cable
+paths, and connected device context. The visualizer is generated from existing
+Rackpad inventory, so add devices, ports, and cables first.
+
+Full details: [docs/VISUALIZER.md](./docs/VISUALIZER.md)
 
 ## Update Rackpad
 
@@ -329,7 +374,7 @@ Your proxy should pass:
 ### Direct URLs return JSON errors
 
 If `/cables`, `/compute`, or `/ipam` returns JSON instead of the app, update to
-`v1.0.1` or newer and restart the container.
+a current release and restart the container.
 
 ### Check Container Status
 

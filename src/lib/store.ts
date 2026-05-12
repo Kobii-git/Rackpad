@@ -1358,7 +1358,9 @@ export async function createVirtualSwitchRecord(input: {
     virtualSwitches: sortVirtualSwitches([...prev.virtualSwitches, created]),
   }));
 
-  const host = state.devices.find((device) => device.id === created.hostDeviceId);
+  const host = state.devices.find(
+    (device) => device.id === created.hostDeviceId,
+  );
   void recordAudit(
     "virtual.switch.create",
     "VirtualSwitch",
@@ -1373,7 +1375,9 @@ export async function updateVirtualSwitchRecord(
   id: string,
   changes: VirtualSwitchPatch,
 ): Promise<VirtualSwitch | null> {
-  const existing = state.virtualSwitches.find((virtualSwitch) => virtualSwitch.id === id);
+  const existing = state.virtualSwitches.find(
+    (virtualSwitch) => virtualSwitch.id === id,
+  );
   if (!existing) return null;
 
   const updated = await api.updateVirtualSwitch(id, changes);
@@ -1397,7 +1401,9 @@ export async function updateVirtualSwitchRecord(
 }
 
 export async function deleteVirtualSwitchRecord(id: string): Promise<boolean> {
-  const existing = state.virtualSwitches.find((virtualSwitch) => virtualSwitch.id === id);
+  const existing = state.virtualSwitches.find(
+    (virtualSwitch) => virtualSwitch.id === id,
+  );
   if (!existing) return false;
 
   await api.deleteVirtualSwitch(id);
@@ -1407,9 +1413,7 @@ export async function deleteVirtualSwitchRecord(id: string): Promise<boolean> {
       (virtualSwitch) => virtualSwitch.id !== id,
     ),
     ports: prev.ports.map((port) =>
-      port.virtualSwitchId === id
-        ? { ...port, virtualSwitchId: null }
-        : port,
+      port.virtualSwitchId === id ? { ...port, virtualSwitchId: null } : port,
     ),
   }));
 
@@ -1963,6 +1967,27 @@ export async function allocateIp(
   return created;
 }
 
+export async function createIpAssignmentRecord(
+  input: Omit<IpAssignment, "id">,
+): Promise<IpAssignment> {
+  const created = await api.createIpAssignment(input);
+  const subnet = state.subnets.find((entry) => entry.id === input.subnetId);
+
+  setState((prev) => ({
+    ...prev,
+    ipAssignments: replaceById(prev.ipAssignments, created, sortIpAssignments),
+  }));
+
+  void recordAudit(
+    "ip.import",
+    "IpAssignment",
+    created.id,
+    `Imported ${created.ipAddress} for ${created.hostname ?? "Hyper-V inventory"} in ${subnet?.name ?? "subnet"}`,
+  );
+
+  return created;
+}
+
 export async function unassignIp(id: string): Promise<boolean> {
   const assignment = state.ipAssignments.find((entry) => entry.id === id);
   if (!assignment) return false;
@@ -2028,6 +2053,32 @@ export async function allocateVlan(
     "Vlan",
     created.id,
     `Created VLAN ${vlanId} (${input.name}) in ${range?.name ?? "range"}`,
+  );
+
+  return created;
+}
+
+export async function createVlanRecord(
+  input: Omit<Vlan, "id" | "labId">,
+): Promise<Vlan> {
+  const created = await api.createVlan({
+    labId: state.lab.id,
+    vlanId: input.vlanId,
+    name: input.name,
+    description: input.description,
+    color: input.color,
+  });
+
+  setState((prev) => ({
+    ...prev,
+    vlans: sortVlans([...prev.vlans, created]),
+  }));
+
+  void recordAudit(
+    "vlan.import",
+    "Vlan",
+    created.id,
+    `Imported VLAN ${created.vlanId} (${created.name})`,
   );
 
   return created;

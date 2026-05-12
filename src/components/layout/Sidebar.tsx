@@ -15,6 +15,9 @@ import {
   Wifi,
   Cpu,
   Activity,
+  FileText,
+  Route,
+  UploadCloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { selectLab, useStore } from "@/lib/store";
@@ -28,11 +31,14 @@ const baseNavItems = [
   { to: "/compute", icon: Cpu, label: "Compute" },
   { to: "/wifi", icon: Wifi, label: "WiFi" },
   { to: "/discovery", icon: Search, label: "Discovery" },
+  { to: "/imports", icon: UploadCloud, label: "Imports" },
   { to: "/monitoring", icon: Activity, label: "Monitoring" },
   { to: "/ports", icon: Cable, label: "Ports" },
   { to: "/cables", icon: Workflow, label: "Cables" },
   { to: "/vlans", icon: Hash, label: "VLANs" },
   { to: "/ipam", icon: Network, label: "IPAM" },
+  { to: "/reports", icon: FileText, label: "Reports" },
+  { to: "/visualizer", icon: Route, label: "Visualizer" },
 ] as const;
 
 interface SidebarProps {

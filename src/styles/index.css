@@ -612,3 +612,86 @@
 .animate-pulse-slow {
   animation: pulse-slow 2.4s ease-in-out infinite;
 }
+
+@media print {
+  @page {
+    margin: 14mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  aside,
+  header,
+  .reports-actions,
+  .bg-grid,
+  .rk-page-ambient::before {
+    display: none !important;
+  }
+
+  main,
+  .rk-page-ambient,
+  .rk-page-ambient > div,
+  .reports-page {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  .reports-page {
+    padding: 0 !important;
+  }
+
+  .reports-page * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .reports-page .rk-panel,
+  .reports-page .rk-panel-inset,
+  .reports-page .rk-table-shell,
+  .reports-page .reports-section,
+  .reports-page .reports-hero {
+    break-inside: avoid;
+    border-color: #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  .reports-page,
+  .reports-page h1,
+  .reports-page h2,
+  .reports-page h3,
+  .reports-page td,
+  .reports-page th,
+  .reports-page p,
+  .reports-page span,
+  .reports-page div {
+    color: #111827 !important;
+  }
+
+  .reports-page .rk-kicker,
+  .reports-page .rk-meta,
+  .reports-page .rk-empty-copy {
+    color: #475569 !important;
+  }
+
+  .reports-page .rk-table thead tr {
+    background: #f1f5f9 !important;
+  }
+
+  .reports-page .rk-table tbody tr:nth-child(even) {
+    background: #f8fafc !important;
+  }
+}

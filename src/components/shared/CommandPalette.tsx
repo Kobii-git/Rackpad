@@ -19,6 +19,9 @@ import {
   X,
   ChevronRight,
   Activity,
+  FileText,
+  Route,
+  UploadCloud,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -68,6 +71,14 @@ const PAGES: SearchResult[] = [
     Icon: Activity,
   },
   {
+    id: "p-imports",
+    group: "Pages",
+    title: "Imports",
+    subtitle: "Hyper-V import wizard",
+    href: "/imports",
+    Icon: UploadCloud,
+  },
+  {
     id: "p-ports",
     group: "Pages",
     title: "Ports",
@@ -84,6 +95,14 @@ const PAGES: SearchResult[] = [
     Icon: Workflow,
   },
   {
+    id: "p-visualizer",
+    group: "Pages",
+    title: "Visualizer",
+    subtitle: "Rack cable map",
+    href: "/visualizer",
+    Icon: Route,
+  },
+  {
     id: "p-vlans",
     group: "Pages",
     title: "VLANs",
@@ -98,6 +117,14 @@ const PAGES: SearchResult[] = [
     subtitle: "Address management",
     href: "/ipam",
     Icon: Network,
+  },
+  {
+    id: "p-reports",
+    group: "Pages",
+    title: "Reports",
+    subtitle: "Export and print",
+    href: "/reports",
+    Icon: FileText,
   },
 ];
 

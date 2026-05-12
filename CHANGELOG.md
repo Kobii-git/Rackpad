@@ -4,6 +4,15 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [1.1.0] - 2026-05-12
+
+### Added
+
+- Reports workspace with a live inventory summary, printable/PDF-friendly report layout, Excel workbook export, and CSV exports for full report data, devices, ports/cables, IPAM, monitoring, and WiFi.
+- Visualizer workspace that maps rack, loose-room, port, and cable relationships from existing inventory data with selectable cable paths and device context.
+- Hyper-V import wizard and local PowerShell collector for staging host, VM, power state, guest OS, virtual switch, virtual NIC, VLAN, IP, CPU, memory, and disk details before importing selected records.
+- Hyper-V guest OS inference for Linux VMs that expose a kernel version but no distro name through integration services.
+
 ## [1.0.1] - 2026-05-12
 
 ### Added

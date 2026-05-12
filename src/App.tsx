@@ -10,11 +10,14 @@ const DeviceDetail = lazy(() => import("@/pages/DeviceDetail"));
 const ComputeView = lazy(() => import("@/pages/ComputeView"));
 const WifiView = lazy(() => import("@/pages/WifiView"));
 const DiscoveryView = lazy(() => import("@/pages/DiscoveryView"));
+const ImportView = lazy(() => import("@/pages/ImportView"));
 const MonitoringView = lazy(() => import("@/pages/MonitoringView"));
 const PortView = lazy(() => import("@/pages/PortView"));
 const CableView = lazy(() => import("@/pages/CableView"));
 const VlansView = lazy(() => import("@/pages/VlansView"));
 const IpamView = lazy(() => import("@/pages/IpamView"));
+const ReportsView = lazy(() => import("@/pages/ReportsView"));
+const VisualizerView = lazy(() => import("@/pages/VisualizerView"));
 const UsersPage = lazy(() => import("@/pages/UsersPage"));
 
 export default function App() {
@@ -86,6 +89,14 @@ export default function App() {
           }
         />
         <Route
+          path="/imports"
+          element={
+            <RouteFrame>
+              <ImportView />
+            </RouteFrame>
+          }
+        />
+        <Route
           path="/monitoring"
           element={
             <RouteFrame>
@@ -122,6 +133,22 @@ export default function App() {
           element={
             <RouteFrame>
               <IpamView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <RouteFrame>
+              <ReportsView />
+            </RouteFrame>
+          }
+        />
+        <Route
+          path="/visualizer"
+          element={
+            <RouteFrame>
+              <VisualizerView />
             </RouteFrame>
           }
         />

@@ -1,0 +1,1568 @@
+import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import {
+  CheckCircle2,
+  FileJson,
+  HardDrive,
+  Network,
+  Server,
+  Upload,
+} from "lucide-react";
+import { TopBar } from "@/components/layout/TopBar";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardHeading,
+  CardLabel,
+  CardTitle,
+} from "@/components/ui/Card";
+import { Input } from "@/components/ui/Input";
+import { Mono } from "@/components/shared/Mono";
+import {
+  canEditInventory,
+  createDevice,
+  createIpAssignmentRecord,
+  createPortRecord,
+  createVirtualSwitchRecord,
+  createVlanRecord,
+  updateDevice,
+  updatePort,
+  updateVirtualSwitchRecord,
+  useStore,
+} from "@/lib/store";
+import type {
+  Device,
+  DeviceStatus,
+  IpAssignment,
+  Port,
+  Subnet,
+  Vlan,
+  VirtualSwitch,
+} from "@/lib/types";
+import { cidrSize, cn, ipToInt } from "@/lib/utils";
+
+interface HyperVPayload {
+  schema?: string;
+  collectedAt?: string;
+  host?: HyperVHost;
+  switches?: HyperVSwitch[];
+  hostAdapters?: HyperVHostAdapter[];
+  vms?: HyperVVm[];
+}
+
+interface HyperVHost {
+  computerName?: string;
+  fqdn?: string;
+  manufacturer?: string;
+  model?: string;
+  logicalProcessors?: number;
+  memoryGb?: number;
+  osCaption?: string;
+  osVersion?: string;
+}
+
+interface HyperVHostAdapter {
+  name?: string;
+  interfaceDescription?: string;
+  macAddress?: string;
+  status?: string;
+  linkSpeed?: string;
+  ipAddresses?: string[];
+}
+
+interface HyperVSwitch {
+  id?: string;
+  name?: string;
+  kind?: string;
+  notes?: string | null;
+  netAdapterInterfaceDescription?: string | null;
+  netAdapterName?: string | null;
+  allowManagementOS?: boolean | null;
+}
+
+interface HyperVGuestInfo {
+  kvpAvailable?: boolean;
+  osName?: string | null;
+  osVersion?: string | null;
+  osBuildNumber?: string | null;
+  computerName?: string | null;
+  fullyQualifiedDomainName?: string | null;
+  integrationServicesVersion?: string | null;
+  error?: string | null;
+}
+
+interface HyperVVm {
+  id?: string;
+  name?: string;
+  state?: string;
+  generation?: number;
+  version?: string;
+  processorCount?: number;
+  memoryAssignedGb?: number | null;
+  memoryStartupGb?: number | null;
+  dynamicMemoryEnabled?: boolean;
+  storageGb?: number | null;
+  disks?: HyperVDisk[];
+  networkAdapters?: HyperVNetworkAdapter[];
+  guest?: HyperVGuestInfo | null;
+  guestOsName?: string | null;
+  guestOsVersion?: string | null;
+  notes?: string | null;
+}
+
+interface HyperVDisk {
+  path?: string;
+  controllerType?: string;
+  sizeGb?: number | null;
+  vhdType?: string | null;
+}
+
+interface HyperVNetworkAdapter {
+  id?: string;
+  name?: string;
+  switchName?: string | null;
+  macAddress?: string | null;
+  status?: string;
+  connected?: boolean;
+  ipAddresses?: string[];
+  vlan?: HyperVVlanConfig;
+}
+
+interface HyperVVlanConfig {
+  mode?: string;
+  accessVlanId?: number | string | null;
+  nativeVlanId?: number | string | null;
+  allowedVlanIds?: Array<number | string>;
+  raw?: string;
+}
+
+interface ImportOptions {
+  host: boolean;
+  vms: boolean;
+  specs: boolean;
+  ips: boolean;
+  networks: boolean;
+  ports: boolean;
+  vlans: boolean;
+}
+
+interface VmDraft {
+  key: string;
+  source: HyperVVm;
+  include: boolean;
+  hostname: string;
+  displayName: string;
+  managementIp: string;
+  osFamily: string;
+  osName: string;
+  cpuCores: string;
+  memoryGb: string;
+  storageGb: string;
+  notes: string;
+}
+
+const DEFAULT_OPTIONS: ImportOptions = {
+  host: true,
+  vms: true,
+  specs: true,
+  ips: true,
+  networks: true,
+  ports: true,
+  vlans: true,
+};
+
+const VLAN_COLORS = [
+  "#6a9bd4",
+  "#6abf69",
+  "#d4a13c",
+  "#d46060",
+  "#b574d4",
+  "#4fc3d7",
+];
+
+const IPV4_RE = /^(25[0-5]|2[0-4]\d|1?\d?\d)(\.(25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+
+export default function ImportView() {
+  const currentUser = useStore((s) => s.currentUser);
+  const lab = useStore((s) => s.lab);
+  const devices = useStore((s) => s.devices);
+  const ports = useStore((s) => s.ports);
+  const virtualSwitches = useStore((s) => s.virtualSwitches);
+  const vlans = useStore((s) => s.vlans);
+  const subnets = useStore((s) => s.subnets);
+  const ipAssignments = useStore((s) => s.ipAssignments);
+  const canEdit = canEditInventory(currentUser);
+  const [payload, setPayload] = useState<HyperVPayload | null>(null);
+  const [vmDrafts, setVmDrafts] = useState<VmDraft[]>([]);
+  const [options, setOptions] = useState<ImportOptions>(DEFAULT_OPTIONS);
+  const [parseError, setParseError] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [importLog, setImportLog] = useState<string[]>([]);
+
+  const devicesByHostname = useMemo(() => {
+    return devices.reduce<Record<string, Device>>((acc, device) => {
+      acc[device.hostname.trim().toLowerCase()] = device;
+      if (device.displayName) {
+        acc[device.displayName.trim().toLowerCase()] = device;
+      }
+      return acc;
+    }, {});
+  }, [devices]);
+
+  const vlanByNumber = useMemo(() => {
+    return vlans.reduce<Record<number, Vlan>>((acc, vlan) => {
+      acc[vlan.vlanId] = vlan;
+      return acc;
+    }, {});
+  }, [vlans]);
+
+  const summary = useMemo(() => {
+    if (!payload) return null;
+    const selectedVms = vmDrafts.filter((draft) => draft.include);
+    const vlanIds = new Set<number>();
+    for (const draft of selectedVms) {
+      for (const adapter of draft.source.networkAdapters ?? []) {
+        for (const id of vlanIdsFromAdapter(adapter)) {
+          vlanIds.add(id);
+        }
+      }
+    }
+    const ipCount = selectedVms.reduce(
+      (sum, draft) => sum + vmIps(draft.source).length,
+      0,
+    );
+    return {
+      selectedVms: selectedVms.length,
+      switches: payload.switches?.length ?? 0,
+      vlanIds: [...vlanIds].sort((a, b) => a - b),
+      ips: ipCount,
+      existingMatches: selectedVms.filter(
+        (draft) => devicesByHostname[draft.hostname.trim().toLowerCase()],
+      ).length,
+    };
+  }, [devicesByHostname, payload, vmDrafts]);
+
+  async function handleFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setParseError("");
+    setImportLog([]);
+
+    try {
+      const parsed = JSON.parse(await file.text()) as HyperVPayload;
+      if (!Array.isArray(parsed.vms)) {
+        throw new Error(
+          "This file does not look like a Rackpad Hyper-V inventory export.",
+        );
+      }
+      setPayload(parsed);
+      setVmDrafts(parsed.vms.map(vmToDraft));
+    } catch (error) {
+      setPayload(null);
+      setVmDrafts([]);
+      setParseError(
+        error instanceof Error ? error.message : "Failed to parse JSON file.",
+      );
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function handleImport() {
+    if (!payload || !canEdit) return;
+    setImporting(true);
+    setImportLog([]);
+
+    const log: string[] = [];
+    const localPortsByDeviceId = groupPortsByDevice(ports);
+    const localIpKeys = new Set(
+      ipAssignments.map((entry) => `${entry.subnetId}|${entry.ipAddress}`),
+    );
+
+    try {
+      const hostDevice = options.host
+        ? await upsertHost(payload, {
+            devicesByHostname,
+            log,
+          })
+        : findExistingHost(payload, devicesByHostname);
+
+      const vlanMap = await ensureVlans({
+        enabled: options.vlans,
+        drafts: vmDrafts.filter((draft) => draft.include),
+        existing: vlanByNumber,
+        log,
+      });
+
+      const switchMap = await ensureSwitches({
+        enabled: options.networks,
+        payload,
+        hostDevice,
+        existingSwitches: virtualSwitches,
+        log,
+      });
+
+      if (options.vms) {
+        for (const draft of vmDrafts.filter((entry) => entry.include)) {
+          const device = await upsertVmDevice({
+            draft,
+            hostDevice,
+            devicesByHostname,
+            ipAssignments,
+            subnets,
+            options,
+            log,
+          });
+
+          if (options.ports) {
+            await upsertVmPorts({
+              draft,
+              device,
+              currentPorts: localPortsByDeviceId[device.id] ?? [],
+              vlanMap,
+              switchMap,
+              log,
+            }).then((nextPorts) => {
+              localPortsByDeviceId[device.id] = nextPorts;
+            });
+          }
+
+          if (options.ips) {
+            await importSecondaryIps({
+              draft,
+              device,
+              subnets,
+              existingKeys: localIpKeys,
+              log,
+            });
+          }
+        }
+      }
+
+      setImportLog(log.length > 0 ? log : ["No changes were needed."]);
+    } catch (error) {
+      setImportLog([
+        ...log,
+        `Import stopped: ${error instanceof Error ? error.message : "Unknown error."}`,
+      ]);
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function setDraftValue(key: string, changes: Partial<VmDraft>) {
+    setVmDrafts((current) =>
+      current.map((draft) =>
+        draft.key === key ? { ...draft, ...changes } : draft,
+      ),
+    );
+  }
+
+  return (
+    <>
+      <TopBar
+        subtitle="Import tools"
+        title="Imports"
+        meta={
+          <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--color-fg-subtle)]">
+            {lab.name} | Hyper-V first-pass importer
+          </span>
+        }
+        actions={
+          <Button
+            variant="default"
+            size="sm"
+            disabled={!payload || importing || !canEdit}
+            onClick={() => void handleImport()}
+          >
+            <CheckCircle2 className="size-3.5" />
+            {importing ? "Importing..." : "Import selected"}
+          </Button>
+        }
+      />
+
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <div className="mx-auto max-w-7xl space-y-5">
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Hyper-V collector</CardLabel>
+                <CardHeading>
+                  Upload inventory JSON from a Hyper-V host
+                </CardHeading>
+              </CardTitle>
+              <Badge tone="cyan">
+                <FileJson className="size-3" />
+                rackpad.hyperv.inventory.v1
+              </Badge>
+            </CardHeader>
+            <CardBody className="grid gap-4 xl:grid-cols-[1fr_0.9fr]">
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--text-tertiary)]">
+                  Run the collector on the Hyper-V host, then upload the JSON
+                  here. Rackpad will stage the host, virtual switches, VMs,
+                  virtual NICs, VLAN settings, specs, and IPs before importing.
+                </p>
+                <div className="rk-panel-inset rounded-[var(--radius-md)] p-3">
+                  <div className="rk-kicker">Collector command</div>
+                  <pre className="mt-2 overflow-x-auto rounded-[var(--radius-sm)] bg-[rgb(0_0_0_/_0.22)] p-3 font-mono text-[11px] text-[var(--text-secondary)]">
+                    {`powershell -ExecutionPolicy Bypass -File .\\scripts\\collect-hyperv.ps1 -OutputPath .\\rackpad-hyperv-inventory.json -IncludeHostAdapters`}
+                  </pre>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border-default)] bg-[var(--surface-2)] px-3 py-2 text-sm text-[var(--text-primary)] transition-colors hover:border-[var(--border-strong)] hover:bg-[var(--surface-hover)]">
+                  <Upload className="size-4" />
+                  Choose Hyper-V JSON
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(event) => void handleFile(event)}
+                  />
+                </label>
+                {parseError && (
+                  <div className="rounded-[var(--radius-md)] border border-[var(--danger-border)] bg-[var(--danger-soft)] px-3 py-2 text-sm text-[var(--danger)]">
+                    {parseError}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <ImportStat
+                  icon={Server}
+                  label="VMs selected"
+                  value={summary?.selectedVms ?? 0}
+                  hint={`${summary?.existingMatches ?? 0} matched existing`}
+                />
+                <ImportStat
+                  icon={Network}
+                  label="Virtual switches"
+                  value={summary?.switches ?? 0}
+                  hint="external, internal, private"
+                />
+                <ImportStat
+                  icon={HardDrive}
+                  label="Guest IPs"
+                  value={summary?.ips ?? 0}
+                  hint="only matched subnets become IPAM records"
+                />
+                <ImportStat
+                  icon={FileJson}
+                  label="VLAN IDs"
+                  value={summary?.vlanIds.length ?? 0}
+                  hint={summary?.vlanIds.slice(0, 5).join(", ") || "none found"}
+                />
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>
+                <CardLabel>Import categories</CardLabel>
+                <CardHeading>Select what Rackpad should write</CardHeading>
+              </CardTitle>
+            </CardHeader>
+            <CardBody>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {Object.entries(CATEGORY_COPY).map(([key, copy]) => (
+                  <label
+                    key={key}
+                    className="rk-panel-inset flex items-start gap-3 rounded-[var(--radius-md)] p-3"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={options[key as keyof ImportOptions]}
+                      onChange={(event) =>
+                        setOptions((current) => ({
+                          ...current,
+                          [key]: event.target.checked,
+                        }))
+                      }
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-[var(--text-primary)]">
+                        {copy.title}
+                      </span>
+                      <span className="mt-1 block text-xs text-[var(--text-tertiary)]">
+                        {copy.description}
+                      </span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </CardBody>
+          </Card>
+
+          {payload && (
+            <div className="grid gap-5 xl:grid-cols-[0.8fr_1.2fr]">
+              <HostPreview payload={payload} />
+              <VmPreview
+                drafts={vmDrafts}
+                devicesByHostname={devicesByHostname}
+                ipAssignments={ipAssignments}
+                subnets={subnets}
+                onChange={setDraftValue}
+              />
+            </div>
+          )}
+
+          {importLog.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <CardLabel>Import log</CardLabel>
+                  <CardHeading>What Rackpad changed</CardHeading>
+                </CardTitle>
+              </CardHeader>
+              <CardBody>
+                <div className="space-y-2">
+                  {importLog.map((entry, index) => (
+                    <div
+                      key={`${entry}-${index}`}
+                      className="rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[rgb(255_255_255_/_0.018)] px-3 py-2 text-xs text-[var(--text-secondary)]"
+                    >
+                      {entry}
+                    </div>
+                  ))}
+                </div>
+              </CardBody>
+            </Card>
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+const CATEGORY_COPY: Record<
+  keyof ImportOptions,
+  { title: string; description: string }
+> = {
+  host: {
+    title: "Host record",
+    description: "Create or update the Hyper-V host as a server device.",
+  },
+  vms: {
+    title: "VMs",
+    description: "Create or update selected VM device records.",
+  },
+  specs: {
+    title: "CPU, RAM, disks, OS",
+    description: "Import CPU cores, memory, storage, guest OS, and spec notes.",
+  },
+  ips: {
+    title: "IPs",
+    description:
+      "Set management IPs and create IPAM records for known subnets.",
+  },
+  networks: {
+    title: "Virtual switches",
+    description: "Create external, internal, and private host switches.",
+  },
+  ports: {
+    title: "Virtual ports",
+    description: "Create VM NIC ports with switch and VLAN metadata.",
+  },
+  vlans: {
+    title: "VLANs",
+    description: "Create missing VLAN records referenced by VM adapters.",
+  },
+};
+
+function HostPreview({ payload }: { payload: HyperVPayload }) {
+  const host = payload.host;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>Host</CardLabel>
+          <CardHeading>
+            {host?.computerName ?? "Unknown Hyper-V host"}
+          </CardHeading>
+        </CardTitle>
+        <Badge>{payload.schema ?? "unknown schema"}</Badge>
+      </CardHeader>
+      <CardBody className="space-y-3">
+        <InfoRow label="FQDN" value={host?.fqdn} />
+        <InfoRow
+          label="Hardware"
+          value={[host?.manufacturer, host?.model].filter(Boolean).join(" ")}
+        />
+        <InfoRow
+          label="OS"
+          value={[host?.osCaption, host?.osVersion].filter(Boolean).join(" ")}
+        />
+        <InfoRow
+          label="Capacity"
+          value={`${host?.logicalProcessors ?? "-"} CPUs | ${host?.memoryGb ?? "-"} GB RAM`}
+        />
+        <div className="rk-panel-inset rounded-[var(--radius-md)] p-3">
+          <div className="rk-kicker">Switches</div>
+          <div className="mt-2 space-y-2">
+            {(payload.switches ?? []).map((entry) => (
+              <div
+                key={entry.id ?? entry.name}
+                className="flex items-center justify-between gap-3 text-xs"
+              >
+                <span className="truncate text-[var(--text-primary)]">
+                  {entry.name}
+                </span>
+                <Badge tone="info">{mapSwitchKind(entry.kind)}</Badge>
+              </div>
+            ))}
+            {(payload.switches ?? []).length === 0 && (
+              <div className="text-xs text-[var(--text-tertiary)]">
+                No virtual switches found.
+              </div>
+            )}
+          </div>
+        </div>
+      </CardBody>
+    </Card>
+  );
+}
+
+function VmPreview({
+  drafts,
+  devicesByHostname,
+  ipAssignments,
+  subnets,
+  onChange,
+}: {
+  drafts: VmDraft[];
+  devicesByHostname: Record<string, Device>;
+  ipAssignments: IpAssignment[];
+  subnets: Subnet[];
+  onChange: (key: string, changes: Partial<VmDraft>) => void;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <CardLabel>Wizard</CardLabel>
+          <CardHeading>Review VMs before import</CardHeading>
+        </CardTitle>
+        <Badge tone="accent">
+          {drafts.filter((draft) => draft.include).length} selected
+        </Badge>
+      </CardHeader>
+      <CardBody className="max-h-[720px] space-y-3 overflow-y-auto">
+        {drafts.map((draft) => {
+          const existing =
+            devicesByHostname[draft.hostname.trim().toLowerCase()];
+          const ipKnown = draft.managementIp
+            ? Boolean(findSubnetForIp(subnets, draft.managementIp))
+            : true;
+          const ipConflict = draft.managementIp
+            ? findIpAssignment(subnets, ipAssignments, draft.managementIp)
+            : undefined;
+          const guest = getVmGuestInfo(draft.source);
+          const conflictBelongsToDevice =
+            existing &&
+            ipConflict &&
+            (ipConflict.deviceId === existing.id ||
+              ipConflict.vmId === existing.id);
+          const osFamily =
+            draft.osFamily ||
+            inferGuestOsFamily(draft.osName, guest.osVersion);
+          return (
+            <div
+              key={draft.key}
+              className={cn(
+                "rounded-[var(--radius-lg)] border bg-[var(--surface-1)] p-3",
+                draft.include
+                  ? "border-[var(--border-default)]"
+                  : "border-[var(--border-subtle)] opacity-65",
+              )}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)]">
+                  <input
+                    type="checkbox"
+                    checked={draft.include}
+                    onChange={(event) =>
+                      onChange(draft.key, { include: event.target.checked })
+                    }
+                  />
+                  {draft.source.name ?? draft.hostname}
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone={existing ? "warn" : "ok"}>
+                    {existing ? "will update" : "new"}
+                  </Badge>
+                  <Badge tone={vmStateTone(draft.source.state)}>
+                    {draft.source.state ?? "unknown"}
+                  </Badge>
+                  {draft.osName && (
+                    <Badge tone={guestOsTone(osFamily)}>
+                      {guestOsLabel(osFamily)}
+                    </Badge>
+                  )}
+                  {!ipKnown && <Badge tone="warn">IP not in IPAM</Badge>}
+                  {ipConflict && !conflictBelongsToDevice && (
+                    <Badge tone="err">IP conflict</Badge>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                <Field label="Hostname">
+                  <Input
+                    value={draft.hostname}
+                    onChange={(event) =>
+                      onChange(draft.key, { hostname: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="Display name">
+                  <Input
+                    value={draft.displayName}
+                    onChange={(event) =>
+                      onChange(draft.key, { displayName: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="Primary IP">
+                  <Input
+                    value={draft.managementIp}
+                    placeholder="Add manually if missing"
+                    onChange={(event) =>
+                      onChange(draft.key, { managementIp: event.target.value })
+                    }
+                  />
+                </Field>
+                <Field label="Guest OS">
+                  <Input
+                    value={draft.osName}
+                    placeholder="Windows Server, Ubuntu, Debian..."
+                    onChange={(event) =>
+                      onChange(draft.key, {
+                        osName: event.target.value,
+                        osFamily: inferGuestOsFamily(
+                          event.target.value,
+                          guest.osVersion,
+                        ),
+                      })
+                    }
+                  />
+                </Field>
+                <Field label="OS family">
+                  <select
+                    value={draft.osFamily}
+                    onChange={(event) =>
+                      onChange(draft.key, { osFamily: event.target.value })
+                    }
+                    className="rk-control h-10 w-full px-3 text-sm text-[var(--text-primary)]"
+                  >
+                    <option value="">Auto / unknown</option>
+                    <option value="windows">Windows</option>
+                    <option value="linux">Linux</option>
+                    <option value="bsd">BSD / firewall appliance</option>
+                    <option value="other">Other</option>
+                  </select>
+                </Field>
+                <div className="grid grid-cols-3 gap-2">
+                  <Field label="CPU">
+                    <Input
+                      value={draft.cpuCores}
+                      onChange={(event) =>
+                        onChange(draft.key, { cpuCores: event.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="RAM GB">
+                    <Input
+                      value={draft.memoryGb}
+                      onChange={(event) =>
+                        onChange(draft.key, { memoryGb: event.target.value })
+                      }
+                    />
+                  </Field>
+                  <Field label="Disk GB">
+                    <Input
+                      value={draft.storageGb}
+                      onChange={(event) =>
+                        onChange(draft.key, { storageGb: event.target.value })
+                      }
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_0.8fr]">
+                <Field label="Notes / missing info">
+                  <textarea
+                    value={draft.notes}
+                    onChange={(event) =>
+                      onChange(draft.key, { notes: event.target.value })
+                    }
+                    className="rk-control min-h-20 w-full px-3 py-2 text-sm text-[var(--text-primary)]"
+                  />
+                </Field>
+                <div className="rk-panel-inset rounded-[var(--radius-md)] p-3 text-xs">
+                  <div className="rk-kicker">Adapters</div>
+                  <div className="mt-2 space-y-2">
+                    {(draft.source.networkAdapters ?? []).map((adapter) => (
+                      <div
+                        key={adapter.id ?? adapter.name}
+                        className="rounded-[var(--radius-sm)] bg-[rgb(0_0_0_/_0.16)] px-2 py-1.5"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-[var(--text-primary)]">
+                            {adapter.name ?? "Network adapter"}
+                          </span>
+                          <Mono>{adapter.switchName ?? "no switch"}</Mono>
+                        </div>
+                        <div className="mt-1 text-[var(--text-tertiary)]">
+                          {vlanSummary(adapter)} |{" "}
+                          {adapter.ipAddresses?.join(", ") || "no IPs"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </CardBody>
+    </Card>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="rk-kicker mb-1 block">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function InfoRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | number | null;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-[var(--border-subtle)] bg-[rgb(255_255_255_/_0.018)] px-3 py-2 text-xs">
+      <span className="text-[var(--text-tertiary)]">{label}</span>
+      <span className="text-right text-[var(--text-primary)]">
+        {value || "-"}
+      </span>
+    </div>
+  );
+}
+
+function ImportStat({
+  icon: Icon,
+  label,
+  value,
+  hint,
+}: {
+  icon: typeof Server;
+  label: string;
+  value: string | number;
+  hint: string;
+}) {
+  return (
+    <div className="rk-panel-inset rounded-[var(--radius-md)] p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="rk-kicker">{label}</div>
+          <div className="mt-1 text-xl font-semibold text-[var(--text-primary)]">
+            {value}
+          </div>
+          <div className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+            {hint}
+          </div>
+        </div>
+        <Icon className="size-4 text-[var(--accent-secondary)]" />
+      </div>
+    </div>
+  );
+}
+
+function vmToDraft(vm: HyperVVm, index: number): VmDraft {
+  const ips = vmIps(vm);
+  const guest = getVmGuestInfo(vm);
+  const osName = deriveGuestOsName(vm);
+  return {
+    key: vm.id || vm.name || `vm-${index}`,
+    source: vm,
+    include: true,
+    hostname: slugHost(vm.name || `vm-${index + 1}`),
+    displayName: vm.name || "",
+    managementIp: ips[0] ?? "",
+    osFamily: inferGuestOsFamily(osName, guest.osVersion),
+    osName,
+    cpuCores: vm.processorCount ? String(vm.processorCount) : "",
+    memoryGb: vm.memoryAssignedGb
+      ? String(vm.memoryAssignedGb)
+      : vm.memoryStartupGb
+        ? String(vm.memoryStartupGb)
+        : "",
+    storageGb: vm.storageGb ? String(vm.storageGb) : "",
+    notes: vm.notes ?? "",
+  };
+}
+
+function findExistingHost(
+  payload: HyperVPayload,
+  devicesByHostname: Record<string, Device>,
+) {
+  const host = payload.host;
+  const keys = [host?.computerName, host?.fqdn]
+    .map((value) => value?.trim().toLowerCase())
+    .filter((value): value is string => Boolean(value));
+  for (const key of keys) {
+    const match = devicesByHostname[key] ?? devicesByHostname[slugHost(key)];
+    if (match) return match;
+  }
+  return null;
+}
+
+async function upsertHost(
+  payload: HyperVPayload,
+  context: {
+    devicesByHostname: Record<string, Device>;
+    log: string[];
+  },
+) {
+  const host = payload.host;
+  const hostname = slugHost(host?.computerName || host?.fqdn || "hyperv-host");
+  const existing = context.devicesByHostname[hostname.toLowerCase()];
+  const specs = [
+    host?.osCaption
+      ? `OS: ${host.osCaption} ${host.osVersion ?? ""}`.trim()
+      : "",
+    host?.logicalProcessors
+      ? `Logical processors: ${host.logicalProcessors}`
+      : "",
+    host?.memoryGb ? `Memory: ${host.memoryGb} GB` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (existing) {
+    const updated = await updateDevice(existing.id, {
+      deviceType: "server",
+      displayName: existing.displayName || host?.computerName || hostname,
+      manufacturer: host?.manufacturer || existing.manufacturer,
+      model: host?.model || existing.model,
+      placement: existing.placement ?? "room",
+      cpuCores: host?.logicalProcessors ?? existing.cpuCores,
+      memoryGb: host?.memoryGb ?? existing.memoryGb,
+      specs: mergeText(existing.specs, specs),
+      tags: mergeTags(existing.tags, ["hyper-v", "imported"]),
+    });
+    context.log.push(`Updated Hyper-V host ${updated?.hostname ?? hostname}.`);
+    return updated ?? existing;
+  }
+
+  const created = await createDevice({
+    hostname,
+    displayName: host?.computerName || hostname,
+    deviceType: "server",
+    manufacturer: host?.manufacturer,
+    model: host?.model,
+    status: "unknown",
+    placement: "room",
+    cpuCores: host?.logicalProcessors,
+    memoryGb: host?.memoryGb,
+    specs,
+    tags: ["hyper-v", "imported"],
+    notes: "Imported from Hyper-V inventory collector.",
+  });
+  context.log.push(`Created Hyper-V host ${created.hostname}.`);
+  return created;
+}
+
+async function ensureVlans({
+  enabled,
+  drafts,
+  existing,
+  log,
+}: {
+  enabled: boolean;
+  drafts: VmDraft[];
+  existing: Record<number, Vlan>;
+  log: string[];
+}) {
+  const map = { ...existing };
+  if (!enabled) return map;
+
+  const ids = new Set<number>();
+  for (const draft of drafts) {
+    for (const adapter of draft.source.networkAdapters ?? []) {
+      for (const id of vlanIdsFromAdapter(adapter)) {
+        ids.add(id);
+      }
+    }
+  }
+
+  for (const vlanId of [...ids].sort((a, b) => a - b)) {
+    if (map[vlanId]) continue;
+    const vlan = await createVlanRecord({
+      vlanId,
+      name: `VLAN ${vlanId}`,
+      description: "Imported from Hyper-V virtual NIC configuration.",
+      color: VLAN_COLORS[vlanId % VLAN_COLORS.length],
+    });
+    map[vlanId] = vlan;
+    log.push(`Created VLAN ${vlanId}.`);
+  }
+  return map;
+}
+
+async function ensureSwitches({
+  enabled,
+  payload,
+  hostDevice,
+  existingSwitches,
+  log,
+}: {
+  enabled: boolean;
+  payload: HyperVPayload;
+  hostDevice: Device | null;
+  existingSwitches: VirtualSwitch[];
+  log: string[];
+}) {
+  const map: Record<string, VirtualSwitch> = {};
+  if (!hostDevice) return map;
+  for (const entry of existingSwitches.filter(
+    (item) => item.hostDeviceId === hostDevice.id,
+  )) {
+    map[entry.name.toLowerCase()] = entry;
+  }
+  if (!enabled) return map;
+
+  for (const entry of payload.switches ?? []) {
+    const name = entry.name?.trim();
+    if (!name) continue;
+    const existing = map[name.toLowerCase()];
+    const notes = [
+      entry.notes,
+      entry.netAdapterName ? `Host adapter: ${entry.netAdapterName}` : "",
+      entry.netAdapterInterfaceDescription
+        ? `Adapter description: ${entry.netAdapterInterfaceDescription}`
+        : "",
+      entry.allowManagementOS != null
+        ? `Allow management OS: ${entry.allowManagementOS}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    if (existing) {
+      const updated = await updateVirtualSwitchRecord(existing.id, {
+        kind: mapSwitchKind(entry.kind),
+        notes,
+      });
+      map[name.toLowerCase()] = updated ?? existing;
+      log.push(`Updated virtual switch ${name}.`);
+    } else {
+      const created = await createVirtualSwitchRecord({
+        hostDeviceId: hostDevice.id,
+        name,
+        kind: mapSwitchKind(entry.kind),
+        notes,
+      });
+      map[name.toLowerCase()] = created;
+      log.push(`Created virtual switch ${name}.`);
+    }
+  }
+  return map;
+}
+
+async function upsertVmDevice({
+  draft,
+  hostDevice,
+  devicesByHostname,
+  ipAssignments,
+  subnets,
+  options,
+  log,
+}: {
+  draft: VmDraft;
+  hostDevice: Device | null;
+  devicesByHostname: Record<string, Device>;
+  ipAssignments: IpAssignment[];
+  subnets: Subnet[];
+  options: ImportOptions;
+  log: string[];
+}) {
+  const hostname = slugHost(draft.hostname || draft.source.name || "hyperv-vm");
+  const existing = devicesByHostname[hostname.toLowerCase()];
+  const candidateManagementIp =
+    options.ips &&
+    draft.managementIp &&
+    findSubnetForIp(subnets, draft.managementIp)
+      ? draft.managementIp.trim()
+      : undefined;
+  const managementIpConflict = candidateManagementIp
+    ? findIpAssignment(subnets, ipAssignments, candidateManagementIp)
+    : undefined;
+  const managementIp =
+    candidateManagementIp &&
+    (!managementIpConflict ||
+      managementIpConflict.deviceId === existing?.id ||
+      managementIpConflict.vmId === existing?.id)
+      ? candidateManagementIp
+      : undefined;
+  const sourceIps = vmIps(draft.source);
+  const guest = getVmGuestInfo(draft.source);
+  const osName = draft.osName.trim();
+  const osFamily =
+    draft.osFamily || inferGuestOsFamily(osName, guest.osVersion);
+  const importedTags = [
+    "hyper-v",
+    "imported",
+    osFamily ? `os:${osFamily}` : "",
+  ].filter(Boolean);
+  const specs = options.specs ? vmSpecs(draft.source, draft) : "";
+  const notes = [
+    draft.notes,
+    sourceIps.length > 0 ? `Collected IPs: ${sourceIps.join(", ")}` : "",
+    !osName && guest.error ? `Guest OS not reported: ${guest.error}` : "",
+    candidateManagementIp && !managementIp
+      ? `Primary IP ${candidateManagementIp} was skipped because it is already assigned in IPAM.`
+      : "",
+    draft.source.id ? `Hyper-V VM ID: ${draft.source.id}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  const patch = {
+    hostname,
+    displayName: draft.displayName.trim() || draft.source.name || hostname,
+    deviceType: "vm" as const,
+    status: mapVmStatus(draft.source.state),
+    placement: "virtual" as const,
+    parentDeviceId: hostDevice?.id,
+    managementIp,
+    model: osName || existing?.model,
+    cpuCores: options.specs ? toNumber(draft.cpuCores) : undefined,
+    memoryGb: options.specs ? toNumber(draft.memoryGb) : undefined,
+    storageGb: options.specs ? toNumber(draft.storageGb) : undefined,
+    specs,
+    tags: importedTags,
+    notes,
+  };
+
+  if (existing) {
+    const updated = await updateDevice(existing.id, {
+      ...patch,
+      specs: mergeText(existing.specs, specs),
+      notes: mergeText(existing.notes, notes),
+      tags: mergeTags(existing.tags, patch.tags),
+    });
+    log.push(`Updated VM ${updated?.hostname ?? existing.hostname}.`);
+    if (candidateManagementIp && !managementIp) {
+      log.push(
+        `Skipped primary IP ${candidateManagementIp} for ${hostname}; IPAM already has that address.`,
+      );
+    }
+    return updated ?? existing;
+  }
+
+  const created = await createDevice(patch);
+  log.push(`Created VM ${created.hostname}.`);
+  if (candidateManagementIp && !managementIp) {
+    log.push(
+      `Skipped primary IP ${candidateManagementIp} for ${hostname}; IPAM already has that address.`,
+    );
+  }
+  return created;
+}
+
+async function upsertVmPorts({
+  draft,
+  device,
+  currentPorts,
+  vlanMap,
+  switchMap,
+  log,
+}: {
+  draft: VmDraft;
+  device: Device;
+  currentPorts: Port[];
+  vlanMap: Record<number, Vlan>;
+  switchMap: Record<string, VirtualSwitch>;
+  log: string[];
+}) {
+  const nextPorts = [...currentPorts];
+  for (const [index, adapter] of (
+    draft.source.networkAdapters ?? []
+  ).entries()) {
+    const name = adapter.name?.trim() || `vNIC ${index + 1}`;
+    const existing = nextPorts.find(
+      (port) => port.name.trim().toLowerCase() === name.toLowerCase(),
+    );
+    const vlan = portVlanConfig(adapter, vlanMap);
+    const virtualSwitch = adapter.switchName
+      ? switchMap[adapter.switchName.toLowerCase()]
+      : undefined;
+    const changes = {
+      name,
+      kind: "virtual" as const,
+      speed: "virtual",
+      linkState:
+        adapter.connected === false ? ("down" as const) : ("up" as const),
+      mode: vlan.mode,
+      vlanId: vlan.nativeVlanId,
+      allowedVlanIds: vlan.allowedVlanIds,
+      virtualSwitchId: virtualSwitch?.id ?? null,
+      description: [
+        adapter.switchName ? `Switch: ${adapter.switchName}` : "",
+        adapter.macAddress ? `MAC: ${adapter.macAddress}` : "",
+        vlan.description,
+      ]
+        .filter(Boolean)
+        .join(" | "),
+      face: "front" as const,
+    };
+
+    if (existing) {
+      const updated = await updatePort(existing.id, changes);
+      if (updated) {
+        nextPorts.splice(nextPorts.indexOf(existing), 1, updated);
+        log.push(`Updated virtual port ${device.hostname}:${updated.name}.`);
+      }
+    } else {
+      const created = await createPortRecord({
+        deviceId: device.id,
+        position: nextPortPosition(nextPorts),
+        ...changes,
+      });
+      nextPorts.push(created);
+      log.push(`Created virtual port ${device.hostname}:${created.name}.`);
+    }
+  }
+  return nextPorts;
+}
+
+async function importSecondaryIps({
+  draft,
+  device,
+  subnets,
+  existingKeys,
+  log,
+}: {
+  draft: VmDraft;
+  device: Device;
+  subnets: Subnet[];
+  existingKeys: Set<string>;
+  log: string[];
+}) {
+  const candidateIps = new Set(vmIps(draft.source));
+  if (draft.managementIp) candidateIps.add(draft.managementIp.trim());
+  if (device.managementIp) candidateIps.delete(device.managementIp);
+
+  for (const ipAddress of candidateIps) {
+    const subnet = findSubnetForIp(subnets, ipAddress);
+    if (!subnet) continue;
+    const key = `${subnet.id}|${ipAddress}`;
+    if (existingKeys.has(key)) continue;
+    const created = await createIpAssignmentRecord({
+      subnetId: subnet.id,
+      ipAddress,
+      assignmentType: "vm",
+      deviceId: device.id,
+      vmId: device.id,
+      hostname: device.hostname,
+      description: "Imported from Hyper-V guest network adapter.",
+    });
+    existingKeys.add(key);
+    log.push(`Imported IP ${created.ipAddress} for ${device.hostname}.`);
+  }
+}
+
+function vmIps(vm: HyperVVm) {
+  const ips = new Set<string>();
+  for (const adapter of vm.networkAdapters ?? []) {
+    for (const ip of adapter.ipAddresses ?? []) {
+      const value = ip.trim();
+      if (isUsableIpv4(value)) ips.add(value);
+    }
+  }
+  return [...ips].sort((a, b) => ipToInt(a) - ipToInt(b));
+}
+
+function vlanIdsFromAdapter(adapter: HyperVNetworkAdapter) {
+  const vlan = adapter.vlan;
+  if (!vlan) return [];
+  const ids = [
+    toVlanNumber(vlan.accessVlanId),
+    toVlanNumber(vlan.nativeVlanId),
+    ...parseDiscreteVlanIds(vlan.allowedVlanIds ?? []),
+  ].filter((value): value is number => value != null);
+  return [...new Set(ids)];
+}
+
+function portVlanConfig(
+  adapter: HyperVNetworkAdapter,
+  vlanMap: Record<number, Vlan>,
+) {
+  const vlan = adapter.vlan;
+  const mode = (vlan?.mode ?? "").toLowerCase();
+  const allowedIds = parseDiscreteVlanIds(vlan?.allowedVlanIds ?? []);
+  const nativeVlan = toVlanNumber(vlan?.nativeVlanId);
+  const accessVlan = toVlanNumber(vlan?.accessVlanId);
+  const isTrunk = mode.includes("trunk") || allowedIds.length > 0;
+  return {
+    mode: isTrunk ? ("trunk" as const) : ("access" as const),
+    nativeVlanId: isTrunk
+      ? nativeVlan
+        ? vlanMap[nativeVlan]?.id
+        : undefined
+      : accessVlan
+        ? vlanMap[accessVlan]?.id
+        : undefined,
+    allowedVlanIds: isTrunk
+      ? allowedIds
+          .map((id) => vlanMap[id]?.id)
+          .filter((id): id is string => Boolean(id))
+      : [],
+    description: vlanSummary(adapter),
+  };
+}
+
+function vlanSummary(adapter: HyperVNetworkAdapter) {
+  const vlan = adapter.vlan;
+  if (!vlan) return "VLAN unknown";
+  const parts = [
+    vlan.mode ? `mode ${vlan.mode}` : "",
+    vlan.accessVlanId ? `access ${vlan.accessVlanId}` : "",
+    vlan.nativeVlanId ? `native ${vlan.nativeVlanId}` : "",
+    vlan.allowedVlanIds?.length
+      ? `allowed ${vlan.allowedVlanIds.join(",")}`
+      : "",
+  ].filter(Boolean);
+  return parts.join(" | ") || "untagged";
+}
+
+function parseDiscreteVlanIds(values: Array<number | string>) {
+  return values
+    .map((value) => String(value).trim())
+    .filter((value) => /^\d+$/.test(value))
+    .map(Number)
+    .filter((value) => value >= 1 && value <= 4094);
+}
+
+function toVlanNumber(value: number | string | null | undefined) {
+  if (value == null || value === "") return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 4094
+    ? parsed
+    : null;
+}
+
+function findSubnetForIp(subnets: Subnet[], ipAddress: string) {
+  if (!isUsableIpv4(ipAddress)) return undefined;
+  const ipValue = ipToInt(ipAddress);
+  return subnets.find((subnet) => {
+    const [networkAddress, prefixRaw] = subnet.cidr.split("/");
+    const prefix = Number.parseInt(prefixRaw, 10);
+    if (!Number.isInteger(prefix) || prefix < 0 || prefix > 32) return false;
+    const network = ipToInt(networkAddress);
+    const broadcast = network + cidrSize(subnet.cidr) - 1;
+    return ipValue > network && ipValue < broadcast;
+  });
+}
+
+function findIpAssignment(
+  subnets: Subnet[],
+  ipAssignments: IpAssignment[],
+  ipAddress: string,
+) {
+  const subnet = findSubnetForIp(subnets, ipAddress);
+  if (!subnet) return undefined;
+  return ipAssignments.find(
+    (assignment) =>
+      assignment.subnetId === subnet.id && assignment.ipAddress === ipAddress,
+  );
+}
+
+function isUsableIpv4(value: string) {
+  return (
+    IPV4_RE.test(value) &&
+    value !== "0.0.0.0" &&
+    value !== "255.255.255.255" &&
+    !value.startsWith("169.254.")
+  );
+}
+
+function mapSwitchKind(kind?: string): VirtualSwitch["kind"] {
+  const value = (kind ?? "").toLowerCase();
+  if (value.includes("internal")) return "internal";
+  if (value.includes("private")) return "private";
+  return "external";
+}
+
+function mapVmStatus(state?: string): DeviceStatus {
+  const value = (state ?? "").toLowerCase();
+  if (value === "running") return "online";
+  if (value === "off") return "offline";
+  if (value === "paused" || value === "saved") return "maintenance";
+  return "unknown";
+}
+
+function vmStateTone(state?: string) {
+  const status = mapVmStatus(state);
+  if (status === "online") return "ok" as const;
+  if (status === "offline") return "err" as const;
+  if (status === "maintenance") return "info" as const;
+  return "neutral" as const;
+}
+
+function getVmGuestInfo(vm: HyperVVm) {
+  return {
+    kvpAvailable: vm.guest?.kvpAvailable,
+    osName: vm.guest?.osName ?? vm.guestOsName ?? null,
+    osVersion: vm.guest?.osVersion ?? vm.guestOsVersion ?? null,
+    osBuildNumber: vm.guest?.osBuildNumber ?? null,
+    computerName: vm.guest?.computerName ?? null,
+    fullyQualifiedDomainName: vm.guest?.fullyQualifiedDomainName ?? null,
+    integrationServicesVersion: vm.guest?.integrationServicesVersion ?? null,
+    error: vm.guest?.error ?? null,
+  };
+}
+
+function deriveGuestOsName(vm: HyperVVm) {
+  const guest = getVmGuestInfo(vm);
+  const osName = guest.osName?.trim();
+  if (osName) return osName;
+  if (isLikelyLinuxKernelVersion(guest.osVersion)) {
+    return `Linux (kernel ${guest.osVersion})`;
+  }
+  return "";
+}
+
+function isLikelyLinuxKernelVersion(value?: string | null) {
+  const text = (value ?? "").trim();
+  return /^[2-9]\.\d+(\.\d+)?([-.][A-Za-z0-9._-]+)?$/.test(text);
+}
+
+function inferGuestOsFamily(value?: string | null, version?: string | null) {
+  const text = (value ?? "").toLowerCase();
+  if (!text.trim()) {
+    return isLikelyLinuxKernelVersion(version) ? "linux" : "";
+  }
+  if (text.includes("windows")) return "windows";
+  if (
+    text.includes("linux") ||
+    text.includes("ubuntu") ||
+    text.includes("debian") ||
+    text.includes("centos") ||
+    text.includes("fedora") ||
+    text.includes("red hat") ||
+    text.includes("rhel") ||
+    text.includes("suse") ||
+    text.includes("alma") ||
+    text.includes("rocky")
+  ) {
+    return "linux";
+  }
+  if (
+    text.includes("bsd") ||
+    text.includes("opnsense") ||
+    text.includes("pfsense") ||
+    text.includes("truenas")
+  ) {
+    return "bsd";
+  }
+  return "other";
+}
+
+function guestOsLabel(family: string) {
+  if (family === "windows") return "Windows";
+  if (family === "linux") return "Linux";
+  if (family === "bsd") return "BSD";
+  if (family === "other") return "Other OS";
+  return "OS unknown";
+}
+
+function guestOsTone(family: string) {
+  if (family === "windows") return "info" as const;
+  if (family === "linux") return "ok" as const;
+  if (family === "bsd") return "accent" as const;
+  if (family === "other") return "neutral" as const;
+  return "warn" as const;
+}
+
+function vmSpecs(vm: HyperVVm, draft?: VmDraft) {
+  const guest = getVmGuestInfo(vm);
+  const osName = draft?.osName.trim() || deriveGuestOsName(vm);
+  const osFamily =
+    draft?.osFamily || inferGuestOsFamily(osName, guest.osVersion);
+  return [
+    osName ? `Guest OS: ${osName}` : "",
+    osFamily ? `OS family: ${guestOsLabel(osFamily)}` : "",
+    guest.osVersion ? `OS version: ${guest.osVersion}` : "",
+    guest.osBuildNumber ? `OS build: ${guest.osBuildNumber}` : "",
+    guest.computerName ? `Guest computer name: ${guest.computerName}` : "",
+    guest.fullyQualifiedDomainName
+      ? `Guest FQDN: ${guest.fullyQualifiedDomainName}`
+      : "",
+    guest.integrationServicesVersion
+      ? `Integration services: ${guest.integrationServicesVersion}`
+      : "",
+    vm.generation ? `Generation: ${vm.generation}` : "",
+    vm.version ? `Configuration version: ${vm.version}` : "",
+    vm.dynamicMemoryEnabled != null
+      ? `Dynamic memory: ${vm.dynamicMemoryEnabled ? "enabled" : "disabled"}`
+      : "",
+    vm.disks?.length
+      ? `Disks:\n${vm.disks
+          .map(
+            (disk) =>
+              `- ${disk.path ?? "unknown"} (${disk.sizeGb ?? "unknown"} GB${disk.vhdType ? `, ${disk.vhdType}` : ""})`,
+          )
+          .join("\n")}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+function mergeText(existing: string | undefined, imported: string) {
+  if (!imported.trim()) return existing;
+  if (!existing?.trim()) return imported;
+  if (existing.includes(imported)) return existing;
+  return `${existing}\n\n${imported}`;
+}
+
+function mergeTags(existing: string[] | undefined, imported: string[]) {
+  return [...new Set([...(existing ?? []), ...imported])];
+}
+
+function groupPortsByDevice(ports: Port[]) {
+  return ports.reduce<Record<string, Port[]>>((acc, port) => {
+    (acc[port.deviceId] ??= []).push(port);
+    return acc;
+  }, {});
+}
+
+function nextPortPosition(ports: Port[]) {
+  return Math.max(0, ...ports.map((port) => port.position)) + 1;
+}
+
+function toNumber(value: string) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+function slugHost(value: string) {
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9.-]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "hyperv-vm"
+  );
+}

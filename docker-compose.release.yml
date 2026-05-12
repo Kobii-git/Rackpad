@@ -1,6 +1,6 @@
 services:
   rackpad:
-    image: ${RACKPAD_IMAGE:-ghcr.io/kobii-git/rackpad}:${RACKPAD_TAG:-v1.0.1}
+    image: ${RACKPAD_IMAGE:-ghcr.io/kobii-git/rackpad}:${RACKPAD_TAG:-v1.1.0}
     container_name: rackpad
     init: true
     restart: unless-stopped
