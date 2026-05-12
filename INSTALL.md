@@ -1,55 +1,61 @@
 # Rackpad Installation Guide
 
-This guide gives you two ways to install Rackpad:
+Current release: `v1.0.1`
 
-1. Docker on a Linux server
-2. Native Node.js install on a Linux server
+Rackpad is easiest to run from Docker. You can either pull the published image
+without cloning the repo, or clone the repo and build it yourself.
 
-Docker is the recommended path for first testing because it handles the Node runtime and keeps the SQLite database in a persistent volume.
+## Which Install Should I Use?
 
-Current version in this guide: `v1.0.0`
+- **Linux server or VM:** Use Docker and pull the published image.
+- **Proxmox:** Create a Debian/Ubuntu LXC, enable nesting, then use the Linux Docker steps inside the LXC.
+- **Windows:** Use Docker Desktop with the published image.
+- **Development/source build:** Clone `main` and build locally.
 
-## Release channels
+## Main Branch Or Version Tag?
 
-Rackpad uses:
+- `main` is the stable source branch and is fine for cloning the latest stable code.
+- `RACKPAD_TAG=v1.0.1` pins the Docker image to a known release.
+- `beta` is for testing newer changes before they are promoted.
+- For production-style installs, keep `RACKPAD_TAG` pinned and change it only when you intentionally update.
 
-- `main` for stable releases
-- `beta` for pre-release testing
+The install files are downloaded from `main` because they should always point at
+the current stable install method. The running app image is controlled by
+`RACKPAD_TAG`.
 
-Use the tagged release flow in this guide for production-style installs. If you want to help test the next patch train, clone or switch to `beta` instead of a release tag.
+## Common Settings
 
-## Before you start
+Rackpad uses this environment file for Docker installs:
 
-- Use a Linux server or VM.
-- Make sure port `3000` is open on your firewall if you want to reach Rackpad from another machine.
-- Rackpad now requires authentication, but you should still keep it on a private LAN or behind a VPN for early testing.
+```bash
+RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
+RACKPAD_TAG=v1.0.1
+RACKPAD_PORT=3000
+MONITOR_INTERVAL_MS=300000
+TRUST_PROXY=0
+TRUSTED_HOSTS=
+TRUSTED_ORIGINS=
+```
 
-## System requirements
+Most users only change:
 
-Practical starting point for a first deployment:
+- `RACKPAD_PORT`: host port to expose, default `3000`.
+- `RACKPAD_TAG`: release version to run.
+- `TRUST_PROXY`, `TRUSTED_HOSTS`, `TRUSTED_ORIGINS`: set these when using a reverse proxy.
 
-- 64-bit Linux host or VM
-- `2 vCPU / 4 GB RAM` minimum for testing
-- `4 vCPU / 8 GB RAM` recommended once discovery, monitoring, backups, and a fuller inventory are active
-- `10 GB` free disk minimum, `20+ GB` preferred
-- Docker Engine with the Compose plugin, or Node `22 LTS` with `npm`
+Rackpad stores its SQLite database in the Docker volume `rackpad_data`.
 
-## Option 1: Docker install
+## Linux Install
 
-### Step 1: Install Docker and Compose
+### 1. Install Docker
 
-On Ubuntu or Debian:
+Ubuntu/Debian:
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y docker.io docker-compose-plugin
+sudo apt-get install -y ca-certificates curl git docker.io docker-compose-plugin
 sudo systemctl enable --now docker
 ```
-
-For longer-lived deployments, prefer Docker Engine from the official Docker
-repository and verify the current steps in Docker Docs:
-
-- [Install Docker Engine on Ubuntu](https://docs.docker.com/installation/ubuntulinux/)
 
 Optional: allow your user to run Docker without `sudo`.
 
@@ -58,157 +64,34 @@ sudo usermod -aG docker "$USER"
 newgrp docker
 ```
 
-### Step 2: Clone Rackpad from GitHub
+### 2A. Run Straight From Docker, No Git Clone
 
 ```bash
-cd /opt
-git clone --branch v1.0.0 --depth 1 https://github.com/Kobii-git/Rackpad.git
-cd Rackpad
-```
-
-### Step 3: Create your environment file
-
-```bash
-cp .env.example .env
-```
-
-At minimum, set:
-
-```bash
-RACKPAD_PORT=3000
-```
-
-Optional monitoring cadence override:
-
-```bash
-MONITOR_INTERVAL_MS=300000
-```
-
-If you plan to put Rackpad behind a reverse proxy, also set:
-
-```bash
-TRUST_PROXY=1
-TRUSTED_HOSTS=rackpad.example.com
-TRUSTED_ORIGINS=https://rackpad.example.com
-```
-
-### Step 4: Build and start Rackpad
-
-```bash
-docker compose up --build -d
-```
-
-### Step 5: Confirm the container is healthy
-
-```bash
-docker compose ps
-docker compose logs -f
-```
-
-Open Rackpad in your browser:
-
-```text
-http://SERVER_IP:3000
-```
-
-Replace `SERVER_IP` with your server's real IP address or hostname.
-
-### Step 6: Complete first-run setup
-
-On first launch:
-
-1. Open the Rackpad URL.
-2. Create the initial admin account.
-3. Sign in with that account.
-4. Start documenting racks, devices, VLANs, and IPAM.
-
-### Step 7: Understand where data is stored
-
-Rackpad stores SQLite data in the Docker named volume `rackpad_data`.
-
-To see the volume:
-
-```bash
-docker volume ls
-```
-
-### Step 8: Stop or update the app later
-
-Stop it:
-
-```bash
-docker compose down
-```
-
-Update it after new code changes:
-
-```bash
-git fetch --tags
-git checkout v1.0.0
-docker compose up --build -d
-```
-
-When a newer release exists, replace `v1.0.0` with the newer version tag.
-
-Remove the app and database completely:
-
-```bash
-docker compose down -v
-```
-
-## Option 2: Native Linux install
-
-Use this path if you want Rackpad to run directly on the server without Docker.
-
-### Step 1: Install build tools
-
-On Ubuntu or Debian:
-
-```bash
-sudo apt-get update
-sudo apt-get install -y curl build-essential python3
-```
-
-These packages help `better-sqlite3` install cleanly if a prebuilt binary is not available.
-
-### Step 2: Install Node 22 system-wide
-
-Rackpad expects Node 22 LTS.
-
-On Ubuntu or Debian:
-
-```bash
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-node -v
-```
-
-This matches the included `rackpad.service`, which starts Rackpad with `/usr/bin/node`.
-
-### Step 3: Clone Rackpad from GitHub
-
-```bash
-cd /opt
-git clone --branch v1.0.0 --depth 1 https://github.com/Kobii-git/Rackpad.git rackpad
+sudo mkdir -p /opt/rackpad
 cd /opt/rackpad
+sudo curl -fsSLo compose.yml https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml
 ```
 
-### Step 4: Install dependencies
+Create `.env`:
 
 ```bash
-npm install
+sudo tee .env >/dev/null <<'EOF'
+RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
+RACKPAD_TAG=v1.0.1
+RACKPAD_PORT=3000
+MONITOR_INTERVAL_MS=300000
+TRUST_PROXY=0
+TRUSTED_HOSTS=
+TRUSTED_ORIGINS=
+EOF
 ```
 
-### Step 5: Build the app
+Deploy:
 
 ```bash
-npm run build
-```
-
-### Step 6: Start Rackpad manually
-
-```bash
-HOST=0.0.0.0 PORT=3000 DATABASE_PATH=/opt/rackpad/rackpad.db MONITOR_INTERVAL_MS=300000 npm start
+sudo docker compose pull
+sudo docker compose up -d
+sudo docker compose ps
 ```
 
 Open:
@@ -217,77 +100,211 @@ Open:
 http://SERVER_IP:3000
 ```
 
-### Step 7: Create the first admin account
+### 2B. Clone The Repo And Build Locally
 
-The very first browser visit will show the bootstrap screen instead of the dashboard.
-
-Create:
-
-- username
-- display name
-- password
-
-That account becomes the first `admin`.
-
-### Step 8: Run Rackpad as a systemd service
-
-Create a service user:
+Use this if you want the source on the server or want to build the image locally.
 
 ```bash
-sudo useradd --system --home /opt/rackpad --shell /usr/sbin/nologin rackpad
+cd /opt
+sudo git clone https://github.com/Kobii-git/Rackpad.git rackpad
+cd /opt/rackpad
+sudo git pull --ff-only origin main
+sudo cp .env.example .env
+sudo docker compose up --build -d
 ```
 
-Copy the service file:
+To build an exact release instead of current `main`:
 
 ```bash
-sudo cp rackpad.service /etc/systemd/system/rackpad.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now rackpad
+sudo git checkout v1.0.1
+sudo docker compose up --build -d
 ```
 
-Check status:
+## Proxmox Install
+
+Recommended layout:
+
+- Debian 12 or Ubuntu 24.04 LXC
+- 2 vCPU minimum
+- 2 GB RAM minimum, 4 GB preferred
+- 8 GB disk minimum, 16 GB preferred
+- Static DHCP lease or fixed IP recommended
+
+### 1. Create The LXC
+
+Create a normal Debian/Ubuntu LXC in Proxmox.
+
+### 2. Enable Nesting
+
+From the Proxmox UI:
+
+1. Select the container.
+2. Open `Options`.
+3. Open `Features`.
+4. Enable `Nesting`.
+5. Restart the container.
+
+Or from the Proxmox host shell:
 
 ```bash
-sudo systemctl status rackpad
-sudo journalctl -u rackpad -f
+pct set <CTID> -features nesting=1,keyctl=1
+pct restart <CTID>
 ```
 
-The service uses:
+Replace `<CTID>` with your container ID.
 
-- app path: `/opt/rackpad`
-- database path: `/var/lib/rackpad/rackpad.db`
-- listen address: `0.0.0.0:3000`
+### 3. Install Rackpad Inside The LXC
 
-If you install Rackpad somewhere else, edit `WorkingDirectory` and `ExecStart` in `rackpad.service` before enabling it.
+Enter the LXC shell, then use the Linux install flow.
 
-## First-run testing checklist
+Fast path:
 
-After Rackpad loads in the browser and you have signed in, test these flows:
+```bash
+apt-get update
+apt-get install -y curl ca-certificates
+curl -fsSL https://raw.githubusercontent.com/Kobii-git/Rackpad/main/scripts/install-docker.sh | bash
+```
 
-1. Create a rack.
-2. Add a device to that rack with a port template.
-3. Open ports and confirm the generated ports exist.
-4. Add or edit a management IP that fits an existing subnet.
-5. Open IPAM and confirm the assignment appears there.
-6. Create or edit a DHCP scope and an IP zone.
-7. Create a cable between two free ports.
-8. Create a non-admin user account.
-9. Open a device and configure a health check, then run it manually.
-10. Open `Compute` and confirm a host and linked VM appear in the virtualization workspace.
-11. Open `WiFi` and confirm controllers, SSIDs, AP radios, and wireless clients all appear with meaningful relationships.
-12. Run a discovery scan against a small subnet, confirm duplicate warnings work, and import one discovered host.
-13. Open `Users` as an admin, send a test notification, and download a JSON backup.
+Manual path:
 
-## Reverse proxy with TLS
+```bash
+apt-get update
+apt-get install -y ca-certificates curl docker.io docker-compose-plugin
+systemctl enable --now docker
+mkdir -p /opt/rackpad
+cd /opt/rackpad
+curl -fsSLo compose.yml https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml
+```
 
-If Rackpad will be reachable outside a private test LAN, terminate TLS at a reverse proxy and forward the correct headers.
+Then create `.env` and deploy exactly like the Linux no-clone install.
 
-Included examples:
+More detail: [docs/PROXMOX.md](./docs/PROXMOX.md)
 
-- [deploy/Caddyfile.example](./deploy/Caddyfile.example)
-- [deploy/nginx-rackpad.conf](./deploy/nginx-rackpad.conf)
+## Windows Install
 
-Recommended environment settings when proxied:
+Docker Desktop is the recommended Windows path.
+
+### 1. Install Docker Desktop
+
+Install Docker Desktop for Windows and make sure it is using Linux containers.
+
+### 2. Create The Rackpad Folder
+
+Open PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force C:\Rackpad | Out-Null
+Set-Location C:\Rackpad
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml" `
+  -OutFile "compose.yml"
+```
+
+### 3. Create `.env`
+
+```powershell
+@'
+RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
+RACKPAD_TAG=v1.0.1
+RACKPAD_PORT=3000
+MONITOR_INTERVAL_MS=300000
+TRUST_PROXY=0
+TRUSTED_HOSTS=
+TRUSTED_ORIGINS=
+'@ | Set-Content -Encoding ascii .env
+```
+
+### 4. Deploy
+
+```powershell
+docker compose pull
+docker compose up -d
+docker compose ps
+```
+
+Open:
+
+```text
+http://localhost:3000
+```
+
+For access from another machine on your LAN, use the Windows host IP and allow
+TCP `3000` through Windows Firewall if needed.
+
+### Windows Source Build
+
+This is mainly for development. Use Node `22 LTS`.
+
+```powershell
+git clone https://github.com/Kobii-git/Rackpad.git C:\Rackpad-src
+Set-Location C:\Rackpad-src
+npm install
+npm run build
+$env:HOST="0.0.0.0"
+$env:PORT="3000"
+$env:DATABASE_PATH="$PWD\rackpad.db"
+npm start
+```
+
+If `better-sqlite3` fails during `npm install`, install Visual Studio Build
+Tools or use Docker Desktop instead.
+
+## First Run
+
+1. Open Rackpad in the browser.
+2. Create the first admin account.
+3. Choose empty setup or demo data.
+4. Start adding racks, devices, VLANs, IPAM, monitoring, WiFi, and compute data.
+
+## Update Rackpad
+
+Before updates, download a backup from:
+
+```text
+Users -> Backup and release state -> Download backup
+```
+
+Docker update:
+
+```bash
+cd /opt/rackpad
+sudo docker compose pull
+sudo docker compose up -d
+```
+
+Windows Docker Desktop update:
+
+```powershell
+Set-Location C:\Rackpad
+docker compose pull
+docker compose up -d
+```
+
+To update to a newer release, change `RACKPAD_TAG` in `.env`, then run the same
+pull/up commands.
+
+## Stop Or Remove
+
+Stop but keep data:
+
+```bash
+docker compose down
+```
+
+Delete the app container and database volume:
+
+```bash
+docker compose down -v
+```
+
+Only use `down -v` if you are okay deleting Rackpad's stored data.
+
+## Reverse Proxy And TLS
+
+Keep Rackpad private, behind a VPN, or behind a TLS reverse proxy.
+
+If you expose Rackpad through Caddy, Nginx, Cloudflare, Traefik, IIS, or another
+proxy, set:
 
 ```bash
 TRUST_PROXY=1
@@ -295,7 +312,12 @@ TRUSTED_HOSTS=rackpad.example.com
 TRUSTED_ORIGINS=https://rackpad.example.com
 ```
 
-The proxy should pass:
+Included examples:
+
+- [deploy/Caddyfile.example](./deploy/Caddyfile.example)
+- [deploy/nginx-rackpad.conf](./deploy/nginx-rackpad.conf)
+
+Your proxy should pass:
 
 - `Host`
 - `X-Forwarded-Host`
@@ -304,62 +326,50 @@ The proxy should pass:
 
 ## Troubleshooting
 
-### `better-sqlite3` fails during `npm install`
+### Direct URLs return JSON errors
 
-Make sure you are using Node 22 and that the build tools are installed:
+If `/cables`, `/compute`, or `/ipam` returns JSON instead of the app, update to
+`v1.0.1` or newer and restart the container.
+
+### Check Container Status
+
+Linux/Proxmox:
 
 ```bash
-node -v
-sudo apt-get install -y build-essential python3
+cd /opt/rackpad
+sudo docker compose ps
+sudo docker compose logs -f
 ```
 
-Then run:
+Windows:
 
-```bash
-npm install
-```
-
-### Docker container starts but the page does not load
-
-Check the logs:
-
-```bash
+```powershell
+Set-Location C:\Rackpad
+docker compose ps
 docker compose logs -f
 ```
 
-Then confirm the service is listening:
+### Port 3000 Is Not Reachable
+
+Check the host firewall, Proxmox firewall, router/firewall rules, Windows
+Firewall, or change `RACKPAD_PORT` in `.env`.
+
+### Native Install Fails At `better-sqlite3`
+
+Use Node `22`. On Linux, install build tools:
 
 ```bash
-docker compose ps
+sudo apt-get install -y build-essential python3
+npm install
 ```
 
-### Port 3000 is not reachable
+On Windows, use Docker Desktop unless you are comfortable installing native
+build tools.
 
-Check your firewall or cloud security group rules and make sure TCP `3000` is allowed from your LAN or test machine.
+## Release Channels
 
-### The browser keeps returning to the login screen
+- `main`: stable source branch
+- `beta`: pre-release testing branch
+- `vX.Y.Z`: pinned releases
 
-Make sure:
-
-- the container time is correct
-- the browser can store local data
-- you are not mixing multiple old app builds on the same hostname/path
-
-### The app shows no data after login
-
-If you are testing against an older database from a previous build, remove the test DB or volume and start fresh:
-
-```bash
-docker compose down -v
-docker compose up --build -d
-```
-
-Only do this if you are okay deleting the stored test data.
-
-## Recommended for now
-
-For your first deployment test, use Docker on a Linux server and keep Rackpad on a private LAN or behind a VPN.
-
-## Release notes
-
-See [CHANGELOG.md](./CHANGELOG.md) for the version history and notes about what changed in each release.
+See [CHANGELOG.md](./CHANGELOG.md) for version history.

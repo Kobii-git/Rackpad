@@ -6,7 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, Save, Network } from "lucide-react";
+import { X, Save, Network, Plus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Separator } from "@/components/ui/Separator";
@@ -66,6 +66,14 @@ interface FormState {
   notes: string;
 }
 
+interface ShelfFormState {
+  hostname: string;
+  rackId: string;
+  startU: string;
+  heightU: string;
+  face: RackFace;
+}
+
 function blankForm(defaults?: Partial<FormState>): FormState {
   return {
     hostname: "",
@@ -90,6 +98,16 @@ function blankForm(defaults?: Partial<FormState>): FormState {
     tags: "",
     notes: "",
     ...defaults,
+  };
+}
+
+function blankShelfForm(defaultRackId?: string): ShelfFormState {
+  return {
+    hostname: "",
+    rackId: defaultRackId ?? "",
+    startU: "",
+    heightU: "1",
+    face: "front",
   };
 }
 
@@ -147,7 +165,12 @@ export function DeviceDrawer({
       : blankForm({ rackId: defaultRackId ?? "", ...defaults }),
   );
   const [error, setError] = useState("");
+  const [shelfError, setShelfError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creatingShelf, setCreatingShelf] = useState(false);
+  const [shelfForm, setShelfForm] = useState<ShelfFormState>(() =>
+    blankShelfForm(defaultRackId),
+  );
 
   useEffect(() => {
     if (open) {
@@ -157,6 +180,8 @@ export function DeviceDrawer({
           : blankForm({ rackId: defaultRackId ?? "", ...defaults }),
       );
       setError("");
+      setShelfError("");
+      setShelfForm(blankShelfForm(defaultRackId));
     }
   }, [defaultRackId, defaults, device, open]);
 
@@ -236,6 +261,65 @@ export function DeviceDrawer({
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setShelf<K extends keyof ShelfFormState>(
+    key: K,
+    value: ShelfFormState[K],
+  ) {
+    setShelfForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function handleCreateShelf() {
+    setShelfError("");
+
+    const hostname = shelfForm.hostname.trim();
+    const rackId = shelfForm.rackId.trim();
+    const startU = Number.parseInt(shelfForm.startU, 10);
+    const heightU = Number.parseInt(shelfForm.heightU, 10) || 1;
+
+    if (!hostname) {
+      setShelfError("Shelf hostname is required.");
+      return;
+    }
+    if (!rackId) {
+      setShelfError("Select the rack that contains this shelf / tray.");
+      return;
+    }
+    if (!Number.isFinite(startU) || startU < 1) {
+      setShelfError("Start U must be 1 or higher.");
+      return;
+    }
+
+    setCreatingShelf(true);
+    try {
+      const created = await createDevice({
+        hostname,
+        deviceType: "rack_shelf",
+        status: "unknown",
+        placement: "rack",
+        rackId,
+        startU,
+        heightU,
+        face: shelfForm.face,
+        tags: ["shelf"],
+      });
+
+      setForm((prev) => ({
+        ...prev,
+        placement: "shelf",
+        parentDeviceId: created.id,
+      }));
+      setShelfForm(blankShelfForm(rackId));
+    } catch (err) {
+      setShelfError(
+        err instanceof Error
+          ? err.message
+          : "Failed to create rack shelf / tray.",
+      );
+    } finally {
+      setCreatingShelf(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -530,25 +614,119 @@ export function DeviceDrawer({
                   </Field>
 
                   {showParentSelector && (
-                    <Field label={parentLabel}>
-                      <Select
-                        value={form.parentDeviceId}
-                        onChange={(value) => set("parentDeviceId", value)}
-                      >
-                        <option value="">
-                          {form.placement === "wireless"
-                            ? "-- no AP selected --"
-                            : form.placement === "shelf"
-                              ? "-- no rack shelf selected --"
-                            : "-- no host selected --"}
-                        </option>
-                        {parentCandidates.map((entry) => (
-                          <option key={entry.id} value={entry.id}>
-                            {entry.hostname}
+                    <>
+                      <Field label={parentLabel}>
+                        <Select
+                          value={form.parentDeviceId}
+                          onChange={(value) => set("parentDeviceId", value)}
+                        >
+                          <option value="">
+                            {form.placement === "wireless"
+                              ? "-- no AP selected --"
+                              : form.placement === "shelf"
+                                ? "-- no rack shelf selected --"
+                                : "-- no host selected --"}
                           </option>
-                        ))}
-                      </Select>
-                    </Field>
+                          {parentCandidates.map((entry) => (
+                            <option key={entry.id} value={entry.id}>
+                              {entry.hostname}
+                            </option>
+                          ))}
+                        </Select>
+                      </Field>
+
+                      {form.placement === "shelf" && !form.parentDeviceId && (
+                        <div className="rounded-[var(--radius-sm)] border border-[var(--color-line)] bg-[var(--surface-1)] p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="text-xs font-semibold text-[var(--color-fg)]">
+                                Need a shelf / tray first?
+                              </div>
+                              <div className="mt-1 text-xs text-[var(--color-fg-subtle)]">
+                                Create the rack shelf here, then this device can
+                                be attached to it without closing the drawer.
+                              </div>
+                            </div>
+                            <Badge tone="neutral">Rack device</Badge>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-3">
+                            <Field label="Shelf hostname">
+                              <Input
+                                value={shelfForm.hostname}
+                                onChange={(event) =>
+                                  setShelf("hostname", event.target.value)
+                                }
+                                placeholder="e.g. cmp-shelf-u32"
+                              />
+                            </Field>
+                            <Field label="Rack">
+                              <Select
+                                value={shelfForm.rackId}
+                                onChange={(value) => setShelf("rackId", value)}
+                              >
+                                <option value="">Select rack</option>
+                                {racks.map((rack) => (
+                                  <option key={rack.id} value={rack.id}>
+                                    {rack.name}
+                                  </option>
+                                ))}
+                              </Select>
+                            </Field>
+                            <Field label="Start U">
+                              <Input
+                                type="number"
+                                min={1}
+                                value={shelfForm.startU}
+                                onChange={(event) =>
+                                  setShelf("startU", event.target.value)
+                                }
+                                placeholder="e.g. 32"
+                              />
+                            </Field>
+                            <Field label="Height (U)">
+                              <Input
+                                type="number"
+                                min={1}
+                                value={shelfForm.heightU}
+                                onChange={(event) =>
+                                  setShelf("heightU", event.target.value)
+                                }
+                              />
+                            </Field>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-3">
+                            <Field label="Face">
+                              <Select
+                                value={shelfForm.face}
+                                onChange={(value) =>
+                                  setShelf("face", value as RackFace)
+                                }
+                              >
+                                <option value="front">Front</option>
+                                <option value="rear">Rear</option>
+                              </Select>
+                            </Field>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => void handleCreateShelf()}
+                              disabled={creatingShelf}
+                            >
+                              <Plus className="size-3.5" />
+                              {creatingShelf ? "Creating..." : "Create shelf"}
+                            </Button>
+                          </div>
+
+                          {shelfError && (
+                            <div className="mt-3 rounded-[var(--radius-sm)] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                              {shelfError}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
                   )}
                 </Section>
 

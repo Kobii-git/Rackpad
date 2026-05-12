@@ -2,7 +2,7 @@
 
 Rackpad is a self-hosted infrastructure inventory and operations app for racks, devices, ports, cables, VLANs, IP address management, WiFi, compute, discovery, monitoring, labs, and users.
 
-Current release: `v1.0.0`
+Current release: `v1.0.1`
 
 It is a full-stack app:
 
@@ -18,6 +18,7 @@ It is a full-stack app:
 If `rackpad.co.za` is unavailable, the repo still contains the core material you need:
 
 - [Installation guide](./INSTALL.md)
+- [Proxmox install notes](./docs/PROXMOX.md)
 - [Security policy](./SECURITY.md)
 - [Changelog](./CHANGELOG.md)
 - [MIT license](./LICENSE)
@@ -143,8 +144,8 @@ The repository now also includes:
 
 ## Requirements
 
-- Node 22 LTS
-- npm
+- Docker Engine with the Compose plugin for normal installs
+- Node 22 LTS and npm for development or native installs
 
 The repo includes `.nvmrc`, so if you use `nvm`:
 
@@ -210,9 +211,42 @@ On the first boot there are no users yet.
 4. Choose whether to start empty or preload the expanded demo environment.
 5. Start documenting racks, devices, VLANs, and IPAM.
 
-## Docker
+## Install With Docker
 
-Build and run locally:
+Recommended no-clone install from the published GHCR image:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y curl ca-certificates
+curl -fsSL https://raw.githubusercontent.com/Kobii-git/Rackpad/main/scripts/install-docker.sh | bash
+```
+
+Open:
+
+```text
+http://SERVER_IP:3000
+```
+
+Manual no-clone compose install:
+
+```bash
+sudo mkdir -p /opt/rackpad
+cd /opt/rackpad
+sudo curl -fsSLo compose.yml https://raw.githubusercontent.com/Kobii-git/Rackpad/main/docker-compose.release.yml
+sudo tee .env >/dev/null <<'EOF'
+RACKPAD_IMAGE=ghcr.io/kobii-git/rackpad
+RACKPAD_TAG=v1.0.1
+RACKPAD_PORT=3000
+MONITOR_INTERVAL_MS=300000
+TRUST_PROXY=0
+TRUSTED_HOSTS=
+TRUSTED_ORIGINS=
+EOF
+sudo docker compose pull
+sudo docker compose up -d
+```
+
+Build locally from a cloned repo only if you want to build from source:
 
 ```bash
 docker compose up --build -d
@@ -237,6 +271,10 @@ To stop it and remove the database volume:
 ```bash
 docker compose down -v
 ```
+
+Full Linux, Proxmox, and Windows install details, plus update steps, backups,
+git-clone/source-build options, and reverse-proxy settings live in
+[INSTALL.md](./INSTALL.md).
 
 ## Linux test deploy
 

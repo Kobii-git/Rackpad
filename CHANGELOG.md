@@ -4,6 +4,23 @@ All notable Rackpad changes should be recorded here.
 
 Rackpad uses semantic versioning and Git tags in the form `vX.Y.Z`.
 
+## [1.0.1] - 2026-05-12
+
+### Added
+
+- Release-only Docker Compose file for no-clone installs from the published GHCR image.
+- Docker install helper script for Debian/Ubuntu Docker hosts and Proxmox LXC containers.
+- Proxmox LXC deployment notes covering nesting, install, updates, and backup expectations.
+
+### Changed
+
+- Rack shelf / tray placement now guides users through creating a shelf directly from the device drawer when no shelf is available to select.
+- Default release image references now point at `v1.0.1`.
+
+### Fixed
+
+- Non-root app routes such as `/cables`, `/compute`, and `/ipam` are included in the patch release with the SPA fallback fix, so direct refreshes serve the Rackpad app instead of JSON errors.
+
 ## [1.0.0] - 2026-05-03
 
 ### Added
